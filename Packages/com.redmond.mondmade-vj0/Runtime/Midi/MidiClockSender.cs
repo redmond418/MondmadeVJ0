@@ -8,6 +8,7 @@ namespace MondmadeVJ0
     [DisallowMultipleComponent]
     public sealed class MidiClockSender : MonoBehaviour, IRuntimeModule
     {
+        private const int ClockQueueLeadMilliseconds = 4;
         [SerializeField, Min(-1)] private int outputPortOrdinal = -1;
         [SerializeField] private bool sendSongPosition = true;
         private static readonly byte[] StartMessage = { 0xFA };
@@ -208,9 +209,11 @@ namespace MondmadeVJ0
 
                 var deadline = epoch + (long)(index * period);
                 var remaining = deadline - Stopwatch.GetTimestamp();
-                if (remaining > Stopwatch.Frequency / 500d)
+                var queueLeadTicks = Stopwatch.Frequency * ClockQueueLeadMilliseconds / 1000d;
+                if (remaining > queueLeadTicks)
                 {
-                    var milliseconds = (int)(remaining * 1000d / Stopwatch.Frequency) - 1;
+                    // Queue before the output worker's final 2 ms wait window so a late OS wake cannot miss the deadline.
+                    var milliseconds = (int)(remaining * 1000d / Stopwatch.Frequency) - ClockQueueLeadMilliseconds - 1;
                     if (milliseconds > 0) Thread.Sleep(milliseconds);
                     continue;
                 }
