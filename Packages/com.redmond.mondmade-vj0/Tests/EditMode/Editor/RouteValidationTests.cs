@@ -64,6 +64,18 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void MissingOutputIsReportedBeforePlay()
+        {
+            var route = new FloatRoute();
+            route.Configure("output required", new ConstantFloatSource());
+            hostA.AddRoute(route);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("output required") && issue.Contains("no Output is assigned")), Is.True);
+        }
+
+        [Test]
         public void ManagedReferenceClonePreservesUnityObjectReferences()
         {
             var target = new GameObject("Clone target");
@@ -87,6 +99,7 @@ namespace MondmadeVJ0.Tests
             var route = new FloatRoute();
             route.Configure("Unbounded SmoothDamp", new ConstantFloatSource());
             route.Modifiers.Add(new SmoothDampFloatModifier());
+            route.Outputs.Add(new DebugFloatOutput());
             hostA.AddRoute(route);
 
             var issues = MondmadeVJ0Validation.Validate(hostA);

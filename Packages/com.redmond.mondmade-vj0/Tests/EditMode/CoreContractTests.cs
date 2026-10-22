@@ -442,6 +442,35 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void RouteBindFailureIsNamedAndDoesNotStopHealthyRoutes()
+        {
+            var failing = new FloatRoute();
+            failing.Configure("broken source route", new ThrowingBuildSource());
+            failing.Outputs.Add(new RecordingFloatOutput());
+            failing.Bind(runtime, host, state);
+
+            var healthyOutput = new RecordingFloatOutput();
+            var healthy = new FloatRoute();
+            healthy.Configure("healthy route", new CountingSource(2.5f));
+            healthy.Outputs.Add(healthyOutput);
+            healthy.Bind(runtime, host, state);
+            try
+            {
+                Assert.That(failing.Status, Is.EqualTo("Faulted"));
+                Assert.That(healthy.Status, Is.EqualTo("Active"));
+                CollectionAssert.AreEqual(new[] { 2.5f }, healthyOutput.Values);
+                var diagnostic = runtime.Services.GetDiagnostics().Single(item => item.Code == "ROUTE_BIND" && item.RouteId == failing.Id);
+                Assert.That(diagnostic.Message, Does.Contain("broken source route"));
+                Assert.That(diagnostic.Exception, Does.Contain("synthetic Source failure"));
+            }
+            finally
+            {
+                failing.Unbind();
+                healthy.Unbind();
+            }
+        }
+
+        [Test]
         public void StatefulValueStartsWithInitialStateAndKeepsStateAcrossRebind()
         {
             var trigger = new TestTriggerSource();
@@ -548,6 +577,11 @@ namespace MondmadeVJ0.Tests
             public int BuildCount { get; private set; }
             public CountingSource(float value) => this.value = value;
             public Observable<float> Build(RouteContext context) { BuildCount++; return Observable.Return(value); }
+        }
+
+        private sealed class ThrowingBuildSource : IValueSource<float>
+        {
+            public Observable<float> Build(RouteContext context) => throw new InvalidOperationException("synthetic Source failure");
         }
 
         private sealed class RecordingFloatOutput : IValueOutput<float>
