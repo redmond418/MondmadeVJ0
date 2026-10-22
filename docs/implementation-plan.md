@@ -9,7 +9,7 @@
 - [x] [設計判断](design-notes.md)D01〜D03・D18と[導入仕様](packaging.md)：保存形式、namespace、配布単位、Runtime / Transportの依存境界を確定
 - [x] 単一UPMフォルダ、package.json、機能別Runtime / Editor / Tests asmdef
 - [x] R3 1.3.0とIL2CPP linkに必要なSystem.Runtime.CompilerServices.Unsafe 6.0.0のSetup導入、外部依存固定一覧を実装。NuGetForUnity経由の導入を確認。ローカルGit URL導入は確認、公開HTTPS URL・release tagは未確認
-- [x] 任意IntegrationのVersion Defines / Define Constraintsを設定。全依存あり、Optional UPM依存なしのR3 / NuGetForUnity / Unity標準module構成、Input System＋MIDI＋OSCの部分構成でimport・compileを確認。公開HTTPS URL・release tagは未確認
+- [x] 任意IntegrationのVersion Defines / Define Constraintsを設定。全依存あり、Core必須依存だけ、Input System＋MIDI＋OSCの部分構成をGit UPM URLでimport・compile。部分構成はEditMode 123 passed / 2 optional Integration tests skipped、macOS universal Mono Player build成功。公開HTTPS URL・release tagは未確認
 - [x] 必要パッケージの採用版とPlayer backendを記録。Unity 6000.3.8f1/macOS arm64 Editorで依存解決
 - [x] Core / Integration / Editor / Testsのassembly分離。任意IntegrationなしでCoreがPlayer build可能なことも検証。完全SHAを指定したローカルGit UPM URLから全依存構成とCore必須依存だけの構成へpackageを導入し、macOS universal Mono Player build成功。全依存ProjectでEditMode 147件 / PlayMode 7件、CoreのみProjectでEditMode 89 passed / 3 integration skipped。公開HTTPS URLとrelease tagは未確認
 - [x] 8 Route具体型、generic API、RouteContext、Runtime Root、共通Binding Scope
@@ -117,9 +117,9 @@
 | macOS Player | Unity 6000.3.8f1 macOS arm64 Editor、最新差分でStandaloneOSX universal (x86_64 + arm64) Mono / IL2CPP build成功、各Unity CLI errors=0。IL2CPP linkは成功したが、baselib object fileの最低macOS版がlink targetより新しい旨とstrip後のsignature warningを出力 |
 | Windows Player | 最新差分でStandaloneWindows64 Mono cross-build成功、Unity CLI errors=0 / warningsなし。Hubの同Editor向けmodule一覧にWindows IL2CPPはなく、IL2CPP buildは未実施。旧buildではWindows非対応URP shader variant warnings 20件あり |
 | 任意依存なし構成 | R3 NuGet 1.3.0、System.Runtime.CompilerServices.Unsafe 6.0.0、NuGetForUnity、Unity標準moduleだけの隔離Projectでlocal UPM import・compile成功。macOS universal IL2CPPとWindows x64 Mono Player buildも成功。欠落した任意Integrationの参照エラーなし |
-| ローカルGit UPM URL | 完全SHAを指定した`git+file://`依存をクリーンな消費側Projectで解決・import。全依存構成で`testables`へpackage IDを指定し、EditMode 147/147、PlayMode 7 passed / 6 Explicit skippedを確認。Core必須依存だけのGit URL構成はEditMode 89 passed / 3 optional Integration tests skipped、macOS universal Mono Player build成功。公開HTTPS URLとrelease tagは未確認 |
-| MIDI / OSC部分構成 | UPM local packageにInput System＋MIDI＋OSCを追加し、Lasp / Cinemachine / URP / VFX Graphなしでimport・compile。MIDI / OSC assemblyが有効、未導入Integrationのassemblyは無効。Player buildは未実施 |
-| 未実施 | 公開HTTPS URL / release tagからの導入、MIDI / OSC部分構成のPlayer build、Windows IL2CPP / Windows実機実行、Player上のOSC / 全Integration、MIDI Clock 10分×3速度と外部受信機実測、USB切断・再接続、A15全Control Typeの実機個別照合 |
+| ローカルGit UPM URL | 完全SHAを指定した`git+file://`依存をクリーンな消費側Projectで解決・import。全依存構成で`testables`へpackage IDを指定し、EditMode 147/147、PlayMode 7 passed / 6 Explicit skippedを確認。Core必須依存だけのGit URL構成はEditMode 89 passed / 3 optional Integration tests skipped、部分構成（Input System＋MIDI＋OSC）は123 passed / 2 URP / VFX tests skipped、macOS universal Mono Player build成功。公開HTTPS URLとrelease tagは未確認 |
+| MIDI / OSC部分構成 | Git UPM URLでInput System＋MIDI＋OSCを追加し、Lasp / Cinemachine / URP / VFX Graphなしでimport・compile。MIDI / OSC assemblyが有効、未導入Integrationのassemblyは無効。EditMode 123 passed / 2 URP / VFX test skipped。macOS universal Mono Player build成功。全IntegrationのPlayer buildは未実施 |
+| 未実施 | 公開HTTPS URL / release tagからの導入、Windows IL2CPP / Windows実機実行、Player上のOSC / 全Integration、MIDI Clock 10分×3速度と外部受信機実測、USB切断・再接続、A15全Control Typeの実機個別照合 |
 
 上記は検証した環境に限る。Acceptance A01〜A24をすべて通過した記録が揃うまでは全体完了としない。
 
