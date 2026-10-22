@@ -151,7 +151,7 @@ namespace MondmadeVJ0
             if (worker != null) return;
             stopping = false;
             worker = new Thread(ClockLoop) { IsBackground = true, Name = "MondmadeVJ0 MIDI Clock" };
-            try { worker.Priority = System.Threading.ThreadPriority.AboveNormal; }
+            try { worker.Priority = System.Threading.ThreadPriority.Highest; }
             catch { }
             worker.Start();
         }

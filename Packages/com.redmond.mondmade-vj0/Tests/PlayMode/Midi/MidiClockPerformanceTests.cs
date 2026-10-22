@@ -19,6 +19,7 @@ namespace MondmadeVJ0.Tests
         private const double TargetFps = 60d;
         private const double DefaultPhaseDurationSeconds = 600d;
         private const string DurationOverrideEnvironmentVariable = "MONDMADE_VJ0_CLOCK_TEST_SECONDS";
+        private const string DisableLedStressEnvironmentVariable = "MONDMADE_VJ0_CLOCK_TEST_DISABLE_LEDS";
 
         [Explicit("Runs 10-minute BPM 120 / 174 / 240 phases with APC mini mk2, 1000 active routes, and 10 Hz full LED updates.")]
         [Timeout(2000000)]
@@ -30,14 +31,17 @@ namespace MondmadeVJ0.Tests
             if (inputPort < 0 || outputPort < 0)
                 Assert.Inconclusive("APC mini mk2 RtMidi input and output ports are required for the A14 load run.");
 
+            var durationSeconds = GetPhaseDuration();
+            var fullAcceptanceRun = durationSeconds >= DefaultPhaseDurationSeconds;
+            var ledStressEnabled = !string.Equals(Environment.GetEnvironmentVariable(DisableLedStressEnvironmentVariable), "1", StringComparison.Ordinal);
+            if (fullAcceptanceRun && !ledStressEnabled)
+                Assert.Fail("A14 full acceptance requires all APC mini mk2 LEDs to be updated at 10 Hz.");
             var originalTargetFrameRate = Application.targetFrameRate;
             var originalVSync = QualitySettings.vSyncCount;
             var originalRunInBackground = Application.runInBackground;
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
             Application.runInBackground = true;
-            var durationSeconds = GetPhaseDuration();
-            var fullAcceptanceRun = durationSeconds >= DefaultPhaseDurationSeconds;
             var failures = new List<string>();
 
             try
@@ -90,7 +94,7 @@ namespace MondmadeVJ0.Tests
                             frames++;
                             world.Signal.SetValue((float)frames);
 
-                            if (now >= ledDeadline)
+                            if (ledStressEnabled && now >= ledDeadline)
                             {
                                 ledUpdates++;
                                 var color = ledUpdates % 2 == 0 ? Color.green : Color.red;
@@ -113,7 +117,7 @@ namespace MondmadeVJ0.Tests
                         }
 
                         var measuredElapsed = Time.realtimeSinceStartupAsDouble - phaseStart;
-                        var minimumLedUpdates = (int)Math.Floor(measuredElapsed * LedUpdateRate * 0.98d);
+                        var minimumLedUpdates = ledStressEnabled ? (int)Math.Floor(measuredElapsed * LedUpdateRate * 0.98d) : 0;
                         var routeWrites = WriteCounterFloatOutput.Writes - routeWritesAtStart;
                         var routeWriteRate = routeWrites / measuredElapsed;
                         var frameRate = frames / measuredElapsed;
@@ -132,7 +136,8 @@ namespace MondmadeVJ0.Tests
                         var cumulativeDrift = world.Clock.MaximumDeadlineDriftMilliseconds;
                         var expectedPulses = (long)Math.Floor(bpm * 24d / 60d * measuredElapsed);
 
-                        var result = $"A14_RESULT,mode={(fullAcceptanceRun ? "full" : "smoke")},bpm={bpm:F0},duration_s={measuredElapsed:F3},fps={frameRate:F3},max_frame_ms={maximumFrameInterval * 1000d:F3},routes={world.Host.Routes.Count},route_writes_per_s={routeWriteRate:F0},led_hz={ledUpdates / measuredElapsed:F3},clock_sent={sentPulses},clock_expected≈{expectedPulses},clock_missed={missedPulses},output_dropped={droppedOutputMessages},p99_ms={p99:F4},max_lateness_ms={maxLateness:F4},cumulative_drift_ms={cumulativeDrift:F4},platform={Application.platform},os={SystemInfo.operatingSystem},cpu={SystemInfo.processorType},unity={Application.unityVersion},device=APC mini mk2";
+                        var mode = fullAcceptanceRun ? "full" : ledStressEnabled ? "smoke" : "clock-only-smoke";
+                        var result = $"A14_RESULT,mode={mode},bpm={bpm:F0},duration_s={measuredElapsed:F3},fps={frameRate:F3},max_frame_ms={maximumFrameInterval * 1000d:F3},routes={world.Host.Routes.Count},route_writes_per_s={routeWriteRate:F0},led_hz={ledUpdates / measuredElapsed:F3},clock_sent={sentPulses},clock_expected≈{expectedPulses},clock_missed={missedPulses},output_dropped={droppedOutputMessages},p99_ms={p99:F4},max_lateness_ms={maxLateness:F4},cumulative_drift_ms={cumulativeDrift:F4},platform={Application.platform},os={SystemInfo.operatingSystem},cpu={SystemInfo.processorType},unity={Application.unityVersion},device=APC mini mk2";
                         Debug.Log(result);
                         TestContext.WriteLine(result);
 
