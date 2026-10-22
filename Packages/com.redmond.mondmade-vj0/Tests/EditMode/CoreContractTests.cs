@@ -247,6 +247,73 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void SmoothDampUsesUnscaledFrameTimeDuringPauseAndStopsAfterDisposal()
+        {
+            var context = Context();
+            var source = new TestFloatSource();
+            var modifier = new SmoothDampFloatModifier();
+            SetField(modifier, "smoothTime", 0.1f);
+            var values = new List<float>();
+            var subscription = modifier.Apply(source.Build(context), context).Subscribe(values.Add);
+            try
+            {
+                source.Emit(0f);
+                source.Emit(1f);
+                Assert.That(values, Is.EqualTo(new[] { 0f }));
+
+                testFrameClock.Advance(0d, 0.1d);
+
+                Assert.That(values.Count, Is.GreaterThan(1), "Unscaled smoothing must continue when scaled game time is paused.");
+                Assert.That(values[values.Count - 1], Is.GreaterThan(0f).And.LessThan(1f));
+                var countAfterDispose = values.Count;
+                subscription.Dispose();
+                testFrameClock.Advance(0d, 1d);
+                Assert.That(values, Has.Count.EqualTo(countAfterDispose), "A disposed temporal modifier must unsubscribe from FrameClock.");
+            }
+            finally
+            {
+                subscription.Dispose();
+                context.Scope.Dispose();
+            }
+        }
+
+        [Test]
+        public void SecondsEnvelopeAdvancesAcrossLargeUnscaledFrameAndStopsAfterDisposal()
+        {
+            var context = Context();
+            var trigger = new TestTriggerSource();
+            var envelope = new TriggerEnvelopeFloatSource();
+            SetField(envelope, "trigger", trigger);
+            SetField(envelope, "start", 0f);
+            SetField(envelope, "peak", 1f);
+            SetField(envelope, "end", 0f);
+            SetField(envelope, "attack", 0.1f);
+            SetField(envelope, "hold", 0.05f);
+            SetField(envelope, "release", 0.2f);
+            SetField(envelope, "timeUnit", EnvelopeTimeUnit.Seconds);
+            var values = new List<float>();
+            var subscription = envelope.Build(context).Subscribe(values.Add);
+            try
+            {
+                trigger.Fire();
+                testFrameClock.Advance(0d, 0.08d);
+                Assert.That(values[values.Count - 1], Is.EqualTo(0.8f).Within(0.02f), "The attack should follow elapsed unscaled seconds while scaled time is paused.");
+
+                testFrameClock.Advance(0d, 0.28d);
+                Assert.That(values[values.Count - 1], Is.EqualTo(0f).Within(0.0001f), "A low-FPS frame must advance through attack, hold and release to the final value.");
+                var countAfterDispose = values.Count;
+                subscription.Dispose();
+                testFrameClock.Advance(0d, 1d);
+                Assert.That(values, Has.Count.EqualTo(countAfterDispose), "A disposed envelope must stop producing frame updates.");
+            }
+            finally
+            {
+                subscription.Dispose();
+                context.Scope.Dispose();
+            }
+        }
+
+        [Test]
         public void DebounceMovesItsDeadlineWhenAnotherTriggerArrives()
         {
             var context = Context();
@@ -490,12 +557,16 @@ namespace MondmadeVJ0.Tests
 
             public void SetUnscaledTime(double value) => UnscaledTime = value;
             public void Advance(double deltaTime)
+                => Advance(deltaTime, deltaTime);
+
+            public void Advance(double deltaTime, double unscaledDeltaTime)
             {
                 FrameIndex++;
-                DeltaTime = UnscaledDeltaTime = Math.Max(0d, deltaTime);
+                DeltaTime = Math.Max(0d, deltaTime);
+                UnscaledDeltaTime = Math.Max(0d, unscaledDeltaTime);
                 Time += DeltaTime;
                 UnscaledTime += UnscaledDeltaTime;
-                DspTime += DeltaTime;
+                DspTime += UnscaledDeltaTime;
                 Updated?.Invoke(UnscaledDeltaTime, UnscaledTime);
             }
         }

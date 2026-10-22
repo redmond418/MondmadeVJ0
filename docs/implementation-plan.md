@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 80件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。ローカルGit URLからのUPM導入後も70件通過し、APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 82件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。ローカルGit URLからのUPM導入後も70件通過し、APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
@@ -99,7 +99,8 @@
 | 対象 | 結果 |
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
-| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、時間Modifier、Quantize / Subdivisionの全Grid境界とSeek / Clock再取得の80 testsが80/80通過 |
+| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、時間Modifier、Quantize / Subdivisionの全Grid境界とSeek / Clock再取得の82 testsが82/82通過 |
+| A09 時間処理 | SmoothDampはPause中もUnscaled Clockで入力停止後に追従し、購読破棄後のFrameClock更新を止める。Seconds EnvelopeはPause中のUnscaled時間と大きな1フレームによるAttack / Hold / Release通過、破棄後の停止を確認。Delay / Debounce / Beat Delayの既存試験と合わせEditModeで検証 |
 | PlayMode | lifecycle、MIDI Surfaceの分離、Note On velocity=0 Release、3形式のRelative Encoder、Button / Velocity / Fader / Knob / Pitch Bend / Aftertouch、XY→Vector2の6 testsが6/6通過。明示指定の実機試験は別枠 |
 | APC mini mk2 | Input / Outputを機器名で検出し、両portをOpen。実機の左上Pad 1からNote 56を受信し、物理入力probe 1/1通過。LEDのON（0x96, 56, 21）/OFF送信payloadを検証。Pad 1の緑点灯も目視確認 |
 | PlayMode合計 | 通常runは6/6通過。Explicit物理入力とLED表示試験は通常runでSkippedし、別途明示実行してそれぞれ1/1通過 |
