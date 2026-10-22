@@ -550,6 +550,43 @@ namespace MondmadeVJ0.Tests
             Assert.That(runtime.Services.GetDiagnostics().Count(), Is.EqualTo(1));
         }
 
+        [Test]
+        public void NonFiniteModifierInputRetainsLastFiniteValueAndReportsDiagnostic()
+        {
+            var context = Context();
+            var source = new TestFloatSource();
+            var modifier = new AddFloatModifier();
+            var values = new List<float>();
+            var subscription = modifier.Apply(source.Build(context), context).Subscribe(values.Add);
+            try
+            {
+                source.Emit(0.25f);
+                source.Emit(float.NaN);
+                source.Emit(0.75f);
+
+                CollectionAssert.AreEqual(new[] { 0.25f, 0.75f }, values);
+                Assert.That(runtime.Services.GetDiagnostics().Any(item => item.Code == "INVALID_VALUE"), Is.True);
+            }
+            finally
+            {
+                subscription.Dispose();
+                context.Scope.Dispose();
+            }
+        }
+
+        [Test]
+        public void NegativeModuloAndOutOfRangeLookupUseDocumentedBoundaries()
+        {
+            var modulo = new ModuloIntModifier();
+            SetField(modulo, "modulus", 5);
+            CollectionAssert.AreEqual(new[] { 4 }, Collect(modulo.Apply(Observable.Return(-1), Context())));
+
+            var lookup = new LookupIntModifier();
+            SetField(lookup, "values", new[] { 2, 4, 8 });
+            CollectionAssert.AreEqual(new[] { 2 }, Collect(lookup.Apply(Observable.Return(-10), Context())));
+            CollectionAssert.AreEqual(new[] { 8 }, Collect(lookup.Apply(Observable.Return(10), Context())));
+        }
+
         private static void SetField(object target, string fieldName, object value)
         {
             for (var type = target.GetType(); type != null; type = type.BaseType)

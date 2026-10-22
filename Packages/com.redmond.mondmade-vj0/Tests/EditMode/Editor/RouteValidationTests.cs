@@ -113,6 +113,22 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void NonFiniteModifierConfigurationIsReportedBeforePlay()
+        {
+            var modifier = new DeadZoneFloatModifier();
+            SetField(modifier, "threshold", float.NaN);
+            var route = new FloatRoute();
+            route.Configure("non-finite modifier", new ConstantFloatSource());
+            route.Modifiers.Add(modifier);
+            route.Outputs.Add(new DebugFloatOutput());
+            hostA.AddRoute(route);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("non-finite modifier") && issue.Contains("'threshold' must be finite")), Is.True);
+        }
+
+        [Test]
         public void ManagedReferenceClonePreservesUnityObjectReferences()
         {
             var target = new GameObject("Clone target");

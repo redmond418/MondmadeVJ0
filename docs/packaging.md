@@ -1,6 +1,6 @@
 # パッケージ構成と導入
 
-更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、最新EditMode 88/88・通常PlayMode 7/7・APC Pad 1物理入力probe 1/1・LED目視probe 1/1を確認した。Git URL導入はローカル`git+file` commitで確認済み。R3＋Unity標準moduleのみの構成と、Input System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認し、macOS universal x86_64 + arm64のMono / IL2CPPとWindows x64 Mono Player buildも成功した。公開HTTPS Git URL、依存部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
+更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、最新EditMode 91/91・通常PlayMode 7/7・APC Pad 1物理入力probe 1/1・LED目視probe 1/1を確認した。Git URL導入はローカル`git+file` commitで確認済み。R3＋Unity標準moduleのみの構成と、Input System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認し、macOS universal x86_64 + arm64のMono / IL2CPPとWindows x64 Mono Player buildも成功した。公開HTTPS Git URL、依存部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
 
 ## 配置
 
