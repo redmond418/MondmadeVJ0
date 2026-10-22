@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage Projectで全Runtime / Editor assemblyをコンパイルし、最終差分を同期した隔離CheckoutでEditMode 147件と通常PlayMode 7件が通過した。OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger契約も追加検証した。Play前Validationは原文第53章の不正設定を各利用可能Integrationで検査する試験を追加した。D16のMaterial / Volume clone lease、Transform / Generic / Shader書込競合診断、Video prepare待ち・timeout・FaultもEditMode契約テストに追加した。R3のIL2CPP依存Unsafe 6.0.0をSetupで導入するよう修正し、必須Core依存だけの構成でPlayer buildを検証した。MIDI ClockとLEDの送信経路を優先queueと同一Port workerへ統合し、Clock pulseは期限2ms前にworkerへ渡して絶対期限に合わせて送る。APC mini mk2でPad 1入力・緑色LED表示をユーザーに再確認してもらった。A14の15秒および61秒/速度ごとの実機負荷probeは通過したが、10分計測ではない。61秒probeの累積ずれは2.70〜4.00msで1ms目標を超えたため、合格として扱わない。A23 MonitorはRoute中間値・MIDI・Transport履歴、処理計測とON/OFFを実装し、無効時の計測コストを測定した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage Projectで全Runtime / Editor assemblyをコンパイルし、最終差分を同期した隔離CheckoutでEditMode 147件と通常PlayMode 7件が通過した。最新の完全SHAを指定するローカルGit UPM URLをクリーンな消費側プロジェクトに導入し、EditMode 147件とPlayMode 7件の通過も再確認した。OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger契約も追加検証した。Play前Validationは原文第53章の不正設定を各利用可能Integrationで検査する試験を追加した。D16のMaterial / Volume clone lease、Transform / Generic / Shader書込競合診断、Video prepare待ち・timeout・FaultもEditMode契約テストに追加した。R3のIL2CPP依存Unsafe 6.0.0をSetupで導入するよう修正し、必須Core依存だけの構成でPlayer buildを検証した。MIDI ClockとLEDの送信経路を優先queueと同一Port workerへ統合し、Clock pulseは期限2ms前にworkerへ渡して絶対期限に合わせて送る。APC mini mk2でPad 1入力・緑色LED表示をユーザーに再確認してもらった。A14の15秒および61秒/速度ごとの実機負荷probeは通過したが、10分計測ではない。61秒probeの累積ずれは2.70〜4.00msで1ms目標を超えたため、合格として扱わない。A23 MonitorはRoute中間値・MIDI・Transport履歴、処理計測とON/OFFを実装し、無効時の計測コストを測定した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
@@ -11,7 +11,7 @@
 - [x] R3 1.3.0とIL2CPP linkに必要なSystem.Runtime.CompilerServices.Unsafe 6.0.0のSetup導入、外部依存固定一覧を実装。NuGetForUnity経由の導入を確認。ローカルGit URL導入は確認、公開HTTPS URL・release tagは未確認
 - [x] 任意IntegrationのVersion Defines / Define Constraintsを設定。全依存あり、Optional UPM依存なしのR3 / NuGetForUnity / Unity標準module構成、Input System＋MIDI＋OSCの部分構成でimport・compileを確認。公開HTTPS URL・release tagは未確認
 - [x] 必要パッケージの採用版とPlayer backendを記録。Unity 6000.3.8f1/macOS arm64 Editorで依存解決
-- [x] Core / Integration / Editor / Testsのassembly分離。任意IntegrationなしでCoreがPlayer build可能なことも検証。Git URL導入は未完
+- [x] Core / Integration / Editor / Testsのassembly分離。任意IntegrationなしでCoreがPlayer build可能なことも検証。完全SHAを指定したローカルGit UPM URLからpackageを導入し、消費側ProjectでEditMode 147件 / PlayMode 7件が通過。公開HTTPS URLとrelease tagは未確認
 - [x] 8 Route具体型、generic API、RouteContext、Runtime Root、共通Binding Scope
 - [x] Value初期値、Trigger非Replay、最終Stream単一購読、最終値保持、Output初期化順
 - [x] 共通FrameClock、Service初期化、Enable / Disable / Destroy、例外隔離と診断
@@ -117,6 +117,7 @@
 | macOS Player | Unity 6000.3.8f1 macOS arm64 Editor、最新差分でStandaloneOSX universal (x86_64 + arm64) Mono / IL2CPP build成功、各Unity CLI errors=0。IL2CPP linkは成功したが、baselib object fileの最低macOS版がlink targetより新しい旨とstrip後のsignature warningを出力 |
 | Windows Player | 最新差分でStandaloneWindows64 Mono cross-build成功、Unity CLI errors=0 / warningsなし。Hubの同Editor向けmodule一覧にWindows IL2CPPはなく、IL2CPP buildは未実施。旧buildではWindows非対応URP shader variant warnings 20件あり |
 | 任意依存なし構成 | R3 NuGet 1.3.0、System.Runtime.CompilerServices.Unsafe 6.0.0、NuGetForUnity、Unity標準moduleだけの隔離Projectでlocal UPM import・compile成功。macOS universal IL2CPPとWindows x64 Mono Player buildも成功。欠落した任意Integrationの参照エラーなし |
+| ローカルGit UPM URL | 完全SHAを指定した`git+file://`依存をクリーンな消費側Projectで解決・import。`testables`へpackage IDを指定し、EditMode 147/147、PlayMode 7 passed / 6 Explicit skippedを確認。公開HTTPS URLとrelease tagは未確認 |
 | MIDI / OSC部分構成 | UPM local packageにInput System＋MIDI＋OSCを追加し、Lasp / Cinemachine / URP / VFX Graphなしでimport・compile。MIDI / OSC assemblyが有効、未導入Integrationのassemblyは無効。Player buildは未実施 |
 | 未実施 | 公開HTTPS URL / release tagからの導入、MIDI / OSC部分構成のPlayer build、Windows IL2CPP / Windows実機実行、Player上のOSC / 全Integration、MIDI Clock 10分×3速度と外部受信機実測、USB切断・再接続、A15全Control Typeの実機個別照合 |
 
