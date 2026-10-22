@@ -48,6 +48,7 @@ namespace MondmadeVJ0
         public long BarIndex => BarLengthBeats <= 0d ? 0 : FloorToLong((beatPosition - barOrigin) / BarLengthBeats);
         public double BarPhase => BarLengthBeats <= 0d ? 0 : PositiveFraction((beatPosition - barOrigin) / BarLengthBeats);
         public double BarLengthBeats => beatsPerBar * 4d / beatUnit;
+        public long TimelineRevision { get; private set; }
         public bool IsRunning => running;
         public TransportSyncState SyncState { get; private set; } = TransportSyncState.Internal;
         public event Action<long> Beat
@@ -133,6 +134,7 @@ namespace MondmadeVJ0
 
         public void SetRunning(bool value)
         {
+            if (running && !value) AdvanceTimelineRevision();
             running = value;
             if (value && clockSource == TransportClockSource.Dsp) lastDspTime = AudioSettings.dspTime;
         }
@@ -183,8 +185,15 @@ namespace MondmadeVJ0
 
         public void ResetPhase()
         {
+            AdvanceTimelineRevision();
             beatPosition = 0d;
             barOrigin = 0d;
+            if (clockSource == TransportClockSource.External)
+            {
+                lastExternalBeat = 0d;
+                lastExternalTime = Time.realtimeSinceStartupAsDouble;
+                if (hasExternalClock) SyncState = TransportSyncState.Acquiring;
+            }
         }
 
         public void Nudge(double beats)
@@ -196,12 +205,20 @@ namespace MondmadeVJ0
         public void Seek(double position)
         {
             if (double.IsNaN(position) || double.IsInfinity(position) || position < 0d) throw new ArgumentOutOfRangeException(nameof(position));
+            AdvanceTimelineRevision();
             beatPosition = position;
             barOrigin = position - PositiveFraction((position - barOrigin) / BarLengthBeats) * BarLengthBeats;
+            if (clockSource == TransportClockSource.External)
+            {
+                lastExternalBeat = position;
+                lastExternalTime = Time.realtimeSinceStartupAsDouble;
+                if (hasExternalClock) SyncState = TransportSyncState.Acquiring;
+            }
         }
 
         public void SetClockSource(TransportClockSource source)
         {
+            if (clockSource != source) AdvanceTimelineRevision();
             clockSource = source;
             SyncState = source == TransportClockSource.External ? TransportSyncState.Lost : TransportSyncState.Internal;
             hasExternalClock = false;
@@ -218,8 +235,9 @@ namespace MondmadeVJ0
             }
             SetBaseBpm(bpm);
             var now = monotonicTimestamp > 0d ? monotonicTimestamp : Time.realtimeSinceStartupAsDouble;
-            if (!hasExternalClock || !externalRunning)
+            if (!hasExternalClock || !running || !externalRunning)
             {
+                AdvanceTimelineRevision();
                 beatPosition = externalBeat;
                 lastExternalBeat = externalBeat;
                 lastExternalTime = now;
@@ -233,6 +251,7 @@ namespace MondmadeVJ0
             var prediction = lastExternalBeat + elapsed * EffectiveBpm / 60d;
             var error = externalBeat - prediction;
             var correction = Math.Max(-1d / 96d, Math.Min(1d / 96d, error));
+            if (SyncState == TransportSyncState.Lost) externalAcquiringSince = now;
             lastExternalBeat = prediction + correction;
             lastExternalTime = now;
             AdvancePosition(lastExternalBeat);
@@ -258,8 +277,12 @@ namespace MondmadeVJ0
                 }
             }
             lastMidiClockPulse = monotonicTimestamp;
+            var pulseTime = monotonicTimestamp > 0d ? monotonicTimestamp : Time.realtimeSinceStartupAsDouble;
+            var reacquiring = SyncState == TransportSyncState.Lost;
             var nextBeat = (hasExternalClock ? lastExternalBeat : beatPosition) + 1d / 24d;
-            SetExternalClock(baseBpm, nextBeat, true, monotonicTimestamp);
+            if (reacquiring && hasExternalClock)
+                nextBeat = lastExternalBeat + Math.Max(0d, pulseTime - lastExternalTime) * EffectiveBpm / 60d;
+            SetExternalClock(baseBpm, nextBeat, true, pulseTime);
         }
 
         public void OnStart(double monotonicTimestamp)
@@ -289,6 +312,7 @@ namespace MondmadeVJ0
         public void OnStop(double monotonicTimestamp)
         {
             if (clockSource != TransportClockSource.External) return;
+            if (running) AdvanceTimelineRevision();
             running = false;
             lastMidiClockPulse = double.NaN;
             midiClockIntervals.Clear();
@@ -328,6 +352,8 @@ namespace MondmadeVJ0
             }
             if (count > 256) services?.Report("TRANSPORT_BOUNDARY_LIMIT", $"Dropped {count - 256} overdue Beat notifications.");
         }
+
+        private void AdvanceTimelineRevision() => TimelineRevision++;
 
         private void ApplyPendingMeter(double boundary)
         {

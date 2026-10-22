@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Stage ProjectのEditMode 55件・通常PlayMode 6件、APC Pad 1物理入力と緑色LED点灯、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。Windows IL2CPP module、MIDI Clock精度、USB再接続、Git URL導入、Player上の全Integration受け入れは継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Stage ProjectのEditMode 70件・通常PlayMode 6件、APC Pad 1物理入力と緑色LED点灯、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。Windows IL2CPP module、MIDI Clock精度、USB再接続、Git URL導入、Player上の全Integration受け入れは継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
 
 ## 採用済みの判断
 
@@ -96,11 +96,11 @@ Gridはbeat数の有理数で保存し、`1/2T = (1/2)*(2/3) = 1/3 beat`、`1/4T
 
 ## D10：Quantize・遅延・Stop
 
-Quantizeは入力のBeat位置を基準に次のGridへ予約する。境界との差が0.0000001 beat以内なら現在境界を採用する。それ以外は未来の最初の境界。予約は秒ではなくBeat位置を持ち、BPM変更に追従する。同一境界への別Triggerはまとめず到着順にすべて実行する（集約したい場合はAnyを接続）。
+Quantizeは入力のBeat位置を基準に次のGridへ予約する。境界との差が0.0000001 beat以内なら現在境界を採用する。それ以外は未来の最初の境界。Bar Gridの原点は現在のBar原点に合わせ、拍子変更とSeek後の小節位置を反映する。予約は秒ではなくBeat位置を持ち、BPM変更に追従する。同一境界への別Triggerはまとめず到着順にすべて実行する（集約したい場合はAnyを接続）。
 
 通常のBeat / Subdivision通知はフレームが跨いだ境界を順番に通知する。Nodeあたり1フレーム256件を上限とし、超過分は破棄して現在位置へ追い付き、欠落数をMonitorへ記録する。Quantize予約はNodeあたり1024件、実行もフレーム256件まで。超過した期限済み予約は過去Triggerとして破棄する。
 
-StopではTransport位置を凍結しQuantize予約を破棄。停止中の新規Quantize入力も棄却し診断する。Continueは保持位置から再開する。Reset / Seek / SPP / Clock切替では予約と境界検出履歴を消し、新位置から再開して過去のBeatを再生しない。
+StopではTransport位置を凍結しQuantize予約を破棄。停止中の新規Quantize入力も棄却し診断する。Continueは保持位置から再開する。Reset / Seek / SPP / Clock切替では予約と境界検出履歴を消し、新位置から再開して過去のBeatを再生しない。Transportの`TimelineRevision`はStop・Reset・Seek・Clock切替・外部Clockの初回取得で増加し、予約NodeはFrame境界だけに依存せず古い予約を破棄する。外部Clockの喪失・再取得はfree-run位置と通常補正を継続する。
 
 ## D11：外部同期・MIDI Clock
 

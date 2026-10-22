@@ -50,7 +50,7 @@ namespace MondmadeVJ0
     public sealed class SubdivisionPhaseFloatSource : RouteNode, IValueSource<float>
     {
         [SerializeField] private QuantizeGrid grid = QuantizeGrid.Beat;
-        public Observable<float> Build(RouteContext c) => TransportNodeHelpers.Observe(c,this,t=>(float)(t.BeatPosition / TransportNodeHelpers.Grid(grid,t) - Math.Floor(t.BeatPosition / TransportNodeHelpers.Grid(grid,t))));
+        public Observable<float> Build(RouteContext c) => TransportNodeHelpers.Observe(c,this,t=>(float)TriggerModifierClock.GridPhase(grid,t));
     }
     [Serializable] public sealed class BeatIndexIntSource : RouteNode, IValueSource<int> { public Observable<int> Build(RouteContext c) => TransportNodeHelpers.Observe(c,this,t=>SourceStream.SaturateInt(t.BeatIndex)); }
     [Serializable] public sealed class BarIndexIntSource : RouteNode, IValueSource<int> { public Observable<int> Build(RouteContext c) => TransportNodeHelpers.Observe(c,this,t=>SourceStream.SaturateInt(t.BarIndex)); }
@@ -71,14 +71,25 @@ namespace MondmadeVJ0
             return Observable.Create<Unit>(observer =>
             {
                 var current = transport.BeatPosition;
-                var next = (Math.Floor(current / step + 1e-7d) + 1d) * step;
+                var timelineRevision = transport.TimelineRevision;
+                var next = TriggerModifierClock.NextSubdivisionBoundary(grid, transport, current, 1e-7d);
                 Action<double, double> update = (_, __) =>
                 {
                     var now = transport.BeatPosition;
-                    if (!transport.IsRunning || now + 1e-7d < current)
+                    var currentStep = TransportNodeHelpers.Grid(grid, transport);
+                    if (!(currentStep > 0d) || double.IsNaN(currentStep) || double.IsInfinity(currentStep))
+                    {
+                        context.Report("SUBDIVISION_GRID_INVALID", "Subdivision grid became invalid; scheduling was reset.", this);
+                        current = now;
+                        timelineRevision = transport.TimelineRevision;
+                        return;
+                    }
+                    if (!transport.IsRunning || timelineRevision != transport.TimelineRevision || now + 1e-7d < current || Math.Abs(currentStep - step) > 1e-10d)
                     {
                         current = now;
-                        next = (Math.Floor(now / step + 1e-7d) + 1d) * step;
+                        step = currentStep;
+                        timelineRevision = transport.TimelineRevision;
+                        next = TriggerModifierClock.NextSubdivisionBoundary(grid, transport, now, 1e-7d);
                         return;
                     }
                     current = now;

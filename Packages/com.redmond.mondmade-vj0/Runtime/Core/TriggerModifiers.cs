@@ -45,6 +45,29 @@ namespace MondmadeVJ0
             QuantizeGrid.EighthTriplet => 1d / 12,
             _ => 1d / 24,
         };
+
+        public static double GridPhase(QuantizeGrid grid, IMusicalTransport transport)
+        {
+            if (grid == QuantizeGrid.Bar) return transport.BarPhase;
+            var step = GridBeats(grid, transport);
+            var phase = transport.BeatPosition / step;
+            return phase - Math.Floor(phase);
+        }
+
+        public static double NextQuantizeBoundary(QuantizeGrid grid, IMusicalTransport transport, double position, double tolerance)
+        {
+            var step = GridBeats(grid, transport);
+            var origin = grid == QuantizeGrid.Bar ? position - transport.BarPhase * transport.BarLengthBeats : 0d;
+            var boundary = origin + Math.Ceiling((position - origin - tolerance) / step) * step;
+            return Math.Max(0d, boundary);
+        }
+
+        public static double NextSubdivisionBoundary(QuantizeGrid grid, IMusicalTransport transport, double position, double tolerance)
+        {
+            var step = GridBeats(grid, transport);
+            var origin = grid == QuantizeGrid.Bar ? position - transport.BarPhase * transport.BarLengthBeats : 0d;
+            return origin + (Math.Floor((position - origin) / step + tolerance) + 1d) * step;
+        }
     }
 
     [Serializable]
@@ -158,13 +181,22 @@ namespace MondmadeVJ0
                 var d = new CompositeDisposable();
                 var transport = context.Transport;
                 var lastPosition = transport.BeatPosition;
+                var timelineRevision = transport.TimelineRevision;
+                state.Targets.Clear();
                 d.Add(SourceStream.Subscribe(source, _ =>
                 {
+                    var current = transport.BeatPosition;
+                    if (timelineRevision != transport.TimelineRevision || current + BoundaryTolerance < lastPosition)
+                    {
+                        state.Targets.Clear();
+                        timelineRevision = transport.TimelineRevision;
+                    }
+                    lastPosition = current;
                     if (!transport.IsRunning) { context.Report("QUANTIZE_STOPPED", "Quantize input was dropped while Transport is stopped.", this); return; }
                     if (state.Targets.Count >= Capacity) { context.Report("TRIGGER_QUEUE_FULL", "Quantize queue is full; the new trigger was dropped.", this); return; }
-                    var current = transport.BeatPosition;
-                    var boundary = Math.Ceiling((current - BoundaryTolerance) / step) * step;
-                    if (boundary < 0d) boundary = 0d;
+                    var currentStep = TriggerModifierClock.GridBeats(grid, transport);
+                    if (!(currentStep > 0d) || double.IsNaN(currentStep) || double.IsInfinity(currentStep)) { context.Report("QUANTIZE_GRID_INVALID", "Quantize grid became invalid; the trigger was dropped.", this); return; }
+                    var boundary = TriggerModifierClock.NextQuantizeBoundary(grid, transport, current, BoundaryTolerance);
                     state.Targets.Add(boundary);
                     state.Targets.Sort();
                 }, observer.OnErrorResume));
@@ -172,7 +204,13 @@ namespace MondmadeVJ0
                 Action<double, double> update = (_, __) =>
                 {
                     var position = transport.BeatPosition;
-                    if (!transport.IsRunning || position + BoundaryTolerance < lastPosition) { state.Targets.Clear(); lastPosition = position; return; }
+                    if (!transport.IsRunning || timelineRevision != transport.TimelineRevision || position + BoundaryTolerance < lastPosition)
+                    {
+                        state.Targets.Clear();
+                        timelineRevision = transport.TimelineRevision;
+                        lastPosition = position;
+                        return;
+                    }
                     lastPosition = position;
                     var sent = 0;
                     while (state.Targets.Count > 0 && state.Targets[0] <= position + BoundaryTolerance && sent < PerFrameLimit)

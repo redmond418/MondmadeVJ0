@@ -66,6 +66,8 @@ namespace MondmadeVJ0
         long BarIndex { get; }
         double BarPhase { get; }
         double BarLengthBeats { get; }
+        /// <summary>Increases when timeline position or external-clock continuity changes.</summary>
+        long TimelineRevision { get; }
         bool IsRunning { get; }
         event Action<long> Beat;
         event Action<long> Bar;

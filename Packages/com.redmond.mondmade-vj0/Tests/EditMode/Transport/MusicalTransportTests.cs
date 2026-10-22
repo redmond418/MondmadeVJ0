@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
+using R3;
 using UnityEngine;
 
 namespace MondmadeVJ0.Tests
@@ -98,6 +100,161 @@ namespace MondmadeVJ0.Tests
         public void TransportRegistersExternalOscClockContract()
         {
             Assert.That(services.Get<IExternalTransportClock>(), Is.SameAs(transport));
+        }
+
+        [Test]
+        public void TimelineRevisionChangesOnDiscontinuities()
+        {
+            var revision = transport.TimelineRevision;
+            transport.Seek(2d);
+            Assert.That(transport.TimelineRevision, Is.EqualTo(++revision));
+
+            transport.ResetPhase();
+            Assert.That(transport.TimelineRevision, Is.EqualTo(++revision));
+
+            transport.SetRunning(false);
+            Assert.That(transport.TimelineRevision, Is.EqualTo(++revision));
+
+            transport.SetClockSource(TransportClockSource.External);
+            Assert.That(transport.TimelineRevision, Is.EqualTo(++revision));
+        }
+
+        [Test]
+        public void BarGridPhaseAndBoundariesFollowMeterAndSeekOrigin()
+        {
+            transport.SetTimeSignature(3, 4);
+            transport.Seek(4d);
+
+            Assert.That(transport.BarLengthBeats, Is.EqualTo(3d));
+            Assert.That(transport.BarPhase, Is.EqualTo(1d / 3d).Within(1e-9d));
+            Assert.That(TriggerModifierClock.GridPhase(QuantizeGrid.Bar, transport), Is.EqualTo(1d / 3d).Within(1e-9d));
+            Assert.That(TriggerModifierClock.NextQuantizeBoundary(QuantizeGrid.Bar, transport, 4d, 1e-7d), Is.EqualTo(6d).Within(1e-9d));
+            Assert.That(TriggerModifierClock.NextSubdivisionBoundary(QuantizeGrid.Bar, transport, 4d, 1e-7d), Is.EqualTo(6d).Within(1e-9d));
+        }
+
+        [TestCase(QuantizeGrid.Bar, 4d)]
+        [TestCase(QuantizeGrid.Beat, 1d)]
+        [TestCase(QuantizeGrid.HalfBeat, 0.5d)]
+        [TestCase(QuantizeGrid.QuarterBeat, 0.25d)]
+        [TestCase(QuantizeGrid.EighthBeat, 0.125d)]
+        [TestCase(QuantizeGrid.SixteenthBeat, 0.0625d)]
+        [TestCase(QuantizeGrid.HalfTriplet, 1d / 3d)]
+        [TestCase(QuantizeGrid.QuarterTriplet, 1d / 6d)]
+        [TestCase(QuantizeGrid.EighthTriplet, 1d / 12d)]
+        [TestCase(QuantizeGrid.SixteenthTriplet, 1d / 24d)]
+        public void EveryGridUsesCurrentBoundaryAndNextBoundary(QuantizeGrid grid, double step)
+        {
+            Assert.That(TriggerModifierClock.GridBeats(grid, transport), Is.EqualTo(step).Within(1e-12d));
+
+            transport.Seek(step);
+            Assert.That(TriggerModifierClock.GridPhase(grid, transport), Is.EqualTo(0d).Within(1e-9d));
+            Assert.That(TriggerModifierClock.NextQuantizeBoundary(grid, transport, step, 1e-7d), Is.EqualTo(step).Within(1e-9d));
+            Assert.That(TriggerModifierClock.NextSubdivisionBoundary(grid, transport, step, 1e-7d), Is.EqualTo(step * 2d).Within(1e-9d));
+
+            transport.Seek(step * 1.25d);
+            Assert.That(TriggerModifierClock.GridPhase(grid, transport), Is.EqualTo(0.25d).Within(1e-9d));
+            Assert.That(TriggerModifierClock.NextQuantizeBoundary(grid, transport, transport.BeatPosition, 1e-7d), Is.EqualTo(step * 2d).Within(1e-9d));
+            Assert.That(TriggerModifierClock.NextSubdivisionBoundary(grid, transport, transport.BeatPosition, 1e-7d), Is.EqualTo(step * 2d).Within(1e-9d));
+        }
+
+        [Test]
+        public void QuantizeDropsPendingTriggersAfterForwardSeekAndContinuesOnNewTimeline()
+        {
+            var frameClock = new ManualFrameClock();
+            services.Register<IFrameClock>(frameClock);
+            var runtimeObject = new GameObject("Quantize test runtime");
+            runtimeObject.SetActive(false);
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            runtime.Services = services;
+            var scope = new BindingScope();
+            var source = new Subject<Unit>();
+            var modifier = new QuantizeTriggerModifier();
+            typeof(QuantizeTriggerModifier).GetField("grid", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(modifier, QuantizeGrid.Beat);
+            var context = new RouteContext(runtime, null, new RuntimeStateStore(), scope, "quantize-test");
+            var emitted = 0;
+            var output = modifier.Apply(source, context).Subscribe(_ => emitted++);
+            scope.Add(output);
+
+            transport.Seek(0.25d);
+            source.OnNext(Unit.Default);
+            transport.Seek(2d);
+            frameClock.Step();
+            Assert.That(emitted, Is.Zero, "A forward seek must discard a trigger scheduled on the old timeline.");
+
+            transport.Seek(0.25d);
+            source.OnNext(Unit.Default);
+            transport.Tick(services, 0.375d);
+            frameClock.Step();
+            Assert.That(emitted, Is.EqualTo(1), "A fresh trigger must still emit at its next Beat boundary.");
+
+            scope.Dispose();
+            source.Dispose();
+            transport.Shutdown(services);
+            Object.DestroyImmediate(runtimeObject);
+        }
+
+        [Test]
+        public void BarSubdivisionResetsOnSeekAndUsesNewOrigin()
+        {
+            transport.SetTimeSignature(3, 4);
+            transport.Seek(4d);
+            var frameClock = new ManualFrameClock();
+            services.Register<IFrameClock>(frameClock);
+            var runtimeObject = new GameObject("Subdivision test runtime");
+            runtimeObject.SetActive(false);
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            runtime.Services = services;
+            var scope = new BindingScope();
+            var source = new SubdivisionTriggerSource();
+            typeof(SubdivisionTriggerSource).GetField("grid", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(source, QuantizeGrid.Bar);
+            var context = new RouteContext(runtime, null, new RuntimeStateStore(), scope, "subdivision-test");
+            var emitted = 0;
+            var subscription = source.Build(context).Subscribe(_ => emitted++);
+            scope.Add(subscription);
+
+            transport.Seek(6d);
+            frameClock.Step();
+            Assert.That(emitted, Is.Zero, "Seeking onto a bar boundary must not replay that boundary.");
+
+            transport.Tick(services, 1.5d);
+            frameClock.Step();
+            Assert.That(transport.BeatPosition, Is.EqualTo(9d).Within(1e-9d));
+            Assert.That(emitted, Is.EqualTo(1), "The next bar boundary from the new origin must emit once.");
+
+            scope.Dispose();
+            transport.Shutdown(services);
+            Object.DestroyImmediate(runtimeObject);
+        }
+
+        [Test]
+        public void MidiClockReacquisitionContinuesFromFreeRunningPosition()
+        {
+            transport.SetClockSource(TransportClockSource.External);
+            transport.Seek(4d);
+            var now = Time.realtimeSinceStartupAsDouble;
+            transport.SetExternalClock(120d, 4d, true, now);
+            typeof(MusicalTransport).GetField("<SyncState>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(transport, TransportSyncState.Lost);
+            var freeRunningPosition = transport.BeatPosition;
+            var revisionBeforeReacquire = transport.TimelineRevision;
+
+            transport.OnClockPulse(now + 1d / 48d, 0d);
+
+            Assert.That(transport.SyncState, Is.EqualTo(TransportSyncState.Acquiring));
+            Assert.That(transport.BeatPosition, Is.GreaterThan(freeRunningPosition));
+            Assert.That(transport.BeatPosition, Is.EqualTo(freeRunningPosition + 1d / 24d).Within(1e-6d));
+            Assert.That(transport.TimelineRevision, Is.EqualTo(revisionBeforeReacquire), "Clock recovery must preserve the free-running timeline.");
+        }
+
+        private sealed class ManualFrameClock : IFrameClock
+        {
+            public long FrameIndex { get; private set; }
+            public double Time => 0d;
+            public double UnscaledTime => 0d;
+            public double DspTime => 0d;
+            public double DeltaTime => 0d;
+            public double UnscaledDeltaTime => 0d;
+            public event System.Action<double, double> Updated;
+            public void Step() { FrameIndex++; Updated?.Invoke(0d, 0d); }
         }
     }
 }

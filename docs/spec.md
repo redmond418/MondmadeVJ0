@@ -122,7 +122,7 @@ ClockはUnity Unscaled Time、Audio DSP Time（通常優先）、External MIDI�
 
 Tap TempoにはSample Count、BPM上下限、Reset Timeout、Outlier Rejectionを持たせ、複数間隔のMedianまたはTrimmed Meanで推定する。Tap、Phase Reset、BPM、Multiplier、NudgeをOutputとして公開する。
 
-QuantizeはBar、Beat、1/2・1/4・1/8・1/16と各三連Gridに対応する。1 beatは四分音符、`1/4`は1拍の1/4、三連は指定長×2/3。境界上の入力はその境界へ、それ以外は次の境界へ予約する。Stop / Seekで保留Triggerを破棄する。外部Clock喪失時は最後のTempoでfree-runし、明示Stopでは凍結する。詳細と検証目標はD09〜D11に従う。
+QuantizeはBar、Beat、1/2・1/4・1/8・1/16と各三連Gridに対応する。1 beatは四分音符、`1/4`は1拍の1/4、三連は指定長×2/3。Bar GridとBar Subdivisionの位相はTransportの現在Bar原点を使い、拍子変更とSeek後の小節位置を反映する。境界上の入力はその境界へ、それ以外は次の境界へ予約する。Stop / Seekで保留Triggerを破棄する。外部Clock喪失時は最後のTempoでfree-runし、再取得時は通常補正へ戻る。明示Stopでは凍結する。詳細と検証目標はD09〜D11に従う。
 
 ## 7. MIDI SurfaceとFeedback
 
