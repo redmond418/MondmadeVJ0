@@ -63,6 +63,74 @@ namespace MondmadeVJ0.Tests
             yield return null;
         }
 
+        [Explicit("Requires a person to move APC mini mk2 Fader 1, then press and release Track Button 1.")]
+        [Timeout(150000)]
+        [UnityTest]
+        public IEnumerator ReceivesPhysicalFaderAndTrackButtonWithTheirProfileTypes()
+        {
+            var inputPort = FindPort(true);
+            var outputPort = FindPort(false);
+            if (inputPort < 0 || outputPort < 0)
+                Assert.Inconclusive("APC mini mk2 RtMidi input and output ports were not both available.");
+
+            var profile = MidiSurfaceProfile.CreateApcMiniMk2Profile();
+            Assert.That(profile.Find("fader_1").type, Is.EqualTo(MidiControlType.AbsoluteFader));
+            Assert.That(profile.Find("track_1").type, Is.EqualTo(MidiControlType.Button));
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
+            var runtimeObject = new GameObject("APC mini mk2 fader and button probe");
+            runtimeObject.SetActive(false);
+            var hub = runtimeObject.AddComponent<MidiHub>();
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            SetField(hub, "surfaces", new[] { surface });
+            SetField(runtime, "modules", new MonoBehaviour[] { hub });
+
+            var faderReceived = false;
+            var faderValue = 0f;
+            var buttonPressed = false;
+            var buttonReleased = false;
+            System.Action<MidiControlChange> capture = change =>
+            {
+                if (change.Reference.SurfaceInstanceId != surface.InstanceId) return;
+                if (change.Reference.ControlId == "fader_1")
+                {
+                    faderReceived = true;
+                    faderValue = change.State.Value;
+                }
+                else if (change.Reference.ControlId == "track_1")
+                {
+                    buttonPressed |= change.PressedDown;
+                    buttonReleased |= change.Released;
+                }
+            };
+            hub.ControlChanged += capture;
+            runtimeObject.SetActive(true);
+            yield return null;
+
+            try
+            {
+                Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
+                Debug.Log("[APC_CONTROL_PROBE_FADER_READY] Move Fader 1 noticeably, preferably to about halfway, within 45 seconds.");
+                var deadline = Time.realtimeSinceStartup + 45f;
+                while (!faderReceived && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(faderReceived, Is.True, "Fader 1 must produce a typed input update.");
+                Assert.That(faderValue, Is.InRange(0f, 1f));
+
+                Debug.Log("[APC_CONTROL_PROBE_BUTTON_READY] Press and release Track Button 1 once within 45 seconds.");
+                deadline = Time.realtimeSinceStartup + 45f;
+                while ((!buttonPressed || !buttonReleased) && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(buttonPressed, Is.True, "Track Button 1 must report PressedDown.");
+                Assert.That(buttonReleased, Is.True, "Track Button 1 must report Released.");
+            }
+            finally
+            {
+                hub.ControlChanged -= capture;
+                Object.Destroy(runtimeObject);
+                Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator OpensBothPortsAndSendsPadFeedback()
         {
