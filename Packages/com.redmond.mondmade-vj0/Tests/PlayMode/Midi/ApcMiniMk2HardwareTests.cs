@@ -85,10 +85,15 @@ namespace MondmadeVJ0.Tests
             SetField(hub, "surfaces", new[] { surface });
             SetField(runtime, "modules", new MonoBehaviour[] { hub });
 
+            var rawMessages = new List<string>();
             var faderReceived = false;
             var faderValue = 0f;
             var buttonPressed = false;
             var buttonReleased = false;
+            System.Action<MidiRawMessage> captureRaw = message =>
+            {
+                rawMessages.Add($"{message.AddressType} ch{message.Channel} #{message.Number}={message.Value:0.###}");
+            };
             System.Action<MidiControlChange> capture = change =>
             {
                 if (change.Reference.SurfaceInstanceId != surface.InstanceId) return;
@@ -103,6 +108,7 @@ namespace MondmadeVJ0.Tests
                     buttonReleased |= change.Released;
                 }
             };
+            hub.RawInputObserved += captureRaw;
             hub.ControlChanged += capture;
             runtimeObject.SetActive(true);
             yield return null;
@@ -110,20 +116,21 @@ namespace MondmadeVJ0.Tests
             try
             {
                 Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
-                Debug.Log("[APC_CONTROL_PROBE_FADER_READY] Move Fader 1 noticeably, preferably to about halfway, within 45 seconds.");
-                var deadline = Time.realtimeSinceStartup + 45f;
-                while (!faderReceived && Time.realtimeSinceStartup < deadline) yield return null;
-                Assert.That(faderReceived, Is.True, "Fader 1 must produce a typed input update.");
-                Assert.That(faderValue, Is.InRange(0f, 1f));
+                Debug.Log("[APC_CONTROL_PROBE_READY] During the next 90 seconds, move Fader 1 noticeably and press/release Track Button 1 once. Order does not matter.");
+                var deadline = Time.realtimeSinceStartup + 90f;
+                while ((!faderReceived || !buttonPressed || !buttonReleased) && Time.realtimeSinceStartup < deadline) yield return null;
 
-                Debug.Log("[APC_CONTROL_PROBE_BUTTON_READY] Press and release Track Button 1 once within 45 seconds.");
-                deadline = Time.realtimeSinceStartup + 45f;
-                while ((!buttonPressed || !buttonReleased) && Time.realtimeSinceStartup < deadline) yield return null;
-                Assert.That(buttonPressed, Is.True, "Track Button 1 must report PressedDown.");
-                Assert.That(buttonReleased, Is.True, "Track Button 1 must report Released.");
+                var missing = new List<string>();
+                if (!faderReceived) missing.Add("Fader 1 CC 48 typed update");
+                if (!buttonPressed) missing.Add("Track Button 1 press");
+                if (!buttonReleased) missing.Add("Track Button 1 release");
+                var rawSummary = rawMessages.Count == 0 ? "none" : string.Join(", ", rawMessages);
+                Assert.That(missing, Is.Empty, $"Missing: {string.Join(", ", missing)}. Raw MIDI observed: {rawSummary}.");
+                Assert.That(faderValue, Is.InRange(0f, 1f));
             }
             finally
             {
+                hub.RawInputObserved -= captureRaw;
                 hub.ControlChanged -= capture;
                 Object.Destroy(runtimeObject);
                 Object.Destroy(profile);
