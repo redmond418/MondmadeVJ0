@@ -29,7 +29,7 @@
 | UPM | `Packages/com.redmond.mondmade-vj0/`に単一パッケージを作成。Runtime / Editor / Testsを機能別asmdefへ分離 |
 | Runtime | 8型Route、共通Lifecycle / FrameClock / Service、Source / Modifier、Transport、MIDI / APC、OSC、Lasp、Animator、VFX、Rendering、Cinemachine、Video、Generic Component Outputを実装 |
 | Editor | Core Route Inspector、検索可能なNode型選択、Integration候補Drawer、MIDI Learn、Setup、Validation、Route中間値・MIDI / Transport / Performance Monitorを実装 |
-| Unity | Unity 6000.3.8f1 macOS arm64 Stage ProjectでRuntime / Editor assemblyをコンパイル。EditMode 111/111、通常PlayMode 7/7、APC Pad 1物理入力1/1・LED目視probe 1/1通過。最新差分のmacOS universal (x86_64 + arm64) Mono / IL2CPPとWindows x64 Mono cross-build成功。Windows IL2CPP moduleはHubに含まれず未確認 |
+| Unity | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル。最終差分の隔離CheckoutでEditMode 114/114・通常PlayMode 7/7、APC Pad 1物理入力1/1・LED目視probe 1/1通過。最新差分のmacOS universal (x86_64 + arm64) Mono / IL2CPPとWindows x64 Mono cross-build成功。Windows IL2CPP moduleはHubに含まれず未確認 |
 | 構成 | R3とUnity標準moduleのみ、およびInput System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認 |
 | APC mini mk2 | 90-control ProfileとQuickStart Sceneを`Assets/MondmadeVJ0.Dev/`へ配置。macOS IORegistryでUSB接続を確認し、RtMidi input/output両portをOpen。実機の左上Pad 1がNote 56を送ることを確認し、Profile座標を修正。LED ON/OFF payloadを検証 |
 | 未完の受入 | 公開HTTPS Git URL / release tagからの導入、Windows IL2CPP / Windows上の実機MIDI、追加の依存部分構成・Player build、Player上の全Integration、MIDI Clockの10分負荷と外部受信機実測、USB切断・再接続 |

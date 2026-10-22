@@ -394,7 +394,8 @@ namespace MondmadeVJ0.Editor
             if (value == null) return;
             if (route) value.GetType().GetMethod("RegenerateId")?.Invoke(value, null);
             if (value is RouteNode node) node.RegenerateId();
-            foreach (var field in value.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            for (var type = value.GetType(); type != null && type != typeof(object); type = type.BaseType)
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (field.GetCustomAttribute<SerializeReference>() == null) continue;
                 if (field.GetValue(value) is RouteNode child) RegenerateIdentity(child, false);
