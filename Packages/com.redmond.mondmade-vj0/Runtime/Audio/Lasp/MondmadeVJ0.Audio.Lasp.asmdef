@@ -1,0 +1,16 @@
+{
+  "name": "MondmadeVJ0.Audio.Lasp",
+  "rootNamespace": "MondmadeVJ0.Audio.Lasp",
+  "references": ["MondmadeVJ0.Core", "Lasp.Runtime"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["R3.dll"],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_LASP"],
+  "versionDefines": [
+    { "name": "jp.keijiro.lasp", "expression": "[2.1.8,3.0.0)", "define": "MONDMADE_HAS_LASP" }
+  ],
+  "noEngineReferences": false
+}

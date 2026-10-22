@@ -1,0 +1,19 @@
+{
+  "name": "MondmadeVJ0.Midi.Hardware.PlayModeTests",
+  "rootNamespace": "MondmadeVJ0.Tests",
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Midi", "RtMidi.Runtime"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["R3.dll"],
+  "autoReferenced": false,
+  "defineConstraints": ["MONDMADE_HAS_TEST_FRAMEWORK", "MONDMADE_HAS_MINIS", "MONDMADE_HAS_RTMIDI"],
+  "versionDefines": [
+    { "name": "com.unity.test-framework", "expression": "[1.1.0,2.0.0)", "define": "MONDMADE_HAS_TEST_FRAMEWORK" },
+    { "name": "jp.keijiro.minis", "expression": "[1.3.2,2.0.0)", "define": "MONDMADE_HAS_MINIS" },
+    { "name": "jp.keijiro.rtmidi", "expression": "[2.2.0,3.0.0)", "define": "MONDMADE_HAS_RTMIDI" }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

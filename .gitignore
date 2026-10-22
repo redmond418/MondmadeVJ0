@@ -88,6 +88,12 @@ InitTestScene*.unity*
 /[Aa]ssets/StreamingAssets/aa*
 /[Aa]ssets/AddressableAssetsData/link.xml*
 /[Aa]ssets/Addressables_Temp*
+
+# NuGetForUnity restores third-party binaries into Assets and must not vendor them.
+/Assets/Packages/
+/Assets/Packages.meta
+/Assets/packages.config
+/Assets/packages.config.meta
 # By default, Addressables content builds will generate addressables_content_state.bin
 # files in platform-specific subfolders, for example:
 # /Assets/AddressableAssetsData/OSX/addressables_content_state.bin

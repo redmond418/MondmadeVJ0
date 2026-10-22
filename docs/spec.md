@@ -1,6 +1,6 @@
 # MondmadeVJ0 仕様
 
-更新日：2026-10-22（JST）。[会話の最終設計](reference/conversation-design.md)全65章を、実装に使う仕様として整理した。現状は[プロジェクト調査](project-audit.md)、項目単位の完成範囲は[機能カタログ](feature-catalog.md)、確定した詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照。
+更新日：2026-10-23（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、項目単位の実装状況は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。Runtime / Editor実装は揃ったが、全受け入れ試験とPlayer検証は継続中。
 
 ## 1. 目的と完成範囲
 
@@ -43,7 +43,7 @@ Modifierは同型から同型への変換だけを担当する。ToggleはTrigge
 
 ## 3. Core APIとRouteの責務
 
-以下は設計上のAPIであり、実装済みコードではない。`Observable<T>` と `Unit` はR3を想定する。
+Runtime APIは下記の契約をR3の`Observable<T>`と`Unit`で実装する。実際の宣言・追加契約はパッケージ内の`Contracts.cs`、`Routes.cs`、`RouteContext.cs`を参照する。
 
 ```csharp
 public interface IValueSource<T>
@@ -131,9 +131,11 @@ MidiHub → MidiSurface → MidiSurfaceProfile → Logical Controls → Source /
 Route State → LED Output → Layer合成 → Driver → MIDI OUT
 ```
 
-ProfileはScriptableObjectで、物理レイアウトだけを定義する。ControlにはStable ID、表示名、Group、Control Type、Input Address、Feedback Address / Capability、Editor位置を持たせる。RouteはSurface InstanceとLogical Control IDを参照し、Note / CC番号を直接保持しない。
+ProfileはScriptableObjectで、物理レイアウトだけを定義する。ControlにはStable ID、表示名、Group、Control Type、Input Address、Feedback Address / Capability、Editor位置を持たせる。標準APC mini mk2 Profileは、64 Pad、8 Track、8 Scene、Shift、9 Faderの計90 Controlを持つ。RouteはSurface InstanceとLogical Control IDを参照し、Note / CC番号を直接保持しない。
 
 Control TypeはButton、Velocity Button、Absolute Fader / Knob、Relative Encoder、XY、Pitch Bend、Aftertouch。互換Sourceだけを選択可能にする。複数Surfaceと同一Profileの複数実機に対応する。
+
+XY Sourceは同一Surfaceの2つのXY ControlをX / Y軸として合成し、初期状態を含むVector2を通知する。Control ReferenceのPickerは各SourceのControl Type制約に合う候補だけを表示し、不一致の保存値は自動で差し替えない。
 
 ProfileとProtocol Driverを分離し、Generic / APC mini mk2 Driverを標準提供する。APCのRGB Palette、Brightness、Blink、Pulse、Mono LEDはDriverが扱う。上位はColor / Brightness / Off・Solid・Blink・Pulseで指定し、機種別のMIDI値を知らない。
 
@@ -157,7 +159,7 @@ Desired状態とLast Sent状態を比較し、変化時だけ送信する。同�
 | VideoPlayer | Speed / Play / Time / Normalized Time / Clip Indexと再生操作Trigger。Clip切替はKeep State / Auto Play / Restart |
 | AudioSource | Volume / Pitch / Pan / Play / Time / Clip Index、再生操作Trigger |
 | Generic Component | public field / propertyへの各Value型の書込み。初期化時にAccessorを解決し、毎フレームのReflection検索を避ける |
-| OSC Jack | Float / Int / Bool / Vector2–4 / Color / Triggerの入出力 |
+| OSC Jack | Float / Int / Bool / Vector2–4 / Color / Triggerの入出力。Type Tag API入りの固定forkを使い、外部Transport同期Adapterは`/mondmade/transport`を処理する |
 | Lasp | Level / Band / Peak / Spectrum Bin、Threshold / Peak Trigger。BandはLow / Mid / High / Custom Hz、TriggerはThreshold / Hysteresis / Cooldown |
 
 Audio Sourceに平滑化を内蔵せずModifierを接続する。Property候補選択を基本とし、VFX・Shader・Animatorの文字列指定はFallback。UIntはInt入力の非負変換、TextureはIntから固定参照／配列Lookup、MatrixはVector3をTRSの1要素へ割当てて合成する。8 Route型を維持し、D15〜D17・D20の確定契約に従う。

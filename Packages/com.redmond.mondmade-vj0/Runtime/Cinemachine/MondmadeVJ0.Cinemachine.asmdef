@@ -1,0 +1,16 @@
+{
+  "name": "MondmadeVJ0.Cinemachine",
+  "rootNamespace": "MondmadeVJ0.Cinemachine",
+  "references": ["MondmadeVJ0.Core", "Unity.Cinemachine"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_CINEMACHINE"],
+  "versionDefines": [
+    { "name": "com.unity.cinemachine", "expression": "[3.1.6,4.0.0)", "define": "MONDMADE_HAS_CINEMACHINE" }
+  ],
+  "noEngineReferences": false
+}

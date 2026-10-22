@@ -1,0 +1,17 @@
+{
+  "name": "MondmadeVJ0.Core.Editor.Tests",
+  "rootNamespace": "MondmadeVJ0.Tests",
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Core.Editor"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["R3.dll"],
+  "autoReferenced": false,
+  "defineConstraints": ["MONDMADE_HAS_TEST_FRAMEWORK"],
+  "versionDefines": [
+    { "name": "com.unity.test-framework", "expression": "[1.1.0,2.0.0)", "define": "MONDMADE_HAS_TEST_FRAMEWORK" }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

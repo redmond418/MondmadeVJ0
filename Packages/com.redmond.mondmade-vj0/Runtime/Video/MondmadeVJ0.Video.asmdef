@@ -1,0 +1,14 @@
+{
+  "name": "MondmadeVJ0.Video",
+  "rootNamespace": "MondmadeVJ0.Video",
+  "references": ["MondmadeVJ0.Core"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

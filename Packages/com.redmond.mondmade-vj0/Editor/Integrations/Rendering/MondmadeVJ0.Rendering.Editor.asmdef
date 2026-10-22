@@ -1,0 +1,16 @@
+{
+  "name": "MondmadeVJ0.Rendering.Editor",
+  "rootNamespace": "MondmadeVJ0.Editor",
+  "references": ["MondmadeVJ0.Core.Editor", "MondmadeVJ0.Rendering", "Unity.RenderPipelines.Core.Runtime", "Unity.RenderPipelines.Universal.Runtime"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_URP"],
+  "versionDefines": [
+    { "name": "com.unity.render-pipelines.universal", "expression": "[17.3.0,17.4.0)", "define": "MONDMADE_HAS_URP" }
+  ],
+  "noEngineReferences": false
+}

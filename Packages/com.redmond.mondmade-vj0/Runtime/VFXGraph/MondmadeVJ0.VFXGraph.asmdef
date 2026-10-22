@@ -1,0 +1,16 @@
+{
+  "name": "MondmadeVJ0.VFXGraph",
+  "rootNamespace": "MondmadeVJ0.VFXGraph",
+  "references": ["MondmadeVJ0.Core", "Unity.VisualEffectGraph.Runtime"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_VFX_GRAPH"],
+  "versionDefines": [
+    { "name": "com.unity.visualeffectgraph", "expression": "[17.3.0,17.4.0)", "define": "MONDMADE_HAS_VFX_GRAPH" }
+  ],
+  "noEngineReferences": false
+}

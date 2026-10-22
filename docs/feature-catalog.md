@@ -1,8 +1,8 @@
 # 標準機能カタログ
 
-更新日：2026-10-22（JST）。[移植元](reference/conversation-design.md)第62〜64章の全項目を収録する。**すべて完成要件であり、現在は全項目未実装。** ここでの名前は設計名であり、実在するC#クラスを意味しない。
+更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)第62〜64章の全項目を収録する。**全項目が完成要件。** Runtime / Editor機能の実装は揃った。各行の「実装済み・検証中」は、EditMode契約テスト、Unityライフサイクル、接続機器、Player上での受け入れ確認が残る状態を示す。検証完了までは機能完成として数えない。
 
-VectorはVector2 / Vector3 / Vector4のファミリー略記。SignalValueSourceも各Value型の具体型へ展開する。名称整理・Gradientの扱い・8 Route型とVFX Matrix / Texture / UIntの接続は[設計補足](design-notes.md)を参照する。機能を実装して検証したときだけ状態を更新する。
+VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSourceも`SignalFloatSource`等の具体型として実装した。表はInspectorで選択するC#型名を記載する。名称整理・Gradientの扱い・8 Route型とVFX Matrix / Texture / UIntの接続は[設計補足](design-notes.md)を参照する。表の状態はコードの実装状況を示し、受け入れ条件の完了とは区別する。
 
 ## Source
 
@@ -10,141 +10,152 @@ VectorはVector2 / Vector3 / Vector4のファミリー略記。SignalValueSource
 
 | 設計名 | 状態 |
 | --- | --- |
-| `ConstantFloatSource` | 未実装 |
-| `ConstantIntSource` | 未実装 |
-| `ConstantBoolSource` | 未実装 |
-| `ConstantVector2Source` | 未実装 |
-| `ConstantVector3Source` | 未実装 |
-| `ConstantVector4Source` | 未実装 |
-| `ConstantColorSource` | 未実装 |
-| `SignalValueSource` | 未実装 |
-| `SignalTriggerSource` | 未実装 |
+| `ConstantFloatSource` | 実装済み・検証中 |
+| `ConstantIntSource` | 実装済み・検証中 |
+| `ConstantBoolSource` | 実装済み・検証中 |
+| `ConstantVector2Source` | 実装済み・検証中 |
+| `ConstantVector3Source` | 実装済み・検証中 |
+| `ConstantVector4Source` | 実装済み・検証中 |
+| `ConstantColorSource` | 実装済み・検証中 |
+| `SignalFloatSource` | 実装済み・検証中 |
+| `SignalIntSource` | 実装済み・検証中 |
+| `SignalBoolSource` | 実装済み・検証中 |
+| `SignalVector2Source` | 実装済み・検証中 |
+| `SignalVector3Source` | 実装済み・検証中 |
+| `SignalVector4Source` | 実装済み・検証中 |
+| `SignalColorSource` | 実装済み・検証中 |
+| `SignalTriggerSource` | 実装済み・検証中 |
 
 ### Input System
 
 | 設計名 | 状態 |
 | --- | --- |
-| `InputActionFloatSource` | 未実装 |
-| `InputActionBoolSource` | 未実装 |
-| `InputActionVector2Source` | 未実装 |
-| `InputActionVector3Source` | 未実装 |
-| `InputActionTriggerSource` | 未実装 |
-| `InputActionReleaseTriggerSource` | 未実装 |
-| `InputActionLastPressedIndexSource` | 未実装 |
+| `InputActionFloatSource` | 実装済み・検証中 |
+| `InputActionBoolSource` | 実装済み・検証中 |
+| `InputActionVector2Source` | 実装済み・検証中 |
+| `InputActionVector3Source` | 実装済み・検証中 |
+| `InputActionTriggerSource` | 実装済み・検証中 |
+| `InputActionReleaseTriggerSource` | 実装済み・検証中 |
+| `InputActionLastPressedIndexSource` | 実装済み・検証中 |
 
 ### MIDI
 
 | 設計名 | 状態 |
 | --- | --- |
-| `MidiAbsoluteFloatSource` | 未実装 |
-| `MidiRelativeFloatSource` | 未実装 |
-| `MidiVelocityFloatSource` | 未実装 |
-| `MidiButtonBoolSource` | 未実装 |
-| `MidiButtonGroupIndexSource` | 未実装 |
-| `MidiButtonTriggerSource` | 未実装 |
-| `MidiButtonReleaseTriggerSource` | 未実装 |
+| `MidiAbsoluteFloatSource` | 実装済み・検証中 |
+| `MidiRelativeFloatSource` | 実装済み・検証中 |
+| `MidiVelocityFloatSource` | 実装済み・検証中 |
+| `MidiXYVector2Source` | 実装済み・検証中 |
+| `MidiButtonBoolSource` | 実装済み・検証中 |
+| `MidiButtonGroupIndexSource` | 実装済み・検証中 |
+| `MidiButtonTriggerSource` | 実装済み・検証中 |
+| `MidiButtonReleaseTriggerSource` | 実装済み・検証中 |
 
 ### Stateful
 
 | 設計名 | 状態 |
 | --- | --- |
-| `ToggleBoolSource` | 未実装 |
-| `SetResetBoolSource` | 未実装 |
-| `PulseBoolSource` | 未実装 |
-| `StepIntSource` | 未実装 |
-| `IncrementDecrementIntSource` | 未実装 |
-| `TriggerValueFloatSource` | 未実装 |
-| `TriggerValueIntSource` | 未実装 |
-| `TriggeredRandomFloatSource` | 未実装 |
-| `TriggeredRandomIntSource` | 未実装 |
-| `SampleHoldFloatSource` | 未実装 |
-| `SampleHoldVectorSource` | 未実装 |
-| `TriggerEnvelopeFloatSource` | 未実装 |
+| `ToggleBoolSource` | 実装済み・検証中 |
+| `SetResetBoolSource` | 実装済み・検証中 |
+| `PulseBoolSource` | 実装済み・検証中 |
+| `StepIntSource` | 実装済み・検証中 |
+| `IncrementDecrementIntSource` | 実装済み・検証中 |
+| `TriggerValueFloatSource` | 実装済み・検証中 |
+| `TriggerValueIntSource` | 実装済み・検証中 |
+| `TriggeredRandomFloatSource` | 実装済み・検証中 |
+| `TriggeredRandomIntSource` | 実装済み・検証中 |
+| `SampleHoldFloatSource` | 実装済み・検証中 |
+| `SampleHoldVector2Source` | 実装済み・検証中 |
+| `SampleHoldVector3Source` | 実装済み・検証中 |
+| `SampleHoldVector4Source` | 実装済み・検証中 |
+| `TriggerEnvelopeFloatSource` | 実装済み・検証中 |
 
 ### Composite
 
 | 設計名 | 状態 |
 | --- | --- |
-| `FloatBinarySource` | 未実装 |
-| `IntBinarySource` | 未実装 |
-| `BoolLogicSource` | 未実装 |
-| `FloatCompareBoolSource` | 未実装 |
-| `IntCompareBoolSource` | 未実装 |
-| `FloatSelectSource` | 未実装 |
-| `IntSelectSource` | 未実装 |
-| `BoolSelectSource` | 未実装 |
-| `Vector2SelectSource` | 未実装 |
-| `Vector3SelectSource` | 未実装 |
-| `Vector4SelectSource` | 未実装 |
-| `ColorSelectSource` | 未実装 |
-| `MostRecentFloatSource` | 未実装 |
-| `MostRecentIntSource` | 未実装 |
-| `MostRecentBoolSource` | 未実装 |
-| `MostRecentVectorSource` | 未実装 |
-| `MergeTriggerSource` | 未実装 |
-| `AnyTriggerSource` | 未実装 |
-| `AllTriggerSource` | 未実装 |
+| `FloatBinarySource` | 実装済み・検証中 |
+| `IntBinarySource` | 実装済み・検証中 |
+| `BoolLogicSource` | 実装済み・検証中 |
+| `FloatCompareBoolSource` | 実装済み・検証中 |
+| `IntCompareBoolSource` | 実装済み・検証中 |
+| `FloatSelectSource` | 実装済み・検証中 |
+| `IntSelectSource` | 実装済み・検証中 |
+| `BoolSelectSource` | 実装済み・検証中 |
+| `Vector2SelectSource` | 実装済み・検証中 |
+| `Vector3SelectSource` | 実装済み・検証中 |
+| `Vector4SelectSource` | 実装済み・検証中 |
+| `ColorSelectSource` | 実装済み・検証中 |
+| `MostRecentFloatSource` | 実装済み・検証中 |
+| `MostRecentIntSource` | 実装済み・検証中 |
+| `MostRecentBoolSource` | 実装済み・検証中 |
+| `MostRecentVector2Source` | 実装済み・検証中 |
+| `MostRecentVector3Source` | 実装済み・検証中 |
+| `MostRecentVector4Source` | 実装済み・検証中 |
+| `MergeTriggerSource` | 実装済み・検証中 |
+| `AnyTriggerSource` | 実装済み・検証中 |
+| `AllTriggerSource` | 実装済み・検証中 |
 
 ### 型変換
 
 | 設計名 | 状態 |
 | --- | --- |
-| `IntToFloatSource` | 未実装 |
-| `BoolToFloatSource` | 未実装 |
-| `BoolToIntSource` | 未実装 |
-| `FloatToIntSource` | 未実装 |
-| `FloatToBoolSource` | 未実装 |
-| `IndexToFloatSource` | 未実装 |
-| `IndexToIntSource` | 未実装 |
-| `IndexToBoolSource` | 未実装 |
-| `IndexToColorSource` | 未実装 |
-| `Vector2ToFloatSource` | 未実装 |
-| `Vector3ToFloatSource` | 未実装 |
-| `Vector4ToFloatSource` | 未実装 |
-| `FloatToVector2Source` | 未実装 |
-| `FloatToVector3Source` | 未実装 |
-| `FloatToVector4Source` | 未実装 |
-| `FloatToGradientColorSource` | 未実装 |
+| `IntToFloatSource` | 実装済み・検証中 |
+| `BoolToFloatSource` | 実装済み・検証中 |
+| `BoolToIntSource` | 実装済み・検証中 |
+| `FloatToIntSource` | 実装済み・検証中 |
+| `FloatToBoolSource` | 実装済み・検証中 |
+| `IndexToFloatSource` | 実装済み・検証中 |
+| `IndexToIntSource` | 実装済み・検証中 |
+| `IndexToBoolSource` | 実装済み・検証中 |
+| `IndexToColorSource` | 実装済み・検証中 |
+| `Vector2ToFloatSource` | 実装済み・検証中 |
+| `Vector3ToFloatSource` | 実装済み・検証中 |
+| `Vector4ToFloatSource` | 実装済み・検証中 |
+| `FloatToVector2Source` | 実装済み・検証中 |
+| `FloatToVector3Source` | 実装済み・検証中 |
+| `FloatToVector4Source` | 実装済み・検証中 |
+| `FloatToGradientColorSource` | 実装済み・検証中 |
 
 ### Transport
 
 | 設計名 | 状態 |
 | --- | --- |
-| `TransportBpmFloatSource` | 未実装 |
-| `TransportBaseBpmFloatSource` | 未実装 |
-| `TransportMultiplierFloatSource` | 未実装 |
-| `BeatPhaseFloatSource` | 未実装 |
-| `BarPhaseFloatSource` | 未実装 |
-| `SubdivisionPhaseFloatSource` | 未実装 |
-| `BeatIndexIntSource` | 未実装 |
-| `BarIndexIntSource` | 未実装 |
-| `BeatTriggerSource` | 未実装 |
-| `BarTriggerSource` | 未実装 |
-| `SubdivisionTriggerSource` | 未実装 |
+| `TransportBpmFloatSource` | 実装済み・検証中 |
+| `TransportBaseBpmFloatSource` | 実装済み・検証中 |
+| `TransportMultiplierFloatSource` | 実装済み・検証中 |
+| `BeatPhaseFloatSource` | 実装済み・検証中 |
+| `BarPhaseFloatSource` | 実装済み・検証中 |
+| `SubdivisionPhaseFloatSource` | 実装済み・検証中 |
+| `BeatIndexIntSource` | 実装済み・検証中 |
+| `BarIndexIntSource` | 実装済み・検証中 |
+| `BeatTriggerSource` | 実装済み・検証中 |
+| `BarTriggerSource` | 実装済み・検証中 |
+| `SubdivisionTriggerSource` | 実装済み・検証中 |
 
 ### Audio
 
 | 設計名 | 状態 |
 | --- | --- |
-| `LaspLevelFloatSource` | 未実装 |
-| `LaspBandFloatSource` | 未実装 |
-| `LaspPeakFloatSource` | 未実装 |
-| `LaspSpectrumBinFloatSource` | 未実装 |
-| `AudioThresholdTriggerSource` | 未実装 |
-| `AudioPeakTriggerSource` | 未実装 |
+| `LaspLevelFloatSource` | 実装済み・検証中 |
+| `LaspBandFloatSource` | 実装済み・検証中 |
+| `LaspPeakFloatSource` | 実装済み・検証中 |
+| `LaspSpectrumBinFloatSource` | 実装済み・検証中 |
+| `AudioThresholdTriggerSource` | 実装済み・検証中 |
+| `AudioPeakTriggerSource` | 実装済み・検証中 |
 
 ### OSC
 
 | 設計名 | 状態 |
 | --- | --- |
-| `OscFloatSource` | 未実装 |
-| `OscIntSource` | 未実装 |
-| `OscBoolSource` | 未実装 |
-| `OscVector2Source` | 未実装 |
-| `OscVector3Source` | 未実装 |
-| `OscVector4Source` | 未実装 |
-| `OscColorSource` | 未実装 |
-| `OscTriggerSource` | 未実装 |
+| `OscFloatSource` | 実装済み・検証中 |
+| `OscIntSource` | 実装済み・検証中 |
+| `OscBoolSource` | 実装済み・検証中 |
+| `OscVector2Source` | 実装済み・検証中 |
+| `OscVector3Source` | 実装済み・検証中 |
+| `OscVector4Source` | 実装済み・検証中 |
+| `OscColorSource` | 実装済み・検証中 |
+| `OscTriggerSource` | 実装済み・検証中 |
 
 ## Modifier
 
@@ -152,79 +163,82 @@ VectorはVector2 / Vector3 / Vector4のファミリー略記。SignalValueSource
 
 | 設計名 | 状態 |
 | --- | --- |
-| `AddFloatModifier` | 未実装 |
-| `MultiplyFloatModifier` | 未実装 |
-| `RemapFloatModifier` | 未実装 |
-| `ClampFloatModifier` | 未実装 |
-| `Invert01FloatModifier` | 未実装 |
-| `AbsFloatModifier` | 未実装 |
-| `SignFloatModifier` | 未実装 |
-| `PowerFloatModifier` | 未実装 |
-| `CurveFloatModifier` | 未実装 |
-| `DeadZoneFloatModifier` | 未実装 |
-| `QuantizeFloatModifier` | 未実装 |
-| `FloorFloatModifier` | 未実装 |
-| `CeilFloatModifier` | 未実装 |
-| `RoundFloatModifier` | 未実装 |
-| `RepeatFloatModifier` | 未実装 |
-| `PingPongFloatModifier` | 未実装 |
-| `SmoothDampFloatModifier` | 未実装 |
-| `ExponentialSmoothFloatModifier` | 未実装 |
-| `AttackReleaseFloatModifier` | 未実装 |
-| `SlewRateFloatModifier` | 未実装 |
-| `WaveShapeFloatModifier` | 未実装 |
+| `AddFloatModifier` | 実装済み・検証中 |
+| `MultiplyFloatModifier` | 実装済み・検証中 |
+| `RemapFloatModifier` | 実装済み・検証中 |
+| `ClampFloatModifier` | 実装済み・検証中 |
+| `Invert01FloatModifier` | 実装済み・検証中 |
+| `AbsFloatModifier` | 実装済み・検証中 |
+| `SignFloatModifier` | 実装済み・検証中 |
+| `PowerFloatModifier` | 実装済み・検証中 |
+| `CurveFloatModifier` | 実装済み・検証中 |
+| `DeadZoneFloatModifier` | 実装済み・検証中 |
+| `QuantizeFloatModifier` | 実装済み・検証中 |
+| `FloorFloatModifier` | 実装済み・検証中 |
+| `CeilFloatModifier` | 実装済み・検証中 |
+| `RoundFloatModifier` | 実装済み・検証中 |
+| `RepeatFloatModifier` | 実装済み・検証中 |
+| `PingPongFloatModifier` | 実装済み・検証中 |
+| `SmoothDampFloatModifier` | 実装済み・検証中 |
+| `ExponentialSmoothFloatModifier` | 実装済み・検証中 |
+| `AttackReleaseFloatModifier` | 実装済み・検証中 |
+| `SlewRateFloatModifier` | 実装済み・検証中 |
+| `WaveShapeFloatModifier` | 実装済み・検証中 |
 
 ### Int
 
 | 設計名 | 状態 |
 | --- | --- |
-| `AddIntModifier` | 未実装 |
-| `MultiplyIntModifier` | 未実装 |
-| `ClampIntModifier` | 未実装 |
-| `WrapIntModifier` | 未実装 |
-| `ModuloIntModifier` | 未実装 |
-| `LookupIntModifier` | 未実装 |
-| `AbsIntModifier` | 未実装 |
+| `AddIntModifier` | 実装済み・検証中 |
+| `MultiplyIntModifier` | 実装済み・検証中 |
+| `ClampIntModifier` | 実装済み・検証中 |
+| `WrapIntModifier` | 実装済み・検証中 |
+| `ModuloIntModifier` | 実装済み・検証中 |
+| `LookupIntModifier` | 実装済み・検証中 |
+| `AbsIntModifier` | 実装済み・検証中 |
 
 ### Bool
 
 | 設計名 | 状態 |
 | --- | --- |
-| `NotBoolModifier` | 未実装 |
+| `NotBoolModifier` | 実装済み・検証中 |
 
 ### Vector
 
 | 設計名 | 状態 |
 | --- | --- |
-| `AddVectorModifier` | 未実装 |
-| `MultiplyVectorScalarModifier` | 未実装 |
-| `MultiplyVectorComponentsModifier` | 未実装 |
-| `NormalizeVectorModifier` | 未実装 |
-| `ClampMagnitudeVectorModifier` | 未実装 |
-| `SmoothDampVectorModifier` | 未実装 |
-| `RemapVectorModifier` | 未実装 |
-| `AbsoluteVectorModifier` | 未実装 |
+| `AddVector2Modifier` | 実装済み・検証中 |
+| `AddVector3Modifier` | 実装済み・検証中 |
+| `AddVector4Modifier` | 実装済み・検証中 |
+| `MultiplyVector2Modifier` | 実装済み・検証中 |
+| `MultiplyVector3Modifier` | 実装済み・検証中 |
+| `MultiplyVector4Modifier` | 実装済み・検証中 |
+| `NormalizeVectorModifier` | 実装済み・検証中 |
+| `ClampMagnitudeVectorModifier` | 実装済み・検証中 |
+| `SmoothDampVectorModifier` | 実装済み・検証中 |
+| `RemapVectorModifier` | 実装済み・検証中 |
+| `AbsoluteVectorModifier` | 実装済み・検証中 |
 
 ### Color
 
 | 設計名 | 状態 |
 | --- | --- |
-| `MultiplyColorModifier` | 未実装 |
-| `IntensityColorModifier` | 未実装 |
-| `AlphaColorModifier` | 未実装 |
-| `HSVColorModifier` | 未実装 |
+| `MultiplyColorModifier` | 実装済み・検証中 |
+| `IntensityColorModifier` | 実装済み・検証中 |
+| `AlphaColorModifier` | 実装済み・検証中 |
+| `HSVColorModifier` | 実装済み・検証中 |
 
 ### Trigger
 
 | 設計名 | 状態 |
 | --- | --- |
-| `CooldownTriggerModifier` | 未実装 |
-| `DelayTriggerModifier` | 未実装 |
-| `EveryNthTriggerModifier` | 未実装 |
-| `RandomChanceTriggerModifier` | 未実装 |
-| `GateTriggerModifier` | 未実装 |
-| `QuantizeTriggerModifier` | 未実装 |
-| `DebounceTriggerModifier` | 未実装 |
+| `CooldownTriggerModifier` | 実装済み・検証中 |
+| `DelayTriggerModifier` | 実装済み・検証中 |
+| `EveryNthTriggerModifier` | 実装済み・検証中 |
+| `RandomChanceTriggerModifier` | 実装済み・検証中 |
+| `GateTriggerModifier` | 実装済み・検証中 |
+| `QuantizeTriggerModifier` | 実装済み・検証中 |
+| `DebounceTriggerModifier` | 実装済み・検証中 |
 
 ## Output
 
@@ -232,174 +246,176 @@ VectorはVector2 / Vector3 / Vector4のファミリー略記。SignalValueSource
 
 | 設計名 | 状態 |
 | --- | --- |
-| `DebugFloatOutput` | 未実装 |
-| `DebugIntOutput` | 未実装 |
-| `DebugBoolOutput` | 未実装 |
-| `DebugVectorOutput` | 未実装 |
-| `DebugColorOutput` | 未実装 |
-| `DebugTriggerOutput` | 未実装 |
-| `SignalFloatOutput` | 未実装 |
-| `SignalIntOutput` | 未実装 |
-| `SignalBoolOutput` | 未実装 |
-| `SignalVector2Output` | 未実装 |
-| `SignalVector3Output` | 未実装 |
-| `SignalVector4Output` | 未実装 |
-| `SignalColorOutput` | 未実装 |
-| `SignalTriggerOutput` | 未実装 |
+| `DebugFloatOutput` | 実装済み・検証中 |
+| `DebugIntOutput` | 実装済み・検証中 |
+| `DebugBoolOutput` | 実装済み・検証中 |
+| `DebugVector2Output` | 実装済み・検証中 |
+| `DebugVector3Output` | 実装済み・検証中 |
+| `DebugVector4Output` | 実装済み・検証中 |
+| `DebugColorOutput` | 実装済み・検証中 |
+| `DebugTriggerOutput` | 実装済み・検証中 |
+| `SignalFloatOutput` | 実装済み・検証中 |
+| `SignalIntOutput` | 実装済み・検証中 |
+| `SignalBoolOutput` | 実装済み・検証中 |
+| `SignalVector2Output` | 実装済み・検証中 |
+| `SignalVector3Output` | 実装済み・検証中 |
+| `SignalVector4Output` | 実装済み・検証中 |
+| `SignalColorOutput` | 実装済み・検証中 |
+| `SignalTriggerOutput` | 実装済み・検証中 |
 
 ### Unity Object
 
 | 設計名 | 状態 |
 | --- | --- |
-| `GameObjectActiveBoolOutput` | 未実装 |
-| `BehaviourEnabledBoolOutput` | 未実装 |
-| `RendererEnabledBoolOutput` | 未実装 |
-| `ObjectGroupIndexIntOutput` | 未実装 |
-| `TransformPositionVector3Output` | 未実装 |
-| `TransformRotationVector3Output` | 未実装 |
-| `TransformScaleVector3Output` | 未実装 |
-| `TransformPositionAxisFloatOutput` | 未実装 |
-| `TransformRotationAxisFloatOutput` | 未実装 |
-| `TransformScaleAxisFloatOutput` | 未実装 |
+| `GameObjectActiveBoolOutput` | 実装済み・検証中 |
+| `BehaviourEnabledBoolOutput` | 実装済み・検証中 |
+| `RendererEnabledBoolOutput` | 実装済み・検証中 |
+| `ObjectGroupIndexIntOutput` | 実装済み・検証中 |
+| `TransformPositionVector3Output` | 実装済み・検証中 |
+| `TransformRotationVector3Output` | 実装済み・検証中 |
+| `TransformScaleVector3Output` | 実装済み・検証中 |
+| `TransformPositionAxisFloatOutput` | 実装済み・検証中 |
+| `TransformRotationAxisFloatOutput` | 実装済み・検証中 |
+| `TransformScaleAxisFloatOutput` | 実装済み・検証中 |
 
 ### Transport
 
 | 設計名 | 状態 |
 | --- | --- |
-| `TransportTapTriggerOutput` | 未実装 |
-| `TransportResetPhaseTriggerOutput` | 未実装 |
-| `TransportBpmFloatOutput` | 未実装 |
-| `TransportMultiplierFloatOutput` | 未実装 |
-| `TransportNudgeForwardTriggerOutput` | 未実装 |
-| `TransportNudgeBackwardTriggerOutput` | 未実装 |
+| `TransportTapTriggerOutput` | 実装済み・検証中 |
+| `TransportResetPhaseTriggerOutput` | 実装済み・検証中 |
+| `TransportBpmFloatOutput` | 実装済み・検証中 |
+| `TransportMultiplierFloatOutput` | 実装済み・検証中 |
+| `TransportNudgeForwardTriggerOutput` | 実装済み・検証中 |
+| `TransportNudgeBackwardTriggerOutput` | 実装済み・検証中 |
 
 ### MIDI
 
 | 設計名 | 状態 |
 | --- | --- |
-| `MidiLedBoolOutput` | 未実装 |
-| `MidiLedIndexedIntOutput` | 未実装 |
-| `MidiLedValueFloatOutput` | 未実装 |
-| `MidiLedColorOutput` | 未実装 |
-| `MidiLedTriggerFlashOutput` | 未実装 |
+| `MidiLedBoolOutput` | 実装済み・検証中 |
+| `MidiLedIndexedIntOutput` | 実装済み・検証中 |
+| `MidiLedValueFloatOutput` | 実装済み・検証中 |
+| `MidiLedColorOutput` | 実装済み・検証中 |
+| `MidiLedTriggerFlashOutput` | 実装済み・検証中 |
 
 ### Animator
 
 | 設計名 | 状態 |
 | --- | --- |
-| `AnimatorFloatOutput` | 未実装 |
-| `AnimatorIntOutput` | 未実装 |
-| `AnimatorBoolOutput` | 未実装 |
-| `AnimatorTriggerOutput` | 未実装 |
-| `AnimatorLayerWeightFloatOutput` | 未実装 |
-| `AnimatorStateTriggerOutput` | 未実装 |
+| `AnimatorFloatOutput` | 実装済み・検証中 |
+| `AnimatorIntOutput` | 実装済み・検証中 |
+| `AnimatorBoolOutput` | 実装済み・検証中 |
+| `AnimatorTriggerOutput` | 実装済み・検証中 |
+| `AnimatorLayerWeightFloatOutput` | 実装済み・検証中 |
+| `AnimatorStateTriggerOutput` | 実装済み・検証中 |
 
 ### VFX Graph
 
 | 設計名 | 状態 |
 | --- | --- |
-| `VFXFloatOutput` | 未実装 |
-| `VFXIntOutput` | 未実装 |
-| `VFXUIntOutput` | 未実装 |
-| `VFXBoolOutput` | 未実装 |
-| `VFXVector2Output` | 未実装 |
-| `VFXVector3Output` | 未実装 |
-| `VFXVector4Output` | 未実装 |
-| `VFXColorOutput` | 未実装 |
-| `VFXMatrixOutput` | 未実装 |
-| `VFXTextureOutput` | 未実装 |
-| `VFXTextureIndexOutput` | 未実装 |
-| `VFXTriggerEventOutput` | 未実装 |
+| `VFXFloatOutput` | 実装済み・検証中 |
+| `VFXIntOutput` | 実装済み・検証中 |
+| `VFXUIntOutput` | 実装済み・検証中 |
+| `VFXBoolOutput` | 実装済み・検証中 |
+| `VFXVector2Output` | 実装済み・検証中 |
+| `VFXVector3Output` | 実装済み・検証中 |
+| `VFXVector4Output` | 実装済み・検証中 |
+| `VFXColorOutput` | 実装済み・検証中 |
+| `VFXMatrixOutput` | 実装済み・検証中 |
+| `VFXTextureOutput` | 実装済み・検証中 |
+| `VFXTextureIndexOutput` | 実装済み・検証中 |
+| `VFXTriggerEventOutput` | 実装済み・検証中 |
 
 ### Renderer / Material
 
 | 設計名 | 状態 |
 | --- | --- |
-| `RendererFloatOutput` | 未実装 |
-| `RendererIntOutput` | 未実装 |
-| `RendererVectorOutput` | 未実装 |
-| `RendererColorOutput` | 未実装 |
-| `RendererTextureOutput` | 未実装 |
-| `RendererTextureIndexOutput` | 未実装 |
-| `MaterialFloatOutput` | 未実装 |
-| `MaterialIntOutput` | 未実装 |
-| `MaterialVectorOutput` | 未実装 |
-| `MaterialColorOutput` | 未実装 |
-| `MaterialTextureOutput` | 未実装 |
+| `RendererFloatOutput` | 実装済み・検証中 |
+| `RendererIntOutput` | 実装済み・検証中 |
+| `RendererVectorOutput` | 実装済み・検証中 |
+| `RendererColorOutput` | 実装済み・検証中 |
+| `RendererTextureOutput` | 実装済み・検証中 |
+| `RendererTextureIndexOutput` | 実装済み・検証中 |
+| `MaterialFloatOutput` | 実装済み・検証中 |
+| `MaterialIntOutput` | 実装済み・検証中 |
+| `MaterialVectorOutput` | 実装済み・検証中 |
+| `MaterialColorOutput` | 実装済み・検証中 |
+| `MaterialTextureOutput` | 実装済み・検証中 |
 
 ### Volume
 
 | 設計名 | 状態 |
 | --- | --- |
-| `VolumeFloatOutput` | 未実装 |
-| `VolumeIntOutput` | 未実装 |
-| `VolumeBoolOutput` | 未実装 |
-| `VolumeColorOutput` | 未実装 |
-| `VolumeVectorOutput` | 未実装 |
+| `VolumeFloatOutput` | 実装済み・検証中 |
+| `VolumeIntOutput` | 実装済み・検証中 |
+| `VolumeBoolOutput` | 実装済み・検証中 |
+| `VolumeColorOutput` | 実装済み・検証中 |
+| `VolumeVectorOutput` | 実装済み・検証中 |
 
 ### Cinemachine
 
 | 設計名 | 状態 |
 | --- | --- |
-| `CinemachineCameraIndexOutput` | 未実装 |
-| `CinemachineFovFloatOutput` | 未実装 |
-| `CinemachineDutchFloatOutput` | 未実装 |
-| `CinemachinePriorityIntOutput` | 未実装 |
+| `CinemachineCameraIndexOutput` | 実装済み・検証中 |
+| `CinemachineFovFloatOutput` | 実装済み・検証中 |
+| `CinemachineDutchFloatOutput` | 実装済み・検証中 |
+| `CinemachinePriorityIntOutput` | 実装済み・検証中 |
 
 ### VideoPlayer
 
 | 設計名 | 状態 |
 | --- | --- |
-| `VideoPlayerSpeedFloatOutput` | 未実装 |
-| `VideoPlayerPlayBoolOutput` | 未実装 |
-| `VideoPlayerTimeFloatOutput` | 未実装 |
-| `VideoPlayerNormalizedTimeFloatOutput` | 未実装 |
-| `VideoPlayerClipIndexIntOutput` | 未実装 |
-| `VideoPlayerPlayTriggerOutput` | 未実装 |
-| `VideoPlayerPauseTriggerOutput` | 未実装 |
-| `VideoPlayerStopTriggerOutput` | 未実装 |
-| `VideoPlayerRestartTriggerOutput` | 未実装 |
+| `VideoPlayerSpeedFloatOutput` | 実装済み・検証中 |
+| `VideoPlayerPlayBoolOutput` | 実装済み・検証中 |
+| `VideoPlayerTimeFloatOutput` | 実装済み・検証中 |
+| `VideoPlayerNormalizedTimeFloatOutput` | 実装済み・検証中 |
+| `VideoPlayerClipIndexIntOutput` | 実装済み・検証中 |
+| `VideoPlayerPlayTriggerOutput` | 実装済み・検証中 |
+| `VideoPlayerPauseTriggerOutput` | 実装済み・検証中 |
+| `VideoPlayerStopTriggerOutput` | 実装済み・検証中 |
+| `VideoPlayerRestartTriggerOutput` | 実装済み・検証中 |
 
 ### AudioSource
 
 | 設計名 | 状態 |
 | --- | --- |
-| `AudioSourceVolumeFloatOutput` | 未実装 |
-| `AudioSourcePitchFloatOutput` | 未実装 |
-| `AudioSourcePanFloatOutput` | 未実装 |
-| `AudioSourcePlayBoolOutput` | 未実装 |
-| `AudioSourceTimeFloatOutput` | 未実装 |
-| `AudioSourceClipIndexIntOutput` | 未実装 |
-| `AudioSourcePlayTriggerOutput` | 未実装 |
-| `AudioSourcePauseTriggerOutput` | 未実装 |
-| `AudioSourceStopTriggerOutput` | 未実装 |
-| `AudioSourceRestartTriggerOutput` | 未実装 |
+| `AudioSourceVolumeFloatOutput` | 実装済み・検証中 |
+| `AudioSourcePitchFloatOutput` | 実装済み・検証中 |
+| `AudioSourcePanFloatOutput` | 実装済み・検証中 |
+| `AudioSourcePlayBoolOutput` | 実装済み・検証中 |
+| `AudioSourceTimeFloatOutput` | 実装済み・検証中 |
+| `AudioSourceClipIndexIntOutput` | 実装済み・検証中 |
+| `AudioSourcePlayTriggerOutput` | 実装済み・検証中 |
+| `AudioSourcePauseTriggerOutput` | 実装済み・検証中 |
+| `AudioSourceStopTriggerOutput` | 実装済み・検証中 |
+| `AudioSourceRestartTriggerOutput` | 実装済み・検証中 |
 
 ### OSC
 
 | 設計名 | 状態 |
 | --- | --- |
-| `OscFloatOutput` | 未実装 |
-| `OscIntOutput` | 未実装 |
-| `OscBoolOutput` | 未実装 |
-| `OscVector2Output` | 未実装 |
-| `OscVector3Output` | 未実装 |
-| `OscVector4Output` | 未実装 |
-| `OscColorOutput` | 未実装 |
-| `OscTriggerOutput` | 未実装 |
+| `OscFloatOutput` | 実装済み・検証中 |
+| `OscIntOutput` | 実装済み・検証中 |
+| `OscBoolOutput` | 実装済み・検証中 |
+| `OscVector2Output` | 実装済み・検証中 |
+| `OscVector3Output` | 実装済み・検証中 |
+| `OscVector4Output` | 実装済み・検証中 |
+| `OscColorOutput` | 実装済み・検証中 |
+| `OscTriggerOutput` | 実装済み・検証中 |
 
 ### Generic Component
 
 | 設計名 | 状態 |
 | --- | --- |
-| `ComponentMemberFloatOutput` | 未実装 |
-| `ComponentMemberIntOutput` | 未実装 |
-| `ComponentMemberBoolOutput` | 未実装 |
-| `ComponentMemberVector2Output` | 未実装 |
-| `ComponentMemberVector3Output` | 未実装 |
-| `ComponentMemberVector4Output` | 未実装 |
-| `ComponentMemberColorOutput` | 未実装 |
+| `ComponentMemberFloatOutput` | 実装済み・検証中 |
+| `ComponentMemberIntOutput` | 実装済み・検証中 |
+| `ComponentMemberBoolOutput` | 実装済み・検証中 |
+| `ComponentMemberVector2Output` | 実装済み・検証中 |
+| `ComponentMemberVector3Output` | 実装済み・検証中 |
+| `ComponentMemberVector4Output` | 実装済み・検証中 |
+| `ComponentMemberColorOutput` | 実装済み・検証中 |
 
 ## 集計の読み方
 
-第62〜64章の設計名はSource 95項目、Modifier 48項目、Output 107項目。これはファミリーを1行で数えた一覧件数であり、具体型展開後のクラス数ではない。Subsystem、Profile、Driver、Inspector、Monitor等はこの件数に含めず、[実装・検証チェックリスト](implementation-plan.md)で追跡する。
+第62〜64章の設計一覧はSource 95項目、Modifier 48項目、Output 107項目。VectorやSignalのファミリーを具体型へ展開すると本表はSource 105クラス、Modifier 51クラス、Output 109クラスになる（計265クラス名）。Subsystem、Profile、Driver、Inspector、Monitor等は本表に含めず、[実装・検証チェックリスト](implementation-plan.md)で追跡する。本表の全クラス名がRuntime実装に存在することを照合した。

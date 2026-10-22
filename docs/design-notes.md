@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-22（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。実装・実機検証は未実施だが、仕様上の未決事項は残さない。
+更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Stage ProjectのEditMode 45件・通常PlayMode 6件、APC Pad 1物理入力1件、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。Windows IL2CPP module、MIDI Clock精度、USB再接続、Git URL導入、Player上の全Integration受け入れは継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
 
 ## 採用済みの判断
 
@@ -134,6 +134,8 @@ Portを1秒ごとに再列挙し、失敗時は1秒間隔で再接続する。Su
 
 ProfileはInput / Feedback address、Controlの型、範囲、座標、Driver IDを持ち、Driverはメッセージdecode / encode・Capabilityを担当する。Relative EncoderはTwosComplement / BinaryOffset / SignMagnitudeをProfileで明示し、deltaを加算して設定範囲へClampする。形式の自動推測はしない。
 
+XY Controlは同じSurface上で個別のControl IDを持つX / Y軸として定義し、`MidiXYVector2Source`が2つをVector2へ合成する。各Controlの初期値もRouteの初期Vectorへ反映する。MIDI Source / TriggerのControl Reference PickerはnodeごとのControl Type制約で候補を絞り、既存の不一致IDを黙って置き換えない。
+
 Paletteはメーカー対応表のsRGB色をlinear RGBへ変換し、二乗距離最小、同距離は小さいPalette番号を採用する。Brightnessは対応段階への最近傍（同距離は暗い方）。MonoはOffまたはbrightness=0で消灯、それ以外は点灯。Blink / Pulse非対応時はSolidへ縮退し、InspectorへCapability警告を表示する。
 
 Layer Priorityの既定値はBase=0、State=100、Beat=200、Interaction=300、Alert=400。最高Priorityを採用し、同値は設定上の後のLayerを採用する。同一Layer・同一Controlは後の書込が勝つ。Layer書込にはowner tokenを持ち、Scope破棄でownerの寄与だけを除去する。差分比較はDriver変換後の送信payloadを使う。
@@ -184,6 +186,6 @@ SpectrumはLaspのlinear-frequency spectrumSpanを利用し、binとHzは実samp
 
 OSCはaddressを完全一致させ、float=f、int=i、boolはiの0/1、Vectorは2〜4個のf、Colorはlinear RGBAの4個のf、Triggerは引数なし。T/F・double・暗黙の型変換・部分一致は標準wire契約に含めず、不正型は棄却して診断する。SourceにInitial Value、Outputに送信先とaddressを明示する。
 
-upstream OSC Jack 2.0.0の公開Getterはi/fを暗黙変換し、Type Tag自体を公開しないため、厳密な型検査には不足する。既存のredmond418/OscJack forkを配布元とし、既存のmixed i/f送信に加えて`OscDataHandle.GetElementTypeTag(index)`の公開を必要APIとして確定する。forkの改修・固定commit作成・動作試験は実装作業に含め、現時点でそのAPIが実装済みとは扱わない。無関係な機能はforkへ追加しない。
+upstream OSC Jack 2.0.0の公開Getterはi/fを暗黙変換し、Type Tag自体を公開しないため、厳密な型検査には不足する。配布元はredmond418/OscJack forkとし、`OscDataHandle.GetElementTypeTag(index)`を追加した固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328`を採用した。Runtime Adapterは型タグを厳密に検査する。fork APIのPlayer / IL2CPP動作と実ネットワーク受け入れは未完。無関係な機能はforkへ追加しない。
 
 OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送4096件/frame・超過新規分棄却。自動echoは実装しない。同じRuntimeで入力→出力の同じendpoint / addressへの直接loopはValidation Error。別PCを跨ぐ構成のloopは自動検出できないため、送受信addressを分ける。外部Transport同期は`/mondmade/transport`へ`BPM(float), wholeBeat(float), fractionalBeat(float), running(float)`の4個のfを1パケットで30Hz以上で受信し、受信時刻を基準に同期する。wholeBeatは0〜16777215の整数、fractionalBeatは0以上1未満、runningは0/1とし、内部ではdoubleへ復元する。範囲外パケットは棄却する。送信側Clockとネットワーク遅延の絶対補償は行わず、D11と同じLost / 再取得規則を使う。

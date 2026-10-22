@@ -1,0 +1,14 @@
+{
+  "name": "MondmadeVJ0.Animator.Editor",
+  "rootNamespace": "MondmadeVJ0.Editor",
+  "references": ["MondmadeVJ0.Core.Editor", "MondmadeVJ0.Animator"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,10 +1,10 @@
 # プロジェクト調査と移植元
 
-調査日：2026-10-22（JST）。ローカルの実ファイルとUnity CLIで確認した事実を記す。パッケージの最新版・互換性の保証ではなく、調査時点の構成である。
+更新日：2026-10-23（JST）。下記は作業開始時の調査スナップショットと、現時点の実装状態を併記する。パッケージの最新版・将来の互換性を保証するものではない。
 
-本書の「候補」「確認」は初回調査の記録。以後の設計判断は[動作契約](design-notes.md)と[パッケージ構成](packaging.md)で確定している。例えばOSC JackはType Tag取得APIを追加するredmond418 fork、InspectorはUnity標準UI Toolkit、MIDIはMinis＋RtMidi、ソースは単一UPM内の機能別asmdef配置を採用する。forkの必要API追加・依存のインストール・互換性試験はまだ行っていない。
+本書の「候補」「確認」は作業開始時点の記録。設計判断と現状の導入結果は[動作契約](design-notes.md)と[パッケージ構成](packaging.md)を参照する。OSC JackはType Tag取得APIを追加したredmond418 fork、InspectorはUnity標準UI Toolkit、MIDIはMinis＋RtMidi、ソースは単一UPM内の機能別asmdef配置を採用した。
 
-## MondmadeVJ0の現在地
+## 作業開始時点の状態
 
 調査開始時HEAD：`60ee129d3497c214bb6eb25718c5da11729fc49c`（プロジェクト作成）。開始時の作業ツリーはclean。
 
@@ -20,7 +20,19 @@
 | 独自コード | Assets以下にC#、asmdef、MondmadeVJ0 Runtimeの実装はない |
 | Unity接続 | Unity CLI 1.0.0-beta.13で本プロジェクトのEditorがreadyと確認 |
 
-設計上のコード例はすべて未実装。R3・Minis・Lasp・OSC Jack・Cinemachine・VFX Graph・Alchemy・UniTask・LitMotionは現在のmanifestにない。生成済みのcsprojやLibrary内のキャッシュをライブラリ実装の根拠にしない。
+開始時点では独自Runtime / Editor実装がなく、R3や各Integrationもmanifestに未導入だった。生成済みのcsprojやLibrary内のキャッシュは開始時点の実装根拠に含めていない。
+
+## 2026-10-23時点の実装
+
+| 項目 | 状況 |
+| --- | --- |
+| UPM | `Packages/com.redmond.mondmade-vj0/`に単一パッケージを作成。Runtime / Editor / Testsを機能別asmdefへ分離 |
+| Runtime | 8型Route、共通Lifecycle / FrameClock / Service、Source / Modifier、Transport、MIDI / APC、OSC、Lasp、Animator、VFX、Rendering、Cinemachine、Video、Generic Component Outputを実装 |
+| Editor | Core Route Inspector、検索可能なNode型選択、Integration候補Drawer、MIDI Learn、Setup、Validation、Runtime Monitorを実装 |
+| Unity | Unity 6000.3.8f1 macOS arm64 Stage ProjectでRuntime / Editor assemblyをコンパイル。EditMode 45/45、通常PlayMode 6/6、APC Pad 1物理入力probe 1/1通過。macOS universal x86_64 + arm64のMono / IL2CPP、およびWindows x64 Mono cross-build成功。Windows IL2CPP moduleはHubで選択できず未確認 |
+| 構成 | R3とUnity標準moduleのみ、およびInput System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認 |
+| APC mini mk2 | 90-control ProfileとQuickStart Sceneを`Assets/MondmadeVJ0.Dev/`へ配置。macOS IORegistryでUSB接続を確認し、RtMidi input/output両portをOpen。実機の左上Pad 1がNote 56を送ることを確認し、Profile座標を修正。LED ON/OFF payloadを検証 |
+| 未完の受入 | LEDの物理点灯目視、Git URLでの新規導入、Windows IL2CPP / Windows上の実機MIDI、追加の依存部分構成・Player build、Player上の全Integration、MIDI Clock長時間精度、USB切断・再接続 |
 
 ## 参照した既存システム
 
@@ -59,7 +71,9 @@ NxPCLabの[AGENTS.md](../../NxPCLab20260327/AGENTS.md)と[spec.md](../../NxPCLab
 
 NxPCLabの同じProvidersフォルダにはCompare、BooleanLogic、Collection、ValueConversion、InputAction系もある。各演算の参考にしつつ、Source / Modifier / 型変換の新しい分類に分け直す。LifeStepTriggerProviderやGameOfLife専用Binding、SDF描画・ノード保存・アプリUIは本基盤の移植対象にしない。
 
-## 依存関係の現状と候補
+## 作業開始時の依存候補
+
+下表の「未導入」は2026-10-22の作業開始時点を示す。現在の依存lockと採用版は[パッケージ構成](packaging.md)を参照。
 
 | 依存 | 現在 | 既存プロジェクトでの確認内容・方針 |
 | --- | --- | --- |
@@ -75,4 +89,4 @@ NxPCLabの同じProvidersフォルダにはCompare、BooleanLogic、Collection�
 | UniTask / LitMotion | 未導入 | 3作で使用。Coreへ必須化せず、必要なIntegration側で検討 |
 | Syphon / Hap / QuectoLines / uRaymarching等 | 未導入 | 既存アプリの映像制作側依存。会話の完成要件へ自動追加しない |
 
-既存manifestのGit URLは固定tagがないものもある。実装時に採用バージョン、lock、native pluginの対象OSを固定・確認する。今回は設計資料だけを整備し、Packages、ProjectSettings、Scene、参照元コードは変更していない。
+初回調査時点では既存manifestのGit URLに固定tagがないものもあった。作業では採用版をlockし、`Packages/`と開発用Sceneを追加した。参照元リポジトリへ変更は加えていない。

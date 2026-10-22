@@ -1,0 +1,14 @@
+{
+  "name": "MondmadeVJ0.Setup.Editor",
+  "rootNamespace": "MondmadeVJ0.Editor.Setup",
+  "references": ["NuGetForUnity"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

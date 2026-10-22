@@ -1,71 +1,71 @@
 # 実装と検証
 
-更新日：2026-10-22（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させるための作業一覧。以下の順序は依存関係を示し、提供機能を段階的に削るリリース区分ではない。D01〜D20の設計判断は確定済み。コード実装・動作検証は未着手。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 45件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理とXY→Vector2 Sourceを追加した。APC mini mk2の左上Pad 1を実機で押し、ノート56の受信も確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
 ### 基盤・依存
 
 - [x] [設計判断](design-notes.md)D01〜D03・D18と[導入仕様](packaging.md)：保存形式、namespace、配布単位、Runtime / Transportの依存境界を確定
-- [ ] 単一UPMフォルダPackages/com.redmond.mondmade-vj0、package.json、機能別Runtime / Editor / Tests asmdef、Samples~を作成
-- [ ] R3導入手順、外部依存の固定一覧とSetup Windowを作成し、MondmadeVJ0がGit URL1つで導入・更新できることを検証
-- [ ] 任意IntegrationのVersion Defines / Define Constraintsを設定し、外部依存なし・一部のみ・全依存ありでimportを検証
-- [ ] 必要パッケージの採用版と対象OS・Player backendを記録。R3、Unity Integration、MIDI backendの依存を解決
-- [ ] 同一UPM内でCoreとIntegration、Editor、Testsをasmdefで分離。R3のみの最小依存でもコンパイル可能にする
-- [ ] 8 Route具体型、generic API、RouteContext、Runtime Root、共通Binding Scope
-- [ ] Value初期値、Trigger非Replay、最終Stream単一購読、最終値保持、Output初期化順
-- [ ] 共通FrameClock、Service初期化、Enable / Disable / Destroy、例外隔離と診断
-- [ ] 各Value / TriggerのShared Signal、Source / Output、循環検出
+- [x] 単一UPMフォルダ、package.json、機能別Runtime / Editor / Tests asmdef
+- [x] R3導入手順、外部依存の固定一覧、Setup Windowを実装。Git URLのみでの新規利用導入試験は未完
+- [x] 任意IntegrationのVersion Defines / Define Constraintsを設定。Stageの全依存あり、R3とUnity標準moduleのみ、Input System＋MIDI＋OSCを含む部分構成でimport・compileを確認。Git URL新規導入は未完
+- [x] 必要パッケージの採用版とPlayer backendを記録。Unity 6000.3.8f1/macOS arm64 Editorで依存解決
+- [x] Core / Integration / Editor / Testsのassembly分離。R3＋Unity標準module構成で任意Integrationなしのimport / compileを確認。Git URL導入は未完
+- [x] 8 Route具体型、generic API、RouteContext、Runtime Root、共通Binding Scope
+- [x] Value初期値、Trigger非Replay、最終Stream単一購読、最終値保持、Output初期化順
+- [x] 共通FrameClock、Service初期化、Enable / Disable / Destroy、例外隔離と診断
+- [x] 各Value / TriggerのShared Signal、Source / Output、Scene横断の循環検出
 
 ### Source・Modifier
 
-- [ ] カタログの基本・Stateful・Composite・型変換Sourceを全件実装
-- [ ] Float / Int / Bool / Vector / Color / Trigger Modifierを全件実装
+- [x] カタログの基本・Stateful・Composite・型変換Sourceを全件実装
+- [x] Float / Int / Bool / Vector / Color / Trigger Modifierを全件実装
 - [x] D04〜D08：初期値・同時入力・Trigger合成・数値境界・時間処理・再Bindの意味を確定
-- [ ] Input System Source全件と共用ActionのEnable管理（D12）
+- [x] Input System Source全件と共用ActionのEnable管理（D12）
 
 ### Transport
 
-- [ ] double Clock / epoch、BPM / Multiplier、Beat / Bar / 拍子、Phase連続性
-- [ ] Tap Tempo、Nudge / Reset、各Transport Source / Output
-- [ ] 通常・三連Subdivision、Quantize SchedulerとTrigger Modifier
-- [ ] DSP / Unscaled / External MIDI / External OSCのClock切替
-- [ ] MIDI Clock受信と送信、Running / SPP、外部同期状態の復元
+- [x] double Clock / epoch、BPM / Multiplier、Beat / Bar / 拍子、Phase連続性
+- [x] Tap Tempo、Nudge / Reset、各Transport Source / Output
+- [x] 通常・三連Subdivision、Quantize SchedulerとTrigger Modifier
+- [x] DSP / Unscaled / External MIDI / External OSCのClock切替
+- [x] MIDI Clock受信と送信、Running / SPP、外部同期状態の復元
 - [x] D09〜D11：Grid単位、遅延・停止・Seek・外部切断・Clock精度の契約と合格目標を確定
 
 ### MIDI
 
-- [ ] MidiHub、Surface Instance、Profile、Logical Control Reference
-- [ ] Generic / APC mini mk2 Driver、物理InputとFeedbackの単一定義
-- [ ] Absolute / Relative / Velocity / Hold / Group Index / Press / Release Source
-- [ ] Bool / Index / Float / Color / FlashのLED Output
-- [ ] Base / State / Beat / Interaction / Alertと追加Layer、Priority合成
-- [ ] 差分送信、更新Queue集約、Port検出、複数機器、切断・再接続・Full Resync
-- [ ] D13〜D14：Realtime Messageとnative backend、実機Protocol、縮退規則を検証
+- [x] MidiHub、Surface Instance、Profile、Logical Control Reference
+- [x] Generic / APC mini mk2 Driver、物理InputとFeedbackの単一定義
+- [x] Absolute / Relative / Velocity / Hold / Group Index / Press / Release Source
+- [x] Bool / Index / Float / Color / FlashのLED Output
+- [x] Base / State / Beat / Interaction / Alertと追加Layer、Priority合成
+- [x] 差分送信、更新Queue集約、Port検出、複数機器、切断・再接続・Full Resync
+- [ ] D13〜D14：Realtime Messageとnative backend、実機Protocol、縮退規則を継続検証。APC Pad 1の物理入力とRtMidi raw messageは確認済み
 
 ### Integration・Output
 
-- [ ] Unity Object / Transform、Debug / Signal Output
-- [ ] Animator / VFX Graph / Renderer・Material / Volume Output全件
-- [ ] Cinemachine / VideoPlayer / AudioSource / Generic Component Output全件
-- [ ] OSC全型の入出力と外部Transport同期のAdapter
-- [ ] OSC Jack forkへType Tag取得APIを追加し、Git commitを固定。i/fの型不一致棄却と4-float Transport同期パケットを検証
-- [ ] Lasp Level / Band / Peak / SpectrumとAudio Trigger
+- [x] Unity Object / Transform、Debug / Signal Output
+- [x] Animator / VFX Graph / Renderer・Material / Volume Output全件
+- [x] Cinemachine / VideoPlayer / AudioSource / Generic Component Output全件
+- [x] OSC全型の入出力と外部Transport同期Adapter
+- [x] OSC Jack forkのType Tag取得API・固定commit・型棄却・4-float同期Adapter
+- [x] Lasp Level / Band / Peak / SpectrumとAudio Trigger
 - [x] D15〜D17・D20：UInt / Matrix / Textureの接続、資源所有権、IL2CPP accessor、Audio / OSC値の契約を確定
 
 ### Editor・運用
 
-- [ ] 型別Node選択、検索、Route要約、複製、Copy / Paste、並べ替え、Disable / Delete
-- [ ] VFX / Shader / Animator / Volume / Component Memberの候補選択
-- [ ] ProfileのControl候補とEditor MIDI Learn
-- [ ] Play前Validation、InspectorのValid / Warning / Error、Route名付き診断
-- [ ] Runtime / MIDI / Transport / Performance Monitorと中間値の展開
+- [x] 型別Node検索・選択、Route要約、複製、Copy / Paste、並べ替え、Disable / DeleteのCore Inspector
+- [x] Animator / VFX / Shader / Volume / Component Memberの候補選択UIとIL2CPP accessor生成
+- [x] ProfileのControl候補とEditor MIDI Learn
+- [x] Play前Validation、InspectorのValid / Warning / Error、Route名付き診断。広い不正構成の受け入れ試験は未完
+- [x] Runtime / MIDI / Transport診断・Route値・Output status Monitor。中間値履歴・負荷計測は未完
 - [x] D19：処理中の失敗隔離、ログ抑制、観測コストと合格目標を確定
-- [ ] 使用例・セットアップ手順・対象OSとPlayer検証結果を追加
+- [x] 使用例・セットアップ手順を追加。対象OSとPlayer検証結果は下表の記録に従う
 
 ## 受け入れ条件
 
-現時点ではテストコードのない設計段階であり、以下は実装時の検証仕様。結果を取得する前にチェック済みにしない。単体契約はEditMode、UnityライフサイクルはPlayMode、外部連携は実機とPlayerで確認する。
+以下は実装完了判定の受け入れ仕様。Core / Transport / OSC / Editor Validation / APC ProfileのEditModeテストと、Runtime Lifecycle / APC実機送信のPlayModeテストを追加した。全条件の記録はまだ揃っていない。単体契約はEditMode、UnityライフサイクルはPlayMode、外部連携は実機とPlayerで確認する。
 
 | ID | 対象 | 検証する操作と期待結果 |
 | --- | --- | --- |
@@ -93,6 +93,23 @@
 | A22 | Validation | 原文第53章の不正構成をすべて作り、Editor診断が該当Routeを指す |
 | A23 | Monitor | Raw→中間値→Final→Output、論理MIDI / Raw MIDI、Tap履歴・Clock、処理件数を照合。無効化時の計測コストも測定 |
 | A24 | 単一UPM・分離とPlayer | MondmadeVJ0をGit URL1つで導入し、R3のみ・一部外部依存あり・全依存ありの各構成でimport・Playerビルド。無効Integrationの欠落参照エラーがないこと、各対象OSでnative MIDI・AOT accessor・strippingを検証 |
+
+## 現時点の検証結果
+
+| 対象 | 結果 |
+| --- | --- |
+| Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
+| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Pickerの45 testsが45/45通過 |
+| PlayMode | lifecycle、MIDI Surfaceの分離、Note On velocity=0 Release、3形式のRelative Encoder、Button / Velocity / Fader / Knob / Pitch Bend / Aftertouch、XY→Vector2の6 testsが6/6通過。明示指定の実機試験は別枠 |
+| APC mini mk2 | Input / Outputを機器名で検出し、両portをOpen。実機の左上Pad 1からNote 56を受信し、物理入力probe 1/1通過。LEDのON（0x96, 56, 21）/OFF送信payloadを検証。LEDの目視点灯は未確認 |
+| PlayMode合計 | 通常runは6/6通過、Explicit物理試験1件は通常runでSkipped。物理入力probeは別途明示実行し1/1通過 |
+| macOS Player | Unity 6000.3.8f1、universal x86_64 + arm64でMono2xとIL2CPP build成功、各errors=0 / Unity集計warnings=2。IL2CPP linkerはbaselibの最低macOS版がlink targetより新しい旨を出力し、Cloud Diagnostics symbol uploadは認証情報がなく失敗 |
+| Windows Player | Windows Build Support (Mono)を導入し、Unity 6000.3.8f1からWindows x64 Mono build成功、errors=0。20 warningsはWindows非対応URP shader variantsのimport診断。Hubの同Editor向けmodule一覧にWindows IL2CPPはなく、IL2CPP buildは未実施 |
+| R3最小構成 | Unity標準moduleを明示し、Input System / URP / MIDI / OSC / Lasp / Cinemachine / VFX GraphなしでUPM local packageをimport。Core / Setup / Animator / Transport / Videoがcompileし、欠落した任意Integrationの参照エラーなし |
+| 部分構成 | UPM local packageにInput System＋MIDI＋OSCを追加し、Lasp / Cinemachine / URP / VFX Graphなしでimport・compile。MIDI / OSC assemblyが有効、未導入Integrationのassemblyは無効 |
+| 未実施 | Git URLからの新規導入、部分構成ごとのPlayer build、Windows IL2CPP / Windows実機実行、Player上のOSC / 全Integration、MIDI Clock 10分精度、USB切断・再接続、LEDの目視点灯 |
+
+上記は検証した環境に限る。Acceptance A01〜A24をすべて通過した記録が揃うまでは全体完了としない。
 
 ## 動作例として揃えるRoute
 

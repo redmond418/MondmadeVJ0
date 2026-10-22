@@ -1,0 +1,17 @@
+{
+  "name": "MondmadeVJ0.Midi",
+  "rootNamespace": "MondmadeVJ0.Midi",
+  "references": ["MondmadeVJ0.Core", "Unity.InputSystem", "Minis", "RtMidi.Runtime"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["R3.dll"],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_MINIS", "MONDMADE_HAS_RTMIDI"],
+  "versionDefines": [
+    { "name": "jp.keijiro.minis", "expression": "[1.3.2,2.0.0)", "define": "MONDMADE_HAS_MINIS" },
+    { "name": "jp.keijiro.rtmidi", "expression": "[2.2.0,3.0.0)", "define": "MONDMADE_HAS_RTMIDI" }
+  ],
+  "noEngineReferences": false
+}

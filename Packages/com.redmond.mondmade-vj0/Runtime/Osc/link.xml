@@ -1,0 +1,7 @@
+<linker>
+  <assembly fullname="OscJack">
+    <type fullname="OscJack.OscDataHandle">
+      <field name="_typeTags" preserve="all" />
+    </type>
+  </assembly>
+</linker>

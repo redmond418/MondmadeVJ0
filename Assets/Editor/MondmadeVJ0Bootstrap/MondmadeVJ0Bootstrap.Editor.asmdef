@@ -1,0 +1,14 @@
+{
+  "name": "MondmadeVJ0Bootstrap.Editor",
+  "rootNamespace": "MondmadeVJ0Bootstrap",
+  "references": ["NuGetForUnity"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

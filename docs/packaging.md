@@ -1,6 +1,6 @@
 # パッケージ構成と導入
 
-更新日：2026-10-22（JST）。ユーザーの指摘を受け、**UPMパッケージは1つに統合する。機能の分離は内部フォルダとasmdefで行う。** 本書は以前の機能別UPM案を置き換える。現時点では設計のみで、packageフォルダ・Setup Window・配布tagはまだ作成していない。
+更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、EditMode 45/45・通常PlayMode 6/6・APC Pad 1物理入力probe 1/1を確認した。R3＋Unity標準moduleのみの構成と、Input System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認し、macOS universal x86_64 + arm64のMono / IL2CPPとWindows x64 Mono Player buildも成功した。Git URL導入、依存部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
 
 ## 配置
 
@@ -26,12 +26,12 @@ MondmadeVJ0/
 │   ├ Editor/
 │   │ ├ Core/                       # 基本Inspector・Setup・Monitor
 │   │ └ Integrations/               # Integration別のEditor asmdef
-│   ├ Tests/                        # 機能別のEditor / Runtime Tests asmdef
-│   ├ Samples~/                     # BasicRoutesとIntegration別サンプル
-│   ├ Documentation~/
+│   ├ Tests/EditMode/                # Core / Editor / MIDI / OSC / Transport tests
+│   ├ Tests/PlayMode/                # Runtime lifecycle / APC hardware tests
+│   ├ Documentation~/               # package内で配布する追加資料（任意）
 │   ├ README.md
 │   ├ CHANGELOG.md
-│   └ LICENSE.md
+│   └ LICENSE (公開前に権利者が選択)
 ├ Assets/
 │ ├ MondmadeVJ0.Dev/                 # 結合検証Scene・実機テスト・開発素材
 │ ├ MondmadeVJ0.Generated/           # Generic Accessor生成C#（既定asmdefなし）
@@ -44,11 +44,11 @@ MondmadeVJ0/
 
 ## 内部Assemblyと外部依存
 
-package IDは `com.redmond.mondmade-vj0`。namespace / assemblyのprefixは `MondmadeVJ0`。1つのpackage.jsonが全機能を配布する。各機能は独立したRuntime / Editor / Tests assemblyを持ち、Coreは任意Integrationを参照しない。
+package IDは `com.redmond.mondmade-vj0`。namespace / assemblyのprefixは `MondmadeVJ0`。1つのpackage.jsonが全機能を配布する。Coreと機能別Integrationは独立Runtime asmdefを持つ。Core Editor、Animator / MIDI / Rendering / VFX Editor、Setup Editorを分離した。Core契約、Inspector Validation、APC Profile、Transport、OSC AdapterのEditMode testsと、Runtime Lifecycle / APC hardwareのPlayMode testsを機能別asmdefに配置した。Coreは任意Integrationを参照しない。
 
 | フォルダ | Runtime assembly | 内容・外部依存（採用基準版） |
 | --- | --- | --- |
-| Core | MondmadeVJ0.Core | Route、Source / Modifier、Signal、Clock契約、Root、Unity Object / Transform / AudioSource出力。R3 1.3.0本体とcom.cysharp.r3 1.3.0 |
+| Core | MondmadeVJ0.Core | Route、Source / Modifier、Signal、Clock契約、Root、Unity Object / Transform / AudioSource出力。R3 1.3.0本体、com.cysharp.r3 1.3.0、Unity Audio module |
 | Transport | MondmadeVJ0.Transport | Core、Transport、Grid / Quantize、Tap。Coreのinterfaceを実装 |
 | InputSystem | MondmadeVJ0.InputSystem | Core、com.unity.inputsystem 1.18.0 |
 | Midi | MondmadeVJ0.Midi | Core、Minis 1.3.2、RtMidi 2.2.0、Input System。Raw Clock連携はCoreのinterface経由 |
@@ -59,6 +59,8 @@ package IDは `com.redmond.mondmade-vj0`。namespace / assemblyのprefixは `Mon
 | Cinemachine | MondmadeVJ0.Cinemachine | Core、com.unity.cinemachine 3.1.6 |
 | Video | MondmadeVJ0.Video | Core、Unity Video module |
 | Animator | MondmadeVJ0.Animator | Core、Unity Animation module |
+
+UnityのProject manifestでAudio、Animation、Videoの標準moduleを有効にする。今回のR3最小構成でも、これらのmoduleを含む標準module群を導入している。
 
 Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.Runtime`を付ける。基本EditorはCoreだけへ依存し、Integration Editorは対応RuntimeとCore Editorへ依存する。Alchemy / UniTask / LitMotionは標準依存に含めない。LitMotion連携を追加する場合も同一パッケージ内の任意Integration assemblyとする。
 
@@ -72,13 +74,13 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 Core Editorは利用可能なIntegrationだけを型登録から列挙する。未導入機能はSetupに「依存未導入」と表示し、Route追加メニューには出さない。外部型を参照するProfile・Prefab・Sceneは該当Samples~以下に置き、依存未導入時に自動importしない。既存Routeが使う依存の除去はD18の欠落型保護に従う。
 
-OSC forkはupstreamとID・versionが同じなので、Setupで必要APIを確認した場合だけ `MONDMADE_OSC_EXTENSIONS` を設定する。OSC asmdefはpackage条件とこのsymbolの両方を要求し、依存の除去・変更でも検査する。
+OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
 
-任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。条件設定だけで動作確認済みとは扱わない。
+任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。R3のみとInput System＋MIDI＋OSCの部分構成はlocal UPM packageでimport・compileを確認済み。macOS universal Playerでは全依存構成のMono / IL2CPP、Windows x64ではMono cross-buildを確認済み。Git URLからの新規導入、部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
 
 ## 導入手順
 
-1. 必須依存のR3本体とUnity UPM部分を導入する。NuGetForUnityの手順・採用版・推移依存を固定し、重複DLLを検査する。外部DLLは再梱包しない。
+1. 必須依存のR3本体とUnity UPM部分を導入する。NuGetForUnityの手順・採用版・推移依存を固定し、重複DLLを検査する。外部DLLは再梱包しない。CoreにはUnity Audio、AnimatorにはAnimation、VideoにはVideoの標準moduleが必要。
 2. Package Managerの「Install package from git URL」でMondmadeVJ0を**1回だけ**追加する。
 3. パッケージ内のSetup Windowで必要な外部Integration依存をまとめて導入する。既存の互換版は再導入せず、依存が揃うと対応assemblyが有効になる。
 
@@ -86,13 +88,24 @@ OSC forkはupstreamとID・versionが同じなので、Setupで必要APIを確�
 https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#RELEASE_TAG
 ```
 
-RELEASE_TAGは実在する検証済みtagへ置き換える。完成時の公開版は1.0.0から始めるが、現時点で配布tagが存在するとは扱わない。ライブ用はtagまたはcommitへ固定する。URL形式は[UnityのGit dependencies](https://docs.unity3d.com/6000.3/Documentation/Manual/upm-git.html)に従う。
+RELEASE_TAGは実在する検証済みtagへ置き換える。完成時の公開版は1.0.0から始めるが、配布tagはまだ作成していない。ライブ用はtagまたはcommitへ固定する。URL形式は[UnityのGit dependencies](https://docs.unity3d.com/6000.3/Documentation/Manual/upm-git.html)に従う。
 
-Setupは必要な外部依存と版を表示してClient.AddAndRemoveで一括要求する。R3本体は事前手順とし、Coreがコンパイル不能でもSetupが利用可能とは説明しない。MondmadeVJ0の機能別packageを追加するbootstrapや、複数のMondmadeVJ0 Git URL登録は不要。
+SetupはInput System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphから利用するものを選び、固定版をUnity Package Manager Client APIで追加する。未選択の任意依存は追加しない。R3 NuGet本体はNuGetForUnityから導入する。Coreがコンパイルできる前提でSetupを開く。MondmadeVJ0の機能別packageを追加するbootstrapや、複数のMondmadeVJ0 Git URL登録は不要。
 
 Keijiroのscoped registryが不足していればProject Settingsの設定項目を案内する。OSC forkは固定commitのGit URLで導入し、同じIDのupstreamと二重登録しない。package.jsonのGit依存による自動解決は使わない。ユーザーのmanifestを文字列置換せず、既存registryと設定を保持する。
 
 導入後はRuntime Root・必要Module・RouteHostをScene / Prefabへ配置する。自動的に全Sceneを変更したりSingletonを生成したりしない。必須R3と必要な外部ライブラリの導入は別途必要だが、MondmadeVJ0自身の登録・更新は1つで済む。
+
+## 開発用QuickStart
+
+`Assets/MondmadeVJ0.Dev/Scenes/APC-mini-mk2-QuickStart.unity`はAPC mini mk2を使う結合検証Scene。`Assets/MondmadeVJ0.Dev/Midi/APC-mini-mk2-QuickStart.asset`は90個のLogical Controlを持つProfile。Scene内のRuntimeにTransport、MIDI、OSC、OSC Transport Sync Moduleを登録してある。Play時にMidiHubのInput / Output ordinalが現在のPCのデバイス列挙と一致していることを確認する。
+
+1. Sceneを開き、InspectorでSurface ProfileとPort ordinalを確認する。
+2. Playし、Runtime MonitorでMidiHubのStatusが`Connected`になることを確認する。
+3. 左上のPad 1を押すと立方体の表示とPad LEDが切り替わる。Fader 1で球の幅、Transport Phaseで球の高さが変化する。
+4. OSC外部同期は`/mondmade/transport`の4個のfloat（BPM、whole beat、fractional beat、running）を、SceneのOSC Transport Sync Adapterへ送る。
+
+Scene内のPort ordinalは開発時のAPC列挙結果を初期値にする。別の機器順序または別PCでは、利用側のRtMidi一覧に合わせて更新する。
 
 ## 開発・更新・リリース
 
@@ -102,4 +115,4 @@ Keijiroのscoped registryが不足していればProject Settingsの設定項目
 
 releaseは1つのversion・tagで更新する。全機能の完成判定に加え、R3のみ・一部外部依存あり・全依存ありの各構成でGit導入・Editor import・Playerビルドを検証する。機能ごとに別のMondmadeVJ0 packageを登録する操作がないことも確認する。
 
-LICENSE・外部依存通知・CHANGELOG・移行手順を同梱する。公開ライセンスは所有者の判断とし、この文書更新では新設しない。今回は導入契約の修正のみで、実際のpackage作成・外部依存導入はまだ実施しない。
+LICENSE・外部依存通知・CHANGELOG・移行手順を同梱する。公開ライセンスは所有者の判断とし、この文書更新では新設しない。ライセンスは追加していない。NuGetForUnityが生成する`Assets/Packages/`と`Assets/packages.config`は復元物としてGit ignoreする。

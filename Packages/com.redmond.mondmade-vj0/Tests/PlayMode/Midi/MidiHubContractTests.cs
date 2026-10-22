@@ -1,0 +1,255 @@
+using System.Buffers;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace MondmadeVJ0.Tests
+{
+    public sealed class MidiHubContractTests
+    {
+        [UnityTest]
+        public IEnumerator RawNoteOnZeroReleasesControlAndSurfaceInstancesStayIsolated()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "APC mini mk2", new[]
+            {
+                new MidiSurfaceControl { id = "pad_0_0", label = "Pad 1", type = MidiControlType.VelocityButton, inputAddressType = MidiAddressType.Note, channel = -1, inputNumber = 56, pressThreshold = 0.5f }
+            });
+            var first = new MidiSurfaceInstance();
+            first.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var second = new MidiSurfaceInstance();
+            second.Configure(profile, "APC mini mk2", 1, MidiInputBackend.RtMidiRaw, -1, -1);
+            var harness = CreateHarness(first, second);
+            var changes = new List<MidiControlChange>();
+            harness.Hub.ControlChanged += changes.Add;
+            try
+            {
+                PushRaw(harness, first.InstanceId, 0x90, 56, 100);
+                var firstReference = new MidiControlReference(first.InstanceId, "pad_0_0");
+                var secondReference = new MidiControlReference(second.InstanceId, "pad_0_0");
+                Assert.That(harness.Hub.GetState(firstReference).Pressed, Is.True);
+                Assert.That(harness.Hub.GetState(secondReference).Pressed, Is.False);
+                Assert.That(harness.Hub.GetState(firstReference).Velocity, Is.EqualTo(100f / 127f).Within(0.0001f));
+                Assert.That(changes, Has.Count.EqualTo(1));
+                Assert.That(changes[0].PressedDown, Is.True);
+
+                PushRaw(harness, first.InstanceId, 0x90, 56, 0);
+                Assert.That(harness.Hub.GetState(firstReference).Pressed, Is.False);
+                Assert.That(changes, Has.Count.EqualTo(2));
+                Assert.That(changes[1].Released, Is.True);
+
+                PushRaw(harness, second.InstanceId, 0x90, 56, 127);
+                Assert.That(harness.Hub.GetState(firstReference).Pressed, Is.False);
+                Assert.That(harness.Hub.GetState(secondReference).Pressed, Is.True);
+            }
+            finally
+            {
+                harness.Hub.ControlChanged -= changes.Add;
+                DestroyHarness(harness);
+                UnityEngine.Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RelativeEncoderDecodesAllDocumentedFormats()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "Encoder surface", new[]
+            {
+                Relative("twos", 20, MidiRelativeMode.TwosComplement),
+                Relative("binary", 21, MidiRelativeMode.BinaryOffset),
+                Relative("sign", 22, MidiRelativeMode.SignMagnitude)
+            });
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "Encoder surface", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var harness = CreateHarness(surface);
+            try
+            {
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 20, 1f / 127f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 21, 65f / 127f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 22, 65f / 127f);
+
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "twos")).Value, Is.EqualTo(0.5f + 1f / 63f).Within(0.0001f));
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "binary")).Value, Is.EqualTo(0.5f + 1f / 63f).Within(0.0001f));
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "sign")).Value, Is.EqualTo(0.5f - 1f / 63f).Within(0.0001f));
+            }
+            finally
+            {
+                DestroyHarness(harness);
+                UnityEngine.Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator AbsoluteButtonPitchAndPressureControlsMapToTheirValues()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "Control types", new[]
+            {
+                new MidiSurfaceControl { id = "button", type = MidiControlType.Button, inputAddressType = MidiAddressType.Note, channel = 0, inputNumber = 10, pressThreshold = 0.5f },
+                new MidiSurfaceControl { id = "velocity", type = MidiControlType.VelocityButton, inputAddressType = MidiAddressType.Note, channel = 0, inputNumber = 11, pressThreshold = 0.1f },
+                new MidiSurfaceControl { id = "fader", type = MidiControlType.AbsoluteFader, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = 12, minimum = -1f, maximum = 1f },
+                new MidiSurfaceControl { id = "knob", type = MidiControlType.AbsoluteKnob, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = 13, minimum = 2f, maximum = 6f },
+                new MidiSurfaceControl { id = "bend", type = MidiControlType.PitchBend, inputAddressType = MidiAddressType.PitchBend, channel = 0, minimum = -1f, maximum = 1f },
+                new MidiSurfaceControl { id = "aftertouch", type = MidiControlType.Aftertouch, inputAddressType = MidiAddressType.ChannelPressure, channel = 0 }
+            });
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "Control types", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var harness = CreateHarness(surface);
+            try
+            {
+                PushControl(harness, surface.InstanceId, MidiAddressType.Note, 0, 10, 0.75f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.Note, 0, 11, 0.25f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 12, 0.75f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 13, 0.25f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.PitchBend, 0, 0, 0.5f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.ChannelPressure, 0, 0, 0.75f);
+
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "button")).Pressed, Is.True);
+                var velocity = harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "velocity"));
+                Assert.That(velocity.Pressed, Is.True);
+                Assert.That(velocity.Velocity, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "fader")).Value, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "knob")).Value, Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "bend")).Value, Is.EqualTo(0.5f).Within(0.0001f));
+                var aftertouch = harness.Hub.GetState(new MidiControlReference(surface.InstanceId, "aftertouch"));
+                Assert.That(aftertouch.Value, Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(aftertouch.Pressure, Is.EqualTo(0.75f).Within(0.0001f));
+            }
+            finally
+            {
+                DestroyHarness(harness);
+                UnityEngine.Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator XySourceCombinesTwoCompatibleControlsAndPublishesInitialValue()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "XY surface", new[]
+            {
+                new MidiSurfaceControl { id = "x", label = "X", type = MidiControlType.XY, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = 20, initialValue = 0.2f, minimum = 0f, maximum = 1f },
+                new MidiSurfaceControl { id = "y", label = "Y", type = MidiControlType.XY, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = 21, initialValue = 0.8f, minimum = 0f, maximum = 1f }
+            });
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "XY surface", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var source = new MidiXYVector2Source();
+            SetField(source, "xControl", new MidiControlReference(surface.InstanceId, "x"));
+            SetField(source, "yControl", new MidiControlReference(surface.InstanceId, "y"));
+            var route = new Vector2Route();
+            route.Configure("XY pad", source);
+            var output = new RecordingVector2Output();
+            route.Outputs.Add(output);
+            var harness = CreateRouteHarness(surface, route);
+            try
+            {
+                Assert.That(route.Status, Is.EqualTo("Active"));
+                Assert.That(route.CurrentValue, Is.EqualTo(new Vector2(0.2f, 0.8f)));
+                CollectionAssert.AreEqual(new[] { new Vector2(0.2f, 0.8f) }, output.Values);
+
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 20, 0.65f);
+                PushControl(harness, surface.InstanceId, MidiAddressType.ControlChange, 0, 21, 0.4f);
+                CollectionAssert.AreEqual(new[] { new Vector2(0.2f, 0.8f), new Vector2(0.65f, 0.8f), new Vector2(0.65f, 0.4f) }, output.Values);
+            }
+            finally
+            {
+                DestroyHarness(harness);
+                UnityEngine.Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
+        private static MidiSurfaceControl Relative(string id, int number, MidiRelativeMode mode)
+            => new MidiSurfaceControl { id = id, type = MidiControlType.RelativeEncoder, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = number, relativeMode = mode, initialValue = 0.5f, minimum = 0f, maximum = 1f };
+
+        private static Harness CreateHarness(params MidiSurfaceInstance[] surfaces)
+        {
+            var gameObject = new GameObject("MIDI Hub contract test");
+            gameObject.SetActive(false);
+            var hub = gameObject.AddComponent<MidiHub>();
+            var runtime = gameObject.AddComponent<MondmadeVJ0Runtime>();
+            SetField(hub, "surfaces", surfaces);
+            SetField(runtime, "modules", new MonoBehaviour[] { hub });
+            gameObject.SetActive(true);
+            return new Harness(gameObject, hub, runtime);
+        }
+
+        private static Harness CreateRouteHarness(MidiSurfaceInstance surface, Vector2Route route)
+        {
+            var gameObject = new GameObject("MIDI XY route contract test");
+            gameObject.SetActive(false);
+            var hub = gameObject.AddComponent<MidiHub>();
+            var runtime = gameObject.AddComponent<MondmadeVJ0Runtime>();
+            var host = gameObject.AddComponent<RouteHost>();
+            SetField(hub, "surfaces", new[] { surface });
+            SetField(runtime, "modules", new MonoBehaviour[] { hub });
+            SetField(runtime, "routeHosts", new[] { host });
+            SetField(host, "routes", new List<IRoute> { route });
+            gameObject.SetActive(true);
+            return new Harness(gameObject, hub, runtime);
+        }
+
+        private static void PushRaw(Harness harness, string surfaceId, byte status, byte number, byte value)
+        {
+            var bytes = ArrayPool<byte>.Shared.Rent(3);
+            bytes[0] = status;
+            bytes[1] = number;
+            bytes[2] = value;
+            PushPacket(harness, CreatePacket(surfaceId, bytes, 3));
+        }
+
+        private static void PushControl(Harness harness, string surfaceId, MidiAddressType type, int channel, int number, float value)
+            => PushPacket(harness, CreatePacket(surfaceId, type, channel, number, value));
+
+        private static void PushPacket(Harness harness, object packet)
+        {
+            var hubType = typeof(MidiHub);
+            hubType.GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(harness.Hub, new[] { packet, (object)false });
+            harness.Hub.DrainInputQueue(harness.Runtime.Services, 128);
+        }
+
+        private static object CreatePacket(string surfaceId, MidiAddressType type, int channel, int number, float value)
+            => CreatePacket(surfaceId, type, channel, number, value, null, 0);
+
+        private static object CreatePacket(string surfaceId, byte[] raw, int length)
+            => CreatePacket(surfaceId, default, 0, 0, 0f, raw, length);
+
+        private static object CreatePacket(string surfaceId, MidiAddressType type, int channel, int number, float value, byte[] raw, int length)
+        {
+            var packetType = typeof(MidiHub).GetNestedType("InputPacket", BindingFlags.NonPublic);
+            var constructor = packetType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                new[] { typeof(string), typeof(MidiAddressType), typeof(int), typeof(int), typeof(float), typeof(int), typeof(long), typeof(byte[]), typeof(int), typeof(double) }, null);
+            return constructor.Invoke(new object[] { surfaceId, type, channel, number, value, 0, System.Diagnostics.Stopwatch.GetTimestamp(), raw, length, 0d });
+        }
+
+        private static void SetField(object target, string name, object value)
+            => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
+
+        private static void DestroyHarness(Harness harness)
+        {
+            if (harness.GameObject != null) UnityEngine.Object.Destroy(harness.GameObject);
+        }
+
+        private sealed class RecordingVector2Output : IValueOutput<Vector2>
+        {
+            public readonly List<Vector2> Values = new List<Vector2>();
+            public void Initialize(RouteContext context) { }
+            public void Write(Vector2 value) => Values.Add(value);
+        }
+
+        private sealed class Harness
+        {
+            public readonly GameObject GameObject;
+            public readonly MidiHub Hub;
+            public readonly MondmadeVJ0Runtime Runtime;
+            public Harness(GameObject gameObject, MidiHub hub, MondmadeVJ0Runtime runtime) { GameObject = gameObject; Hub = hub; Runtime = runtime; }
+        }
+    }
+}

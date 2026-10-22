@@ -1,0 +1,14 @@
+{
+  "name": "com.redmond.mondmade-vj0",
+  "version": "0.1.0",
+  "displayName": "Mondmade VJ0",
+  "description": "Composable typed routing, transport, MIDI surfaces, and VJ outputs for Unity.",
+  "unity": "6000.3",
+  "author": {
+    "name": "Redmond"
+  },
+  "dependencies": {
+    "com.cysharp.r3": "1.3.0",
+    "com.github-glitchenzo.nugetforunity": "4.5.0"
+  }
+}

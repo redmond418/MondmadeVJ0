@@ -1,0 +1,16 @@
+{
+  "name": "MondmadeVJ0.InputSystem",
+  "rootNamespace": "MondmadeVJ0.InputSystem",
+  "references": ["MondmadeVJ0.Core", "Unity.InputSystem"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["R3.dll"],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_INPUT_SYSTEM"],
+  "versionDefines": [
+    { "name": "com.unity.inputsystem", "expression": "[1.8.0,2.0.0)", "define": "MONDMADE_HAS_INPUT_SYSTEM" }
+  ],
+  "noEngineReferences": false
+}

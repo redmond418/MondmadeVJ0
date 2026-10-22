@@ -1,0 +1,14 @@
+{
+  "name": "MondmadeVJ0.Transport",
+  "rootNamespace": "MondmadeVJ0.Transport",
+  "references": ["MondmadeVJ0.Core"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["R3.dll"],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
