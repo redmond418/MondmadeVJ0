@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using System.Reflection;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using R3;
@@ -259,6 +259,48 @@ namespace MondmadeVJ0.Tests
             source.Dispose();
             transport.Shutdown(services);
             Object.DestroyImmediate(runtimeObject);
+        }
+
+        [Test]
+        public void QuantizeCapsOverdueFrameAndReportsQueueAndFrameDrops()
+        {
+            transport.Seek(0.25d);
+            transport.SetRunning(true);
+            transport.SetBaseBpm(120d);
+            var frameClock = new ManualFrameClock();
+            services.Register<IFrameClock>(frameClock);
+            var runtimeObject = new GameObject("Quantize overload test runtime");
+            runtimeObject.SetActive(false);
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            runtime.Services = services;
+            var scope = new BindingScope();
+            var source = new Subject<Unit>();
+            var modifier = new QuantizeTriggerModifier();
+            typeof(QuantizeTriggerModifier).GetField("grid", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(modifier, QuantizeGrid.Beat);
+            var context = new RouteContext(runtime, null, new RuntimeStateStore(), scope, "quantize-overload-test");
+            var emitted = 0;
+            var output = modifier.Apply(source, context).Subscribe(_ => emitted++);
+            scope.Add(output);
+
+            try
+            {
+                for (var i = 0; i < 1025; i++) source.OnNext(Unit.Default);
+                transport.Tick(services, 0.4d);
+                frameClock.Step();
+
+                Assert.That(transport.BeatPosition, Is.GreaterThan(1d));
+                Assert.That(emitted, Is.EqualTo(256), "A delayed frame must respect Quantize's per-frame execution cap.");
+                var diagnostics = services.GetDiagnostics();
+                Assert.That(diagnostics.Any(item => item.Code == "TRIGGER_QUEUE_FULL"), Is.True, "The trigger beyond the queue capacity must be diagnosed.");
+                Assert.That(diagnostics.Any(item => item.Code == "QUANTIZE_FRAME_LIMIT" && item.Message.Contains("768")), Is.True, "All remaining overdue triggers must be dropped and counted after the frame cap.");
+            }
+            finally
+            {
+                scope.Dispose();
+                source.Dispose();
+                transport.Shutdown(services);
+                Object.DestroyImmediate(runtimeObject);
+            }
         }
 
         [Test]
