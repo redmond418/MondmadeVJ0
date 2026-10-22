@@ -20,7 +20,7 @@ MonoBehaviour:
     type: 1
     inputAddressType: 0
     channel: -1
-    inputNumber: 0
+    inputNumber: 56
     relativeMode: 0
     initialValue: 0
     minimum: 0
@@ -31,961 +31,9 @@ MonoBehaviour:
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
-    outputNumber: 0
+    outputNumber: 56
   - id: pad_1_0
     label: 'Pad [1,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 1
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 1
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 1
-  - id: pad_2_0
-    label: 'Pad [2,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 2
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 2
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 2
-  - id: pad_3_0
-    label: 'Pad [3,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 3
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 3
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 3
-  - id: pad_4_0
-    label: 'Pad [4,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 4
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 4
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 4
-  - id: pad_5_0
-    label: 'Pad [5,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 5
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 5
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 5
-  - id: pad_6_0
-    label: 'Pad [6,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 6
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 6
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 6
-  - id: pad_7_0
-    label: 'Pad [7,0]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 7
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 7
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 7
-  - id: pad_0_1
-    label: 'Pad [0,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 8
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 8
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 8
-  - id: pad_1_1
-    label: 'Pad [1,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 9
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 9
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 9
-  - id: pad_2_1
-    label: 'Pad [2,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 10
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 10
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 10
-  - id: pad_3_1
-    label: 'Pad [3,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 11
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 11
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 11
-  - id: pad_4_1
-    label: 'Pad [4,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 12
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 12
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 12
-  - id: pad_5_1
-    label: 'Pad [5,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 13
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 13
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 13
-  - id: pad_6_1
-    label: 'Pad [6,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 14
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 14
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 14
-  - id: pad_7_1
-    label: 'Pad [7,1]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 15
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 15
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 15
-  - id: pad_0_2
-    label: 'Pad [0,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 16
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 16
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 16
-  - id: pad_1_2
-    label: 'Pad [1,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 17
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 17
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 17
-  - id: pad_2_2
-    label: 'Pad [2,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 18
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 18
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 18
-  - id: pad_3_2
-    label: 'Pad [3,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 19
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 19
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 19
-  - id: pad_4_2
-    label: 'Pad [4,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 20
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 20
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 20
-  - id: pad_5_2
-    label: 'Pad [5,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 21
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 21
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 21
-  - id: pad_6_2
-    label: 'Pad [6,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 22
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 22
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 22
-  - id: pad_7_2
-    label: 'Pad [7,2]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 23
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 23
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 23
-  - id: pad_0_3
-    label: 'Pad [0,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 24
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 24
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 24
-  - id: pad_1_3
-    label: 'Pad [1,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 25
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 25
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 25
-  - id: pad_2_3
-    label: 'Pad [2,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 26
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 26
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 26
-  - id: pad_3_3
-    label: 'Pad [3,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 27
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 27
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 27
-  - id: pad_4_3
-    label: 'Pad [4,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 28
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 28
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 28
-  - id: pad_5_3
-    label: 'Pad [5,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 29
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 29
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 29
-  - id: pad_6_3
-    label: 'Pad [6,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 30
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 30
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 30
-  - id: pad_7_3
-    label: 'Pad [7,3]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 31
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 31
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 31
-  - id: pad_0_4
-    label: 'Pad [0,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 32
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 32
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 32
-  - id: pad_1_4
-    label: 'Pad [1,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 33
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 33
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 33
-  - id: pad_2_4
-    label: 'Pad [2,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 34
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 34
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 34
-  - id: pad_3_4
-    label: 'Pad [3,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 35
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 35
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 35
-  - id: pad_4_4
-    label: 'Pad [4,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 36
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 36
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 36
-  - id: pad_5_4
-    label: 'Pad [5,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 37
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 37
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 37
-  - id: pad_6_4
-    label: 'Pad [6,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 38
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 38
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 38
-  - id: pad_7_4
-    label: 'Pad [7,4]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 39
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 39
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 39
-  - id: pad_0_5
-    label: 'Pad [0,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 40
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 40
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 40
-  - id: pad_1_5
-    label: 'Pad [1,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 41
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 41
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 41
-  - id: pad_2_5
-    label: 'Pad [2,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 42
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 42
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 42
-  - id: pad_3_5
-    label: 'Pad [3,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 43
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 43
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 43
-  - id: pad_4_5
-    label: 'Pad [4,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 44
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 44
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 44
-  - id: pad_5_5
-    label: 'Pad [5,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 45
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 45
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 45
-  - id: pad_6_5
-    label: 'Pad [6,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 46
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 46
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 46
-  - id: pad_7_5
-    label: 'Pad [7,5]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 47
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 47
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 47
-  - id: pad_0_6
-    label: 'Pad [0,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 48
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 48
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 48
-  - id: pad_1_6
-    label: 'Pad [1,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 49
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 49
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 49
-  - id: pad_2_6
-    label: 'Pad [2,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 50
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 50
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 50
-  - id: pad_3_6
-    label: 'Pad [3,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 51
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 51
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 51
-  - id: pad_4_6
-    label: 'Pad [4,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 52
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 52
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 52
-  - id: pad_5_6
-    label: 'Pad [5,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 53
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 53
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 53
-  - id: pad_6_6
-    label: 'Pad [6,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 54
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 54
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 54
-  - id: pad_7_6
-    label: 'Pad [7,6]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 55
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 55
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 55
-  - id: pad_0_7
-    label: 'Pad [0,7]'
-    type: 1
-    inputAddressType: 0
-    channel: -1
-    inputNumber: 56
-    relativeMode: 0
-    initialValue: 0
-    minimum: 0
-    maximum: 1
-    pressThreshold: 0.5
-    groupId: grid
-    groupIndex: 56
-    hasLed: 1
-    outputAddressType: 0
-    outputChannel: 0
-    outputNumber: 56
-  - id: pad_1_7
-    label: 'Pad [1,7]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -996,13 +44,13 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 57
+    groupIndex: 1
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 57
-  - id: pad_2_7
-    label: 'Pad [2,7]'
+  - id: pad_2_0
+    label: 'Pad [2,0]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -1013,13 +61,13 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 58
+    groupIndex: 2
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 58
-  - id: pad_3_7
-    label: 'Pad [3,7]'
+  - id: pad_3_0
+    label: 'Pad [3,0]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -1030,13 +78,13 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 59
+    groupIndex: 3
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 59
-  - id: pad_4_7
-    label: 'Pad [4,7]'
+  - id: pad_4_0
+    label: 'Pad [4,0]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -1047,13 +95,13 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 60
+    groupIndex: 4
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 60
-  - id: pad_5_7
-    label: 'Pad [5,7]'
+  - id: pad_5_0
+    label: 'Pad [5,0]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -1064,13 +112,13 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 61
+    groupIndex: 5
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 61
-  - id: pad_6_7
-    label: 'Pad [6,7]'
+  - id: pad_6_0
+    label: 'Pad [6,0]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -1081,13 +129,13 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 62
+    groupIndex: 6
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 62
-  - id: pad_7_7
-    label: 'Pad [7,7]'
+  - id: pad_7_0
+    label: 'Pad [7,0]'
     type: 1
     inputAddressType: 0
     channel: -1
@@ -1098,11 +146,963 @@ MonoBehaviour:
     maximum: 1
     pressThreshold: 0.5
     groupId: grid
-    groupIndex: 63
+    groupIndex: 7
     hasLed: 1
     outputAddressType: 0
     outputChannel: 0
     outputNumber: 63
+  - id: pad_0_1
+    label: 'Pad [0,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 48
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 8
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 48
+  - id: pad_1_1
+    label: 'Pad [1,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 49
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 9
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 49
+  - id: pad_2_1
+    label: 'Pad [2,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 50
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 10
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 50
+  - id: pad_3_1
+    label: 'Pad [3,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 51
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 11
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 51
+  - id: pad_4_1
+    label: 'Pad [4,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 52
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 12
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 52
+  - id: pad_5_1
+    label: 'Pad [5,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 53
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 13
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 53
+  - id: pad_6_1
+    label: 'Pad [6,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 54
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 14
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 54
+  - id: pad_7_1
+    label: 'Pad [7,1]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 55
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 15
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 55
+  - id: pad_0_2
+    label: 'Pad [0,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 40
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 16
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 40
+  - id: pad_1_2
+    label: 'Pad [1,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 41
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 17
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 41
+  - id: pad_2_2
+    label: 'Pad [2,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 42
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 18
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 42
+  - id: pad_3_2
+    label: 'Pad [3,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 43
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 19
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 43
+  - id: pad_4_2
+    label: 'Pad [4,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 44
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 20
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 44
+  - id: pad_5_2
+    label: 'Pad [5,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 45
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 21
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 45
+  - id: pad_6_2
+    label: 'Pad [6,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 46
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 22
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 46
+  - id: pad_7_2
+    label: 'Pad [7,2]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 47
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 23
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 47
+  - id: pad_0_3
+    label: 'Pad [0,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 32
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 24
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 32
+  - id: pad_1_3
+    label: 'Pad [1,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 33
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 25
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 33
+  - id: pad_2_3
+    label: 'Pad [2,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 34
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 26
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 34
+  - id: pad_3_3
+    label: 'Pad [3,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 35
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 27
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 35
+  - id: pad_4_3
+    label: 'Pad [4,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 36
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 28
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 36
+  - id: pad_5_3
+    label: 'Pad [5,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 37
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 29
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 37
+  - id: pad_6_3
+    label: 'Pad [6,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 38
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 30
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 38
+  - id: pad_7_3
+    label: 'Pad [7,3]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 39
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 31
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 39
+  - id: pad_0_4
+    label: 'Pad [0,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 24
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 32
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 24
+  - id: pad_1_4
+    label: 'Pad [1,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 25
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 33
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 25
+  - id: pad_2_4
+    label: 'Pad [2,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 26
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 34
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 26
+  - id: pad_3_4
+    label: 'Pad [3,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 27
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 35
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 27
+  - id: pad_4_4
+    label: 'Pad [4,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 28
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 36
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 28
+  - id: pad_5_4
+    label: 'Pad [5,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 29
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 37
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 29
+  - id: pad_6_4
+    label: 'Pad [6,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 30
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 38
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 30
+  - id: pad_7_4
+    label: 'Pad [7,4]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 31
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 39
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 31
+  - id: pad_0_5
+    label: 'Pad [0,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 16
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 40
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 16
+  - id: pad_1_5
+    label: 'Pad [1,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 17
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 41
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 17
+  - id: pad_2_5
+    label: 'Pad [2,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 18
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 42
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 18
+  - id: pad_3_5
+    label: 'Pad [3,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 19
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 43
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 19
+  - id: pad_4_5
+    label: 'Pad [4,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 20
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 44
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 20
+  - id: pad_5_5
+    label: 'Pad [5,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 21
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 45
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 21
+  - id: pad_6_5
+    label: 'Pad [6,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 22
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 46
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 22
+  - id: pad_7_5
+    label: 'Pad [7,5]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 23
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 47
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 23
+  - id: pad_0_6
+    label: 'Pad [0,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 8
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 48
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 8
+  - id: pad_1_6
+    label: 'Pad [1,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 9
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 49
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 9
+  - id: pad_2_6
+    label: 'Pad [2,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 10
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 50
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 10
+  - id: pad_3_6
+    label: 'Pad [3,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 11
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 51
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 11
+  - id: pad_4_6
+    label: 'Pad [4,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 12
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 52
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 12
+  - id: pad_5_6
+    label: 'Pad [5,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 13
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 53
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 13
+  - id: pad_6_6
+    label: 'Pad [6,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 14
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 54
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 14
+  - id: pad_7_6
+    label: 'Pad [7,6]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 15
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 55
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 15
+  - id: pad_0_7
+    label: 'Pad [0,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 0
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 56
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 0
+  - id: pad_1_7
+    label: 'Pad [1,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 1
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 57
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 1
+  - id: pad_2_7
+    label: 'Pad [2,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 2
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 58
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 2
+  - id: pad_3_7
+    label: 'Pad [3,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 3
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 59
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 3
+  - id: pad_4_7
+    label: 'Pad [4,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 4
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 60
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 4
+  - id: pad_5_7
+    label: 'Pad [5,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 5
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 61
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 5
+  - id: pad_6_7
+    label: 'Pad [6,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 6
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 62
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 6
+  - id: pad_7_7
+    label: 'Pad [7,7]'
+    type: 1
+    inputAddressType: 0
+    channel: -1
+    inputNumber: 7
+    relativeMode: 0
+    initialValue: 0
+    minimum: 0
+    maximum: 1
+    pressThreshold: 0.5
+    groupId: grid
+    groupIndex: 63
+    hasLed: 1
+    outputAddressType: 0
+    outputChannel: 0
+    outputNumber: 7
   - id: track_1
     label: Track Button 1
     type: 0

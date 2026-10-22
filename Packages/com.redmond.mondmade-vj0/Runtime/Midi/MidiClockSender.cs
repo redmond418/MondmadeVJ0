@@ -8,7 +8,7 @@ namespace MondmadeVJ0
     [DisallowMultipleComponent]
     public sealed class MidiClockSender : MonoBehaviour, IRuntimeModule
     {
-        private const int ClockQueueLeadMilliseconds = 4;
+        private const int ClockQueueLookaheadMilliseconds = 40;
         [SerializeField, Min(-1)] private int outputPortOrdinal = -1;
         [SerializeField] private bool sendSongPosition = true;
         private static readonly byte[] StartMessage = { 0xFA };
@@ -27,6 +27,7 @@ namespace MondmadeVJ0
         private long nextPulseIndex;
         private double pulsePeriodTicks;
         private int scheduleGeneration;
+        private long seekResyncCount;
         private long scheduleOutputGeneration;
         private long outputGeneration;
         private int clockOwner;
@@ -39,6 +40,7 @@ namespace MondmadeVJ0
         public string Status => status;
         public long SentPulses => metrics.SentPulses;
         public long MissedPulses => metrics.MissedPulses;
+        public long SeekResyncCount => Interlocked.Read(ref seekResyncCount);
         public long DroppedOutputMessages => output == null ? 0 : output.DroppedMessages;
         public double MaximumLatenessMilliseconds => metrics.MaximumLatenessMilliseconds;
         public double MaximumDeadlineDriftMilliseconds => metrics.MaximumDeadlineDriftMilliseconds;
@@ -104,7 +106,8 @@ namespace MondmadeVJ0
             var nowTicks = Stopwatch.GetTimestamp();
             var changedTempo = Math.Abs(bpm - scheduledBpm) > 1e-6d;
             var expectedBeat = scheduleRunning ? scheduledBeat + (nowTicks - epochTicks) * scheduledBpm / (Stopwatch.Frequency * 60d) : beat;
-            var seeked = scheduleRunning && Math.Abs(beat - expectedBeat) > 0.1d;
+            var seekThresholdBeat = GetSeekThresholdBeat(bpm, Time.unscaledDeltaTime);
+            var seeked = scheduleRunning && Math.Abs(beat - expectedBeat) > seekThresholdBeat;
 
             if (!scheduleRunning)
             {
@@ -115,6 +118,7 @@ namespace MondmadeVJ0
             }
             else if (changedTempo || seeked)
             {
+                if (seeked) Interlocked.Increment(ref seekResyncCount);
                 if (seeked && sendSongPosition) SendSongPosition(beat);
                 SetSchedule(beat, bpm, nowTicks);
             }
@@ -187,6 +191,11 @@ namespace MondmadeVJ0
 
         private void ClockLoop()
         {
+            using (MidiThreadScheduling.RequestRealtimeScheduling()) ClockLoopCore();
+        }
+
+        private void ClockLoopCore()
+        {
             while (!stopping)
             {
                 long epoch, index, outputGenerationAtSchedule;
@@ -209,11 +218,11 @@ namespace MondmadeVJ0
 
                 var deadline = epoch + (long)(index * period);
                 var remaining = deadline - Stopwatch.GetTimestamp();
-                var queueLeadTicks = Stopwatch.Frequency * ClockQueueLeadMilliseconds / 1000d;
-                if (remaining > queueLeadTicks)
+                var queueLookaheadTicks = Stopwatch.Frequency * ClockQueueLookaheadMilliseconds / 1000d;
+                if (remaining > queueLookaheadTicks)
                 {
-                    // Queue before the output worker's final 2 ms wait window so a late OS wake cannot miss the deadline.
-                    var milliseconds = (int)(remaining * 1000d / Stopwatch.Frequency) - ClockQueueLeadMilliseconds - 1;
+                    // Keep several future pulses ready so OS wake jitter cannot make the scheduler skip one.
+                    var milliseconds = (int)(remaining * 1000d / Stopwatch.Frequency) - ClockQueueLookaheadMilliseconds - 1;
                     if (milliseconds > 0) Thread.Sleep(milliseconds);
                     continue;
                 }
@@ -222,12 +231,16 @@ namespace MondmadeVJ0
                 lock (scheduleLock)
                 {
                     if (!scheduleRunning || generation != scheduleGeneration || index != nextPulseIndex) continue;
-                    var latestDueIndex = GetLatestDuePulseIndex(epoch, Stopwatch.GetTimestamp(), period, index);
-                    if (latestDueIndex > index)
+                    var schedulingNow = Stopwatch.GetTimestamp();
+                    if (IsClockPulseTooLateToQueue(deadline, schedulingNow, period))
                     {
-                        metrics.RecordMissed(latestDueIndex - index);
-                        nextPulseIndex = latestDueIndex;
-                        continue;
+                        var latestDueIndex = GetLatestDuePulseIndex(epoch, schedulingNow, period, index);
+                        if (latestDueIndex > index)
+                        {
+                            metrics.RecordMissed(latestDueIndex - index);
+                            nextPulseIndex = latestDueIndex;
+                            continue;
+                        }
                     }
                     nextPulseIndex++;
                     var periodTicks = Math.Max(1L, (long)period);
@@ -262,6 +275,15 @@ namespace MondmadeVJ0
             var candidateDeadline = epoch + (long)(firstNotEarlierIndex * period);
             return candidateDeadline <= now ? firstNotEarlierIndex : Math.Max(minimumIndex, firstNotEarlierIndex - 1L);
         }
+
+        internal static double GetSeekThresholdBeat(double bpm, double frameDeltaSeconds)
+        {
+            var frameBeatSpan = Math.Max(0d, frameDeltaSeconds) * Math.Max(0d, bpm) / 60d;
+            return Math.Max(0.1d, frameBeatSpan * 2d);
+        }
+
+        internal static bool IsClockPulseTooLateToQueue(long deadlineTicks, long nowTicks, double periodTicks)
+            => periodTicks > 0d && nowTicks - deadlineTicks >= periodTicks;
 
         private void SendSongPosition(double beat)
         {

@@ -18,7 +18,7 @@
 | Build Settings | [EditorBuildSettings.asset](../ProjectSettings/EditorBuildSettings.asset)：SampleSceneのみ有効 |
 | Color Space | Linear |
 | 独自コード | Assets以下にC#、asmdef、MondmadeVJ0 Runtimeの実装はない |
-| Unity接続 | Unity CLI 1.0.0-beta.13で本プロジェクトのEditorがreadyと確認 |
+| Unity接続 | Unity CLI 1.0.0-beta.14で本プロジェクトのEditorがreadyと確認 |
 
 開始時点では独自Runtime / Editor実装がなく、R3や各Integrationもmanifestに未導入だった。生成済みのcsprojやLibrary内のキャッシュは開始時点の実装根拠に含めていない。
 
@@ -29,10 +29,10 @@
 | UPM | `Packages/com.redmond.mondmade-vj0/`に単一パッケージを作成。Runtime / Editor / Testsを機能別asmdefへ分離 |
 | Runtime | 8型Route、共通Lifecycle / FrameClock / Service、Source / Modifier、Transport、MIDI / APC、OSC、Lasp、Animator、VFX、Rendering、Cinemachine、Video、Generic Component Outputを実装 |
 | Editor | Core Route Inspector、検索可能なNode型選択、Integration候補Drawer、MIDI Learn、Setup、Validation、Route中間値・MIDI / Transport / Performance Monitorを実装 |
-| Unity | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル。最終差分の隔離CheckoutでEditMode 147/147・通常PlayMode 7/7、Explicit実機テスト6件はskip、APC Pad 1物理入力1/1・LED目視probe 1/1通過。OSC UDP loopback / strict Type TagとLasp Audio契約を追加検証。Clock 4ms lookahead変更後は完全SHA `e62e5e72c4cf485535e7ecc11987c41c3a65d841`のGit UPM URLで部分依存構成を導入し、EditMode 123/125・PlayMode 7/13（skip 2/6）、macOS universal MonoとWindows x64 Mono Player build成功。実機の15秒全LED・1000 Route短縮probe（BPM各5秒）ではClock欠落 / drop 0、p99 0.001〜0.004ms、最大遅延0.003〜0.006ms、累積ずれ0.0029〜0.0053ms。全依存macOS Player buildは無進捗となり中断したため未確認。変更前はmacOS universal Mono / IL2CPPとWindows x64 Mono build成功。Windows IL2CPP moduleはHubに含まれず未確認 |
+| Unity | Unity 6000.3.8f1 macOS arm64 Stage / local file package消費側の最新差分でEditMode 135 passed / 2 optional skip、通常PlayMode 7 passed / 6 Explicit skip。QuickStart Profileの全64 Pad note mappingもAssetDatabase testで確認。APC Pad 1物理入力・Bulk SysEx緑点灯を実機で確認。OSC UDP loopback / strict Type TagとLasp Audio契約を追加検証。最新差分のlocal file package参照でmacOS StandaloneOSX universal MonoとWindows x64 Mono Player build成功。最新実機61秒probeは全BPMでClock欠落 / output drop 0、LED約800 control states/s、p99 0.001ms。BPM 120 / 174 / 240の累積ずれ0.777 / 7.488 / 2.655msとなり174 / 240がA14目標未達。最新差分のGit URL導入と公開HTTPS URLは未確認。全依存macOS Player buildは最新差分で無進捗となり中断。Windows IL2CPP moduleはHubに含まれず未確認 |
 | 構成 | R3 / Unsafe / NuGetForUnity / Unity標準moduleだけの任意UPM依存なし構成でlocal package import・compile、macOS universal IL2CPP、Windows x64 Mono Player buildを確認。Input System＋MIDI＋OSCを加えた部分構成もGit UPM URLでimport・compile、EditMode 123 passed / 2 URP / VFX tests skipped、macOS universal Mono Player buildを確認 |
-| APC mini mk2 | 90-control ProfileとQuickStart Sceneを`Assets/MondmadeVJ0.Dev/`へ配置。macOS IORegistryでUSB接続を確認し、RtMidi input/output両portをOpen。実機の左上Pad 1がNote 56を送ることを確認し、Profile座標を修正。LED ON/OFF payloadを検証 |
-| 未完の受入 | 公開HTTPS Git URL / release tagからの導入、Windows IL2CPP / Windows上の実機MIDI、Player上の全Integration、MIDI Clockの10分負荷と外部受信機実測、USB切断・再接続 |
+| APC mini mk2 | 90-control ProfileとQuickStart Sceneを`Assets/MondmadeVJ0.Dev/`へ配置。macOS IORegistryでUSB接続を確認し、RtMidi input/output両portをOpen。実機の左上Pad 1がNote 56を送ることを確認し、QuickStartを含むProfile note番号を修正。Bulk SysExによるPad 1緑点灯をユーザーが目視確認。Fader / Track Buttonは90秒probeでraw MIDI未観測 |
+| 未完の受入 | 公開HTTPS Git URL / release tagからの導入、Windows IL2CPP / Windows上の実機MIDI、Player上の全Integration、MIDI Clockの10分負荷と外部受信機実測、USB切断・再接続、Fader / Track Button実機入力照合 |
 
 ## 参照した既存システム
 

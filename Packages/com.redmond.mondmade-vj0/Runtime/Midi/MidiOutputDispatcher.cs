@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using RtMidi;
 
@@ -83,6 +84,76 @@ namespace MondmadeVJ0
         }
     }
 
+    internal static class MidiThreadScheduling
+    {
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+        private const uint QosClassUserInteractive = 0x21;
+
+        [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "pthread_set_qos_class_self_np", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int SetCurrentThreadQos(uint qosClass, int relativePriority);
+#elif UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+        private const int AvrtPriorityCritical = 2;
+
+        [DllImport("avrt.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr AvSetMmThreadCharacteristics(string taskName, ref uint taskIndex);
+
+        [DllImport("avrt.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AvSetMmThreadPriority(IntPtr avrtHandle, int priority);
+
+        [DllImport("avrt.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AvRevertMmThreadCharacteristics(IntPtr avrtHandle);
+#endif
+
+        public static IDisposable RequestRealtimeScheduling()
+        {
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+            try
+            {
+                SetCurrentThreadQos(QosClassUserInteractive, 0);
+            }
+            catch { }
+#elif UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+            try
+            {
+                uint taskIndex = 0;
+                var handle = AvSetMmThreadCharacteristics("Pro Audio", ref taskIndex);
+                if (handle != IntPtr.Zero)
+                {
+                    AvSetMmThreadPriority(handle, AvrtPriorityCritical);
+                    return new AvrtThreadLease(handle);
+                }
+            }
+            catch { }
+#endif
+            return EmptyLease.Instance;
+        }
+
+#if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+        private sealed class AvrtThreadLease : IDisposable
+        {
+            private IntPtr handle;
+
+            public AvrtThreadLease(IntPtr handle) => this.handle = handle;
+
+            public void Dispose()
+            {
+                var current = Interlocked.Exchange(ref handle, IntPtr.Zero);
+                if (current == IntPtr.Zero) return;
+                try { AvRevertMmThreadCharacteristics(current); }
+                catch { }
+            }
+        }
+#endif
+
+        private sealed class EmptyLease : IDisposable
+        {
+            public static readonly EmptyLease Instance = new EmptyLease();
+            public void Dispose() { }
+        }
+    }
+
     internal sealed class MidiOutputLease : IDisposable
     {
         private MidiOutputPort port;
@@ -92,6 +163,9 @@ namespace MondmadeVJ0
         public string Status => port == null ? "Closed" : port.Status;
         public string TakeError() => port?.TakeError();
         public long ConnectionGeneration => port == null ? 0 : port.ConnectionGeneration;
+        public long SentLedMessages => port == null ? 0 : port.SentLedMessages;
+        public long SentLedControls => port == null ? 0 : port.SentLedControls;
+        public double MaximumLedSendDurationMilliseconds => port == null ? 0d : port.MaximumLedSendDurationMilliseconds;
         public int PortOrdinal => port == null ? -1 : port.Ordinal;
         public long DroppedMessages => port == null ? 0 : port.DroppedMessages;
         public int PendingMessageCount => port == null ? 0 : port.PendingMessageCount;
@@ -102,6 +176,10 @@ namespace MondmadeVJ0
         public bool QueueControl(byte[] message) => port != null && port.QueueControl(message);
         public bool QueueLed(string key, byte[] message) => port != null && port.QueueLed(key, message);
         public bool QueueLed(string key, byte status, byte number, byte value) => port != null && port.QueueLed(key, status, number, value);
+        public bool QueueApcPadLed(string key, byte pad, byte red, byte green, byte blue)
+            => port != null && port.QueueApcPadLed(key, pad, red, green, blue);
+        public bool QueueApcPadLeds(IReadOnlyList<ApcPadLedUpdate> updates)
+            => port != null && port.QueueApcPadLeds(updates);
         public bool QueueClock(long deadlineTicks, long periodTicks, int generation, MidiClockSendMetrics metrics)
             => port != null && port.QueueClock(deadlineTicks, periodTicks, generation, metrics);
 
@@ -114,6 +192,8 @@ namespace MondmadeVJ0
 
     internal sealed class MidiOutputPort : IDisposable
     {
+        private const int ClockSpinWaitLeadMilliseconds = 3;
+        private const int ClockLedGuardMilliseconds = 8;
         private readonly object queueLock = new object();
         private readonly object clockSendLock = new object();
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
@@ -125,6 +205,9 @@ namespace MondmadeVJ0
         private int connected;
         private string status = "Waiting for MIDI output port";
         private string lastError;
+        private long sentLedMessages;
+        private long sentLedControls;
+        private long maximumLedSendDurationTicks;
         private RtMidi.MidiOut output;
         private int clockOwner;
         private int clockScheduleGeneration;
@@ -135,6 +218,10 @@ namespace MondmadeVJ0
         public bool IsConnected => Volatile.Read(ref connected) != 0;
         public string Status => Volatile.Read(ref status);
         public long ConnectionGeneration => Interlocked.Read(ref connectionGeneration);
+        public long SentLedMessages => Interlocked.Read(ref sentLedMessages);
+        public long SentLedControls => Interlocked.Read(ref sentLedControls);
+        public double MaximumLedSendDurationMilliseconds
+            => Interlocked.Read(ref maximumLedSendDurationTicks) * 1000d / Stopwatch.Frequency;
         public long DroppedMessages { get { lock (queueLock) return queue.DroppedMessages; } }
         public int PendingMessageCount { get { lock (queueLock) return queue.Count + Volatile.Read(ref inFlight); } }
         public bool IsIdle => PendingMessageCount == 0;
@@ -234,6 +321,21 @@ namespace MondmadeVJ0
             }
         }
 
+        public bool QueueApcPadLed(string key, byte pad, byte red, byte green, byte blue)
+            => QueueApcPadLeds(new[] { new ApcPadLedUpdate(key, pad, red, green, blue) });
+
+        public bool QueueApcPadLeds(IReadOnlyList<ApcPadLedUpdate> updates)
+        {
+            if (updates == null || updates.Count == 0) return updates != null;
+            lock (queueLock)
+            {
+                if (stopping) return false;
+                var accepted = queue.EnqueueApcPadLeds(updates);
+                if (accepted) wake.Set();
+                return accepted;
+            }
+        }
+
         public bool QueueClock(long deadlineTicks, long periodTicks, int generation, MidiClockSendMetrics metrics)
         {
             lock (queueLock)
@@ -256,6 +358,11 @@ namespace MondmadeVJ0
         }
 
         private void WorkerLoop()
+        {
+            using (MidiThreadScheduling.RequestRealtimeScheduling()) WorkerLoopCore();
+        }
+
+        private void WorkerLoopCore()
         {
             var nextOpenAttempt = 0L;
             while (true)
@@ -281,14 +388,19 @@ namespace MondmadeVJ0
 
                 MidiOutputPacket packet;
                 bool hasPacket;
+                int waitMilliseconds;
                 lock (queueLock)
                 {
-                    hasPacket = queue.TryDequeue(out packet);
+                    var nowTicks = Stopwatch.GetTimestamp();
+                    var clockSpinLeadTicks = Stopwatch.Frequency * ClockSpinWaitLeadMilliseconds / 1000d;
+                    var clockLedGuardTicks = Stopwatch.Frequency * ClockLedGuardMilliseconds / 1000d;
+                    hasPacket = queue.TryDequeue(nowTicks, clockSpinLeadTicks, out packet, clockLedGuardTicks);
+                    waitMilliseconds = queue.GetClockPollWaitMilliseconds(nowTicks, clockSpinLeadTicks);
                 }
                 if (!hasPacket)
                 {
                     if (stopping) break;
-                    wake.WaitOne(100);
+                    wake.WaitOne(waitMilliseconds);
                     continue;
                 }
 
@@ -315,7 +427,17 @@ namespace MondmadeVJ0
                                 packet.ClockMetrics?.RecordSent(packet.DeadlineTicks, invocationTicks, packet.Generation);
                             }
                         }
-                        else output.SendMessage(packet.Message);
+                        else
+                        {
+                            var sendStartTicks = packet.Kind == MidiOutputPacketKind.Led ? Stopwatch.GetTimestamp() : 0L;
+                            output.SendMessage(packet.Message);
+                            if (packet.Kind == MidiOutputPacketKind.Led)
+                            {
+                                UpdateMaximum(ref maximumLedSendDurationTicks, Stopwatch.GetTimestamp() - sendStartTicks);
+                                Interlocked.Increment(ref sentLedMessages);
+                                Interlocked.Add(ref sentLedControls, packet.LedControlCount);
+                            }
+                        }
                     }
                     catch (Exception exception)
                     {
@@ -338,21 +460,21 @@ namespace MondmadeVJ0
             {
                 if (packet.Generation != Volatile.Read(ref clockScheduleGeneration))
                 {
-                    packet.ClockMetrics?.RecordMissed();
+                    if (Stopwatch.GetTimestamp() >= packet.DeadlineTicks) packet.ClockMetrics?.RecordMissed();
                     return false;
                 }
 
                 var remaining = packet.DeadlineTicks - Stopwatch.GetTimestamp();
                 if (remaining <= 0) return true;
-                if (remaining > Stopwatch.Frequency / 500d)
+                if (remaining > Stopwatch.Frequency * ClockSpinWaitLeadMilliseconds / 1000d)
                 {
-                    var milliseconds = (int)(remaining * 1000d / Stopwatch.Frequency) - 1;
-                    wake.WaitOne(Math.Max(1, milliseconds));
+                    // Recheck each millisecond so a long OS wait cannot carry the worker past the deadline.
+                    wake.WaitOne(1);
                 }
                 else Thread.SpinWait(32);
             }
 
-            packet.ClockMetrics?.RecordMissed();
+            if (Stopwatch.GetTimestamp() >= packet.DeadlineTicks) packet.ClockMetrics?.RecordMissed();
             return false;
         }
 
@@ -417,6 +539,12 @@ namespace MondmadeVJ0
             catch { }
         }
 
+        private static void UpdateMaximum(ref long target, long value)
+        {
+            long current;
+            while (value > (current = Interlocked.Read(ref target)) && Interlocked.CompareExchange(ref target, value, current) != current) { }
+        }
+
         public void Dispose()
         {
             stopping = true;
@@ -425,7 +553,22 @@ namespace MondmadeVJ0
         }
     }
 
-    internal enum MidiOutputPacketKind { Control, Clock, Led }
+    internal enum MidiOutputPacketKind { Control, Clock, Led, ApcPadLed }
+
+    internal readonly struct ApcPadLedUpdate
+    {
+        public readonly string Key;
+        public readonly byte Pad, Red, Green, Blue;
+
+        public ApcPadLedUpdate(string key, byte pad, byte red, byte green, byte blue)
+        {
+            Key = key;
+            Pad = pad;
+            Red = red;
+            Green = green;
+            Blue = blue;
+        }
+    }
 
     internal readonly struct MidiOutputPacket
     {
@@ -436,9 +579,12 @@ namespace MondmadeVJ0
         public readonly long PeriodTicks;
         public readonly int Generation;
         public readonly MidiClockSendMetrics ClockMetrics;
+        public readonly int LedControlCount;
+        public readonly ApcPadLedUpdate[] ApcPadLedUpdates;
 
         public MidiOutputPacket(MidiOutputPacketKind kind, byte[] message, string key = null,
-            long deadlineTicks = 0, long periodTicks = 0, int generation = 0, MidiClockSendMetrics clockMetrics = null)
+            long deadlineTicks = 0, long periodTicks = 0, int generation = 0, MidiClockSendMetrics clockMetrics = null,
+            int ledControlCount = 1, ApcPadLedUpdate[] apcPadLedUpdates = null)
         {
             Kind = kind;
             Message = message;
@@ -447,6 +593,8 @@ namespace MondmadeVJ0
             PeriodTicks = periodTicks;
             Generation = generation;
             ClockMetrics = clockMetrics;
+            LedControlCount = ledControlCount;
+            ApcPadLedUpdates = apcPadLedUpdates;
         }
     }
 
@@ -454,23 +602,35 @@ namespace MondmadeVJ0
     {
         private const int ControlCapacity = 256;
         private const int LedCapacity = 1024;
+        private const int ClockCapacity = 8;
+        private const int ApcPadSysExCapacity = 32;
         private static readonly byte[] ClockPulseMessage = { 0xF8 };
         private readonly Queue<MidiOutputPacket> controls = new Queue<MidiOutputPacket>();
+        private readonly Queue<MidiOutputPacket> clocks = new Queue<MidiOutputPacket>();
         private readonly LinkedList<string> ledOrder = new LinkedList<string>();
+        private readonly Dictionary<string, LinkedListNode<string>> ledNodes = new Dictionary<string, LinkedListNode<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, MidiOutputPacket> leds = new Dictionary<string, MidiOutputPacket>(StringComparer.Ordinal);
-        private MidiOutputPacket clock;
-        private bool hasClock;
         private int clockGeneration;
         private long droppedMessages;
 
-        public int Count => controls.Count + leds.Count + (hasClock ? 1 : 0);
+        public int Count => controls.Count + leds.Count + clocks.Count;
         public long DroppedMessages => droppedMessages;
 
         public void SetClockGeneration(int generation)
         {
             if (clockGeneration == generation) return;
             clockGeneration = generation;
-            if (hasClock && clock.Generation != generation) DiscardClock();
+            if (clocks.Count == 0) return;
+
+            var now = Stopwatch.GetTimestamp();
+            var retained = new Queue<MidiOutputPacket>(clocks.Count);
+            while (clocks.Count > 0)
+            {
+                var packet = clocks.Dequeue();
+                if (packet.Generation == generation) retained.Enqueue(packet);
+                else if (packet.DeadlineTicks <= now) packet.ClockMetrics?.RecordMissed();
+            }
+            while (retained.Count > 0) clocks.Enqueue(retained.Dequeue());
         }
 
         public bool EnqueueControl(byte[] message)
@@ -487,9 +647,9 @@ namespace MondmadeVJ0
             if (!leds.ContainsKey(key))
             {
                 if (leds.Count >= LedCapacity) { droppedMessages++; return false; }
-                ledOrder.AddLast(key);
+                ledNodes.Add(key, ledOrder.AddLast(key));
             }
-            leds[key] = new MidiOutputPacket(MidiOutputPacketKind.Led, (byte[])message.Clone(), key);
+            leds[key] = new MidiOutputPacket(MidiOutputPacketKind.Led, (byte[])message.Clone(), key, ledControlCount: 1);
             return true;
         }
 
@@ -498,58 +658,207 @@ namespace MondmadeVJ0
             if (!leds.ContainsKey(key))
             {
                 if (leds.Count >= LedCapacity) { droppedMessages++; return false; }
-                ledOrder.AddLast(key);
+                ledNodes.Add(key, ledOrder.AddLast(key));
             }
-            leds[key] = new MidiOutputPacket(MidiOutputPacketKind.Led, new[] { status, number, value }, key);
+            leds[key] = new MidiOutputPacket(MidiOutputPacketKind.Led, new[] { status, number, value }, key, ledControlCount: 1);
+            return true;
+        }
+
+        public bool EnqueueApcPadLed(string key, byte pad, byte red, byte green, byte blue)
+        {
+            return EnqueueApcPadLeds(new[] { new ApcPadLedUpdate(key, pad, red, green, blue) });
+        }
+
+        public bool EnqueueApcPadLeds(IReadOnlyList<ApcPadLedUpdate> updates)
+        {
+            if (updates == null) return false;
+            if (updates.Count == 0) return true;
+            var newKeys = 0;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                var update = updates[i];
+                if (string.IsNullOrEmpty(update.Key) || update.Pad > 0x3F) return false;
+                if (leds.ContainsKey(update.Key)) continue;
+                var duplicate = false;
+                for (var j = 0; j < i; j++)
+                    if (string.Equals(updates[j].Key, update.Key, StringComparison.Ordinal)) { duplicate = true; break; }
+                if (!duplicate) newKeys++;
+            }
+            if (leds.Count + newKeys > LedCapacity) { droppedMessages += updates.Count; return false; }
+            for (var i = 0; i < updates.Count; i++)
+            {
+                var update = updates[i];
+                if (!leds.ContainsKey(update.Key)) ledNodes.Add(update.Key, ledOrder.AddLast(update.Key));
+                // The four-byte form is private to the queue and converted to Akai bulk SysEx on dequeue.
+                leds[update.Key] = new MidiOutputPacket(MidiOutputPacketKind.ApcPadLed,
+                    new[] { update.Pad, update.Red, update.Green, update.Blue }, update.Key, ledControlCount: 1);
+            }
             return true;
         }
 
         public bool EnqueueClock(long deadlineTicks, long periodTicks, int generation, MidiClockSendMetrics metrics)
         {
             if (periodTicks <= 0 || generation != clockGeneration) { droppedMessages++; return false; }
-            if (hasClock) clock.ClockMetrics?.RecordMissed();
-            clock = new MidiOutputPacket(MidiOutputPacketKind.Clock, ClockPulseMessage,
+            if (clocks.Count >= ClockCapacity) { droppedMessages++; return false; }
+            var packet = new MidiOutputPacket(MidiOutputPacketKind.Clock, ClockPulseMessage,
                 deadlineTicks: deadlineTicks, periodTicks: periodTicks, generation: generation, clockMetrics: metrics);
-            hasClock = true;
+            if (clocks.Count == 0 || deadlineTicks >= GetLastClockDeadline()) clocks.Enqueue(packet);
+            else
+            {
+                droppedMessages++;
+                return false;
+            }
             return true;
         }
 
-        public bool TryDequeue(out MidiOutputPacket packet)
+        public bool TryDequeue(long nowTicks, double clockSpinLeadTicks, out MidiOutputPacket packet, double clockLedGuardTicks = 0d)
         {
             if (controls.Count > 0) { packet = controls.Dequeue(); return true; }
-            if (hasClock) { packet = clock; clock = default; hasClock = false; return true; }
+            if (clocks.Count > 0 && clocks.Peek().DeadlineTicks - nowTicks <= clockSpinLeadTicks)
+            {
+                packet = clocks.Dequeue();
+                return true;
+            }
+            if (clocks.Count > 0 && clocks.Peek().DeadlineTicks - nowTicks <= clockLedGuardTicks)
+            {
+                packet = default;
+                return false;
+            }
             while (ledOrder.First != null)
             {
-                var key = ledOrder.First.Value;
-                ledOrder.RemoveFirst();
-                if (!leds.TryGetValue(key, out packet)) continue;
-                leds.Remove(key);
+                if (!leds.TryGetValue(ledOrder.First.Value, out var first))
+                {
+                    RemoveFirstLed();
+                    continue;
+                }
+
+                if (first.Kind == MidiOutputPacketKind.ApcPadLed)
+                {
+                    packet = DequeueApcPadBatch();
+                    return true;
+                }
+
+                packet = first;
+                RemoveLed(first.Key);
                 return true;
             }
             packet = default;
             return false;
         }
 
-        public void DiscardClock()
+        public int GetClockPollWaitMilliseconds(long nowTicks, double clockSpinLeadTicks)
         {
-            if (hasClock) clock.ClockMetrics?.RecordMissed();
-            clock = default;
-            hasClock = false;
+            if (clocks.Count == 0) return 100;
+            var untilSpinWindowTicks = clocks.Peek().DeadlineTicks - nowTicks - clockSpinLeadTicks;
+            if (untilSpinWindowTicks <= Stopwatch.Frequency / 1000d) return 1;
+
+            // Wake just before the final spin window so the output worker does not poll at 1 kHz for the full lookahead.
+            var milliseconds = (int)(untilSpinWindowTicks * 1000d / Stopwatch.Frequency);
+            return Math.Max(1, milliseconds - 1);
+        }
+
+        private long GetLastClockDeadline()
+        {
+            var lastDeadline = 0L;
+            foreach (var packet in clocks) lastDeadline = packet.DeadlineTicks;
+            return lastDeadline;
+        }
+
+        private void DiscardClockQueue(bool countAsMissed)
+        {
+            while (clocks.Count > 0)
+            {
+                var packet = clocks.Dequeue();
+                if (countAsMissed) packet.ClockMetrics?.RecordMissed();
+            }
         }
 
         public void DiscardRealtime()
         {
             droppedMessages += controls.Count;
             controls.Clear();
-            DiscardClock();
+            DiscardClockQueue(countAsMissed: true);
         }
 
         public void RequeueLedUnlessNewer(MidiOutputPacket packet)
         {
-            if (packet.Kind != MidiOutputPacketKind.Led || leds.ContainsKey(packet.Key)) return;
+            if (packet.Kind != MidiOutputPacketKind.Led) return;
+            if (packet.ApcPadLedUpdates != null)
+            {
+                for (var i = packet.ApcPadLedUpdates.Length - 1; i >= 0; i--)
+                    RequeueApcPadLedUnlessNewer(packet.ApcPadLedUpdates[i]);
+                return;
+            }
+            if (string.IsNullOrEmpty(packet.Key) || leds.ContainsKey(packet.Key)) return;
             if (leds.Count >= LedCapacity) { droppedMessages++; return; }
-            ledOrder.AddFirst(packet.Key);
+            ledNodes.Add(packet.Key, ledOrder.AddFirst(packet.Key));
             leds.Add(packet.Key, packet);
+        }
+
+        private void RequeueApcPadLedUnlessNewer(ApcPadLedUpdate update)
+        {
+            if (leds.ContainsKey(update.Key)) return;
+            if (leds.Count >= LedCapacity) { droppedMessages++; return; }
+            var node = ledOrder.AddFirst(update.Key);
+            ledNodes.Add(update.Key, node);
+            leds.Add(update.Key, new MidiOutputPacket(MidiOutputPacketKind.ApcPadLed,
+                new[] { update.Pad, update.Red, update.Green, update.Blue }, update.Key, ledControlCount: 1));
+        }
+
+        private MidiOutputPacket DequeueApcPadBatch()
+        {
+            var message = new List<byte>(7 + ApcPadSysExCapacity * 8 + 1)
+            {
+                0xF0, 0x47, 0x7F, 0x4F, 0x24
+            };
+            var dataLengthOffset = message.Count;
+            message.Add(0);
+            message.Add(0);
+            var updates = new List<ApcPadLedUpdate>(ApcPadSysExCapacity);
+            var count = 0;
+            var node = ledOrder.First;
+            while (node != null && count < ApcPadSysExCapacity)
+            {
+                var next = node.Next;
+                if (leds.TryGetValue(node.Value, out var candidate) && candidate.Kind == MidiOutputPacketKind.ApcPadLed)
+                {
+                    var data = candidate.Message;
+                    message.Add(data[0]);
+                    message.Add(data[0]);
+                    updates.Add(new ApcPadLedUpdate(candidate.Key, data[0], data[1], data[2], data[3]));
+                    AppendSevenBitPair(message, data[1]);
+                    AppendSevenBitPair(message, data[2]);
+                    AppendSevenBitPair(message, data[3]);
+                    RemoveLed(candidate.Key);
+                    count++;
+                }
+                node = next;
+            }
+
+            var dataLength = count * 8;
+            message[dataLengthOffset] = (byte)((dataLength >> 7) & 0x7F);
+            message[dataLengthOffset + 1] = (byte)(dataLength & 0x7F);
+            message.Add(0xF7);
+            return new MidiOutputPacket(MidiOutputPacketKind.Led, message.ToArray(), ledControlCount: count,
+                apcPadLedUpdates: updates.ToArray());
+        }
+
+        private static void AppendSevenBitPair(List<byte> message, byte value)
+        {
+            message.Add((byte)((value >> 7) & 0x7F));
+            message.Add((byte)(value & 0x7F));
+        }
+
+        private void RemoveFirstLed() => RemoveLed(ledOrder.First.Value);
+
+        private void RemoveLed(string key)
+        {
+            if (ledNodes.TryGetValue(key, out var node))
+            {
+                ledOrder.Remove(node);
+                ledNodes.Remove(key);
+            }
+            leds.Remove(key);
         }
     }
 

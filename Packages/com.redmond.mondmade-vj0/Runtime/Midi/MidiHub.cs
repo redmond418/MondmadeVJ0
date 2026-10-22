@@ -263,6 +263,8 @@ namespace MondmadeVJ0
                 }
                 if (!runtime.Output.IsOk) runtime.ForceFullResync = true;
                 var queuedAll = true;
+                runtime.PendingApcPadUpdates.Clear();
+                runtime.PendingApcPadStates.Clear();
                 foreach (var control in profile.Controls)
                 {
                     if (control == null || !control.hasLed) continue;
@@ -273,7 +275,15 @@ namespace MondmadeVJ0
                     try
                     {
                         var queueKey = GetOutputQueueKey(key);
-                        if (!runtime.Output.QueueLed(queueKey, payload.Status, payload.Number, payload.Value))
+                        if (IsApcRgbPad(profile, control) && style.effect == MidiLedEffect.Solid)
+                        {
+                            runtime.PendingApcPadUpdates.Add(EncodeApcPadLed(queueKey, payload));
+                            runtime.PendingApcPadStates.Add(new PendingApcPadState(key, control, style, payload));
+                            continue;
+                        }
+
+                        var accepted = runtime.Output.QueueLed(queueKey, payload.Status, payload.Number, payload.Value);
+                        if (!accepted)
                         {
                             queuedAll = false;
                             services?.Report("MIDI_OUTPUT_QUEUE", $"LED output queue rejected {surfaceId}/{control.id}.", nodeId: control.id);
@@ -292,6 +302,36 @@ namespace MondmadeVJ0
                         services?.Report("MIDI_OUTPUT", $"LED send failed for {surfaceId}/{control.id}.", nodeId: control.id, exception: exception);
                         runtime.ForceFullResync = true;
                         break;
+                    }
+                }
+                if (runtime.PendingApcPadUpdates.Count > 0)
+                {
+                    try
+                    {
+                        if (!runtime.Output.QueueApcPadLeds(runtime.PendingApcPadUpdates))
+                        {
+                            queuedAll = false;
+                            services?.Report("MIDI_OUTPUT_QUEUE", $"LED output queue rejected an APC pad batch for {surfaceId}.");
+                        }
+                        else
+                        {
+                            foreach (var pending in runtime.PendingApcPadStates)
+                            {
+                                sentPayloads[pending.ControlKey] = pending.Payload;
+                                services?.RecordMidiLedQueued(surfaceId, runtime.Instance.ProductName, pending.Control.id,
+                                    pending.Control.outputChannel, pending.Payload.Number, pending.Payload.Value,
+                                    Mathf.RoundToInt(Mathf.Clamp01(pending.Style.color.r) * 255f),
+                                    Mathf.RoundToInt(Mathf.Clamp01(pending.Style.color.g) * 255f),
+                                    Mathf.RoundToInt(Mathf.Clamp01(pending.Style.color.b) * 255f),
+                                    pending.Style.brightness, (int)pending.Style.effect);
+                            }
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        services?.Report("MIDI_OUTPUT", $"LED batch send failed for {surfaceId}.", exception: exception);
+                        queuedAll = false;
+                        runtime.ForceFullResync = true;
                     }
                 }
                 if (runtime.Output.IsOk && queuedAll) runtime.ForceFullResync = false;
@@ -678,6 +718,16 @@ namespace MondmadeVJ0
             return queueKey;
         }
 
+        private static bool IsApcRgbPad(MidiSurfaceProfile profile, MidiSurfaceControl control)
+            => string.Equals(profile.DriverId, "apc-mini-mk2", StringComparison.OrdinalIgnoreCase) &&
+               control.outputAddressType == MidiAddressType.Note && control.outputNumber >= 0 && control.outputNumber < 64;
+
+        private static ApcPadLedUpdate EncodeApcPadLed(string key, MidiLedPayload payload)
+        {
+            MidiLedEncoder.EncodeApcPadRgb(payload, out var red, out var green, out var blue);
+            return new ApcPadLedUpdate(key, payload.Number, red, green, blue);
+        }
+
         private void ReleaseSurface(MidiSurfaceRuntime runtime, bool sendAllOff)
         {
             DetachDevice(runtime);
@@ -707,6 +757,8 @@ namespace MondmadeVJ0
         private sealed class MidiSurfaceRuntime
         {
             public readonly MidiSurfaceInstance Instance; public string Status = "Disconnected"; public readonly HashSet<MidiDevice> Devices = new HashSet<MidiDevice>(); public RtMidi.MidiIn RawInput; public MidiOutputLease Output; public long OutputGeneration; public bool ForceFullResync;
+            public readonly List<ApcPadLedUpdate> PendingApcPadUpdates = new List<ApcPadLedUpdate>(64);
+            public readonly List<PendingApcPadState> PendingApcPadStates = new List<PendingApcPadState>(64);
             public Action<MidiNoteControl,float> NoteOn; public Action<MidiNoteControl> NoteOff; public Action<MidiNoteControl,float> PolyAftertouch; public Action<MidiValueControl,float> ControlChange; public Action<UnityEngine.InputSystem.Controls.AxisControl,float> PitchBend, Aftertouch;
             public MidiSurfaceRuntime(MidiSurfaceInstance instance) => Instance=instance;
         }
@@ -716,6 +768,20 @@ namespace MondmadeVJ0
             public InputPacket(string surface, MidiAddressType kind, int channel, int number, float value, int velocity, long timestamp, byte[] raw, int length, double nativeTimestamp=0d) { SurfaceId=surface; AddressType=kind; Channel=channel; Number=number; Value=value; Velocity=velocity; Timestamp=timestamp; Raw=raw; Length=length; NativeTimestamp=nativeTimestamp; }
         }
         private readonly struct LayerValue { public readonly int Priority; public readonly long Sequence; public readonly MidiLedStyle Style; public LayerValue(int priority,long sequence,MidiLedStyle style){Priority=priority;Sequence=sequence;Style=style;} }
+        private readonly struct PendingApcPadState
+        {
+            public readonly string ControlKey;
+            public readonly MidiSurfaceControl Control;
+            public readonly MidiLedStyle Style;
+            public readonly MidiLedPayload Payload;
+            public PendingApcPadState(string controlKey, MidiSurfaceControl control, MidiLedStyle style, MidiLedPayload payload)
+            {
+                ControlKey = controlKey;
+                Control = control;
+                Style = style;
+                Payload = payload;
+            }
+        }
     }
 
     internal readonly struct MidiLedPayload : IEquatable<MidiLedPayload>
@@ -774,6 +840,18 @@ namespace MondmadeVJ0
             }
             var status = (byte)((control.outputAddressType == MidiAddressType.ControlChange ? 0xB0 : 0x90) | (channel & 0x0F));
             return new MidiLedPayload(status, (byte)Mathf.Clamp(control.outputNumber,0,127), (byte)Mathf.Clamp(velocity,0,127));
+        }
+
+        public static void EncodeApcPadRgb(MidiLedPayload payload, out byte red, out byte green, out byte blue)
+        {
+            red = green = blue = 0;
+            if (payload.Value == 0) return;
+            var color = apcPalette[payload.Value];
+            var brightnessChannel = payload.Status & 0x0F;
+            var brightness = brightnessChannel < apcBrightnessLevels.Length ? apcBrightnessLevels[brightnessChannel] : 1f;
+            red = (byte)Mathf.Clamp(Mathf.RoundToInt(color.r * 255f * brightness), 0, 255);
+            green = (byte)Mathf.Clamp(Mathf.RoundToInt(color.g * 255f * brightness), 0, 255);
+            blue = (byte)Mathf.Clamp(Mathf.RoundToInt(color.b * 255f * brightness), 0, 255);
         }
 
         private static Color[] BuildPalette()

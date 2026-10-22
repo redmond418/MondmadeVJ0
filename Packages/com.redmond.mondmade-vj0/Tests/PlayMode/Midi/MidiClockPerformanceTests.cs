@@ -65,6 +65,8 @@ namespace MondmadeVJ0.Tests
                             yield return null;
                             continue;
                         }
+                        var sentLedMessagesAtStart = GetSentLedMessages(hubLease);
+                        var sentLedControlsAtStart = GetSentLedControls(hubLease);
                         RecordFailure(ReferenceEquals(GetLeaseEndpoint(hubLease), GetLeaseEndpoint(clockLease)),
                             "LED and Clock must share the same output worker.", failures);
                         RecordFailure(world.Host.Routes.Count == RouteCount,
@@ -97,10 +99,13 @@ namespace MondmadeVJ0.Tests
                             if (ledStressEnabled && now >= ledDeadline)
                             {
                                 ledUpdates++;
-                                var color = ledUpdates % 2 == 0 ? Color.green : Color.red;
-                                var style = new MidiLedStyle { color = color, brightness = 1f, effect = MidiLedEffect.Solid };
+                                var isGreenFrame = ledUpdates % 2 == 0;
+                                var color = isGreenFrame ? Color.green : Color.red;
+                                var padStyle = new MidiLedStyle { color = color, brightness = 1f, effect = MidiLedEffect.Solid };
+                                var buttonStyle = isGreenFrame ? padStyle : MidiLedStyle.Off;
                                 for (var i = 0; i < world.LedControls.Length; i++)
-                                    world.Hub.SetLed(world.LedControls[i], world.LedOwner, MidiLedLayer.Beat, style);
+                                    world.Hub.SetLed(world.LedControls[i], world.LedOwner, MidiLedLayer.Beat,
+                                        i < 64 ? padStyle : buttonStyle);
                                 var ledInterval = 1d / LedUpdateRate;
                                 var elapsedLedIntervals = Math.Floor((now - ledDeadline) / ledInterval) + 1d;
                                 ledDeadline += elapsedLedIntervals * ledInterval;
@@ -130,20 +135,27 @@ namespace MondmadeVJ0.Tests
 
                         var sentPulses = world.Clock.SentPulses;
                         var missedPulses = world.Clock.MissedPulses;
+                        var seekResyncs = world.Clock.SeekResyncCount;
                         var droppedOutputMessages = world.Clock.DroppedOutputMessages;
+                        var sentLedMessages = GetSentLedMessages(hubLease) - sentLedMessagesAtStart;
+                        var sentLedControls = GetSentLedControls(hubLease) - sentLedControlsAtStart;
+                        var maximumLedSendDuration = GetMaximumLedSendDuration(hubLease);
                         var p99 = world.Clock.P99LatenessMilliseconds;
                         var maxLateness = world.Clock.MaximumLatenessMilliseconds;
                         var cumulativeDrift = world.Clock.MaximumDeadlineDriftMilliseconds;
                         var expectedPulses = (long)Math.Floor(bpm * 24d / 60d * measuredElapsed);
+                        var minimumLedControls = ledStressEnabled ? (long)Math.Floor(ledUpdates * world.LedControls.Length * 0.98d) : 0L;
 
                         var mode = fullAcceptanceRun ? "full" : ledStressEnabled ? "smoke" : "clock-only-smoke";
-                        var result = $"A14_RESULT,mode={mode},bpm={bpm:F0},duration_s={measuredElapsed:F3},fps={frameRate:F3},max_frame_ms={maximumFrameInterval * 1000d:F3},routes={world.Host.Routes.Count},route_writes_per_s={routeWriteRate:F0},led_hz={ledUpdates / measuredElapsed:F3},clock_sent={sentPulses},clock_expected≈{expectedPulses},clock_missed={missedPulses},output_dropped={droppedOutputMessages},p99_ms={p99:F4},max_lateness_ms={maxLateness:F4},cumulative_drift_ms={cumulativeDrift:F4},platform={Application.platform},os={SystemInfo.operatingSystem},cpu={SystemInfo.processorType},unity={Application.unityVersion},device=APC mini mk2";
+                        var result = $"A14_RESULT,mode={mode},bpm={bpm:F0},duration_s={measuredElapsed:F3},fps={frameRate:F3},max_frame_ms={maximumFrameInterval * 1000d:F3},routes={world.Host.Routes.Count},route_writes_per_s={routeWriteRate:F0},led_hz={ledUpdates / measuredElapsed:F3},led_messages={sentLedMessages},led_controls={sentLedControls},led_controls_per_s={sentLedControls / measuredElapsed:F0},led_send_max_ms={maximumLedSendDuration:F4},clock_sent={sentPulses},clock_expected≈{expectedPulses},clock_missed={missedPulses},clock_seek_resyncs={seekResyncs},output_dropped={droppedOutputMessages},p99_ms={p99:F4},max_lateness_ms={maxLateness:F4},cumulative_drift_ms={cumulativeDrift:F4},platform={Application.platform},os={SystemInfo.operatingSystem},cpu={SystemInfo.processorType},unity={Application.unityVersion},device=APC mini mk2";
                         Debug.Log(result);
                         TestContext.WriteLine(result);
 
                         RecordFailure(frameRate >= 59d, $"BPM {bpm}: measured route cadence was {frameRate:F3} fps (minimum 59).", failures);
                         RecordFailure(routeWriteRate >= RouteCount * 59d, $"BPM {bpm}: route write rate was {routeWriteRate:F0}/s (minimum {RouteCount * 59}).", failures);
                         RecordFailure(ledUpdates >= minimumLedUpdates, $"BPM {bpm}: full LED updates were {ledUpdates} (minimum {minimumLedUpdates}).", failures);
+                        RecordFailure(sentLedControls >= minimumLedControls,
+                            $"BPM {bpm}: successfully transmitted LED control states were {sentLedControls} (minimum {minimumLedControls}).", failures);
                         RecordFailure(Math.Abs(sentPulses - expectedPulses) <= 10, $"BPM {bpm}: sent {sentPulses} Clock pulses, expected about {expectedPulses}.", failures);
                         RecordFailure(missedPulses == 0, $"BPM {bpm}: missed {missedPulses} Clock pulses.", failures);
                         RecordFailure(droppedOutputMessages == 0, $"BPM {bpm}: shared output dropped {droppedOutputMessages} messages.", failures);
@@ -254,6 +266,15 @@ namespace MondmadeVJ0.Tests
 
         private static object GetLeaseEndpoint(object lease)
             => lease.GetType().GetField("port", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(lease);
+
+        private static long GetSentLedMessages(object lease)
+            => (long)lease.GetType().GetProperty("SentLedMessages").GetValue(lease);
+
+        private static long GetSentLedControls(object lease)
+            => (long)lease.GetType().GetProperty("SentLedControls").GetValue(lease);
+
+        private static double GetMaximumLedSendDuration(object lease)
+            => (double)lease.GetType().GetProperty("MaximumLedSendDurationMilliseconds").GetValue(lease);
 
         private static void SetField(object target, string name, object value)
             => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
