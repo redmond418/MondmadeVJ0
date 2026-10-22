@@ -11,7 +11,7 @@ namespace MondmadeVJ0
     [DisallowMultipleComponent]
     public sealed class OscHub : MonoBehaviour, IRuntimeModule
     {
-        private const int QueueCapacity = 4096;
+        internal const int QueueCapacity = 8192;
         [SerializeField, Range(1, 65535)] private int listenPort = 9000;
         [SerializeField] private string destinationAddress = "127.0.0.1";
         [SerializeField, Range(1, 65535)] private int destinationPort = 9001;
@@ -78,16 +78,34 @@ namespace MondmadeVJ0
                     else { Interlocked.Increment(ref malformedCount); return; }
                 }
                 var packet = new OscPacket(address, count, tag0, tag1, tag2, tag3, float0, float1, float2, float3, int0, int1, int2, int3);
-                if (Interlocked.Increment(ref queuedCount) > QueueCapacity)
-                {
-                    Interlocked.Decrement(ref queuedCount);
-                    Interlocked.Increment(ref droppedCount);
-                    return;
-                }
-                inputQueue.Enqueue(packet);
-                Interlocked.Increment(ref receivedCount);
+                TryQueuePacket(packet);
             }
             catch { Interlocked.Increment(ref malformedCount); }
+        }
+
+        internal bool TryQueuePacket(OscPacket packet)
+        {
+            if (!OscAddress.IsValid(packet.Address) || packet.ArgumentCount < 0 || packet.ArgumentCount > 4)
+            {
+                Interlocked.Increment(ref malformedCount);
+                return false;
+            }
+            for (var i = 0; i < packet.ArgumentCount; i++)
+            {
+                var tag = packet.GetTypeTag(i);
+                if (tag == 'i' || tag == 'f') continue;
+                Interlocked.Increment(ref malformedCount);
+                return false;
+            }
+            if (Interlocked.Increment(ref queuedCount) > QueueCapacity)
+            {
+                Interlocked.Decrement(ref queuedCount);
+                Interlocked.Increment(ref droppedCount);
+                return false;
+            }
+            inputQueue.Enqueue(packet);
+            Interlocked.Increment(ref receivedCount);
+            return true;
         }
 
         internal void DispatchPacket(OscPacket packet)

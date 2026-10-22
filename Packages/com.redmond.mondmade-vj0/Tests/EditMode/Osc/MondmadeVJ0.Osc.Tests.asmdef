@@ -1,7 +1,7 @@
 {
   "name": "MondmadeVJ0.Osc.Tests",
   "rootNamespace": "MondmadeVJ0.Tests",
-  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Osc"],
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Osc", "OscJack.Runtime"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
