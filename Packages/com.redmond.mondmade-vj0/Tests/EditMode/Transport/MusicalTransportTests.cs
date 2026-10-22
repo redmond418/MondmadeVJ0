@@ -23,6 +23,21 @@ namespace MondmadeVJ0.Tests
             transport.Initialize(services);
         }
 
+        [Test]
+        public void TapTempoIsRecordedInTransportMonitorHistory()
+        {
+            transport.Tap(1d);
+            transport.Tap(1.5d);
+
+            var history = new List<RuntimeTransportTrace>();
+            services.CopyTransportHistory(history);
+            Assert.That(history.Count, Is.EqualTo(2));
+            Assert.That(history[0].Kind, Is.EqualTo(RuntimeTransportEventKind.Tap));
+            Assert.That(history[1].Kind, Is.EqualTo(RuntimeTransportEventKind.Tap));
+            Assert.That(history[1].Bpm, Is.EqualTo(120d).Within(0.001d));
+            Assert.That(history[1].Detail, Is.EqualTo("Tap accepted"));
+        }
+
         [TearDown]
         public void TearDown()
         {

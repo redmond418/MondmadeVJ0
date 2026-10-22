@@ -505,23 +505,43 @@ namespace MondmadeVJ0.Editor
     {
         private MondmadeVJ0Runtime runtime;
         private Vector2 scroll;
+        private string detailedRouteId;
+        private bool showMidiHistory = true;
+        private bool showTransportHistory = true;
+        private bool showPerformance = true;
+        private readonly List<RuntimeRouteTrace> routeHistory = new List<RuntimeRouteTrace>(128);
+        private readonly List<RuntimeMidiTrace> midiHistory = new List<RuntimeMidiTrace>(128);
+        private readonly List<RuntimeTransportTrace> transportHistory = new List<RuntimeTransportTrace>(128);
+        private double lastRateSampleTime;
+        private long lastRawMidi, lastLogicalMidi, lastLedOut, lastOscIn, lastOscOut;
+        private double rawMidiPerSecond, logicalMidiPerSecond, ledOutPerSecond, oscInPerSecond, oscOutPerSecond;
 
         public static void Open(MondmadeVJ0Runtime runtime)
         {
             var window = GetWindow<RuntimeMonitorWindow>("Mondmade VJ0 Monitor");
-            window.runtime = runtime;
+            window.SetRuntime(runtime);
+            window.SelectInitialRoute();
             window.Show();
         }
 
         private void OnGUI()
         {
-            runtime = (MondmadeVJ0Runtime)EditorGUILayout.ObjectField("Runtime", runtime, typeof(MondmadeVJ0Runtime), true);
+            var selectedRuntime = (MondmadeVJ0Runtime)EditorGUILayout.ObjectField("Runtime", runtime, typeof(MondmadeVJ0Runtime), true);
+            if (selectedRuntime != runtime) { SetRuntime(selectedRuntime); SelectInitialRoute(); }
             if (runtime == null || runtime.Services == null)
             {
                 EditorGUILayout.HelpBox("Enter Play mode and assign a MondmadeVJ0Runtime to inspect live state.", MessageType.Info);
                 return;
             }
             if (GUILayout.Button("Retry faulted routes")) runtime.RetryFaultedRoutes();
+            var services = runtime.Services;
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var capture = EditorGUILayout.ToggleLeft("Capture Monitor history / timing", services.MonitorCaptureEnabled);
+                if (capture != services.MonitorCaptureEnabled) services.MonitorCaptureEnabled = capture;
+                GUILayout.Label($"History: values {services.RouteTraceCount:N0} · MIDI {services.RawMidiInputCount + services.LogicalMidiInputCount + services.MidiLedOutputCount:N0} · transport {services.TransportTapCount + services.TransportClockPulseCount:N0}", EditorStyles.miniLabel);
+            }
+            EditorGUILayout.LabelField($"Selected detail Routes: {services.SelectedRouteCount}/{RuntimeServices.MonitorRouteSelectionLimit} · dropped history: {services.DroppedRouteHistoryCount + services.DroppedMidiHistoryCount + services.DroppedTransportHistoryCount:N0}", EditorStyles.miniLabel);
             scroll = EditorGUILayout.BeginScrollView(scroll);
             EditorGUILayout.LabelField("Runtime modules", EditorStyles.boldLabel);
             foreach (var module in runtime.ConfiguredModules)
@@ -538,16 +558,29 @@ namespace MondmadeVJ0.Editor
                 foreach (var route in host.Routes)
                 {
                     if (route == null) continue;
-                    EditorGUILayout.LabelField(route.Name, route.Status + " · " + CurrentValue(route));
-                    if (route is ValueRoute<float> f) DrawOutputs(route, f.Outputs.Count, f.GetOutputStatus);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        var isSelected = route.Id == detailedRouteId;
+                        var selected = GUILayout.Toggle(isSelected, "Trace", EditorStyles.miniButton, GUILayout.Width(48));
+                        if (selected != isSelected) SelectRoute(route.Id, selected);
+                        EditorGUILayout.LabelField(route.Name, route.Status + " · " + CurrentValue(route));
+                    }
+                    if (route is TriggerRoute trigger) DrawOutputs(route, trigger.Outputs.Count, trigger.GetOutputStatus);
+                    else if (route is ValueRoute<float> f) DrawOutputs(route, f.Outputs.Count, f.GetOutputStatus);
                     else if (route is ValueRoute<int> i) DrawOutputs(route, i.Outputs.Count, i.GetOutputStatus);
                     else if (route is ValueRoute<bool> b) DrawOutputs(route, b.Outputs.Count, b.GetOutputStatus);
                     else if (route is ValueRoute<Vector2> v2) DrawOutputs(route, v2.Outputs.Count, v2.GetOutputStatus);
                     else if (route is ValueRoute<Vector3> v3) DrawOutputs(route, v3.Outputs.Count, v3.GetOutputStatus);
                     else if (route is ValueRoute<Vector4> v4) DrawOutputs(route, v4.Outputs.Count, v4.GetOutputStatus);
                     else if (route is ValueRoute<Color> color) DrawOutputs(route, color.Outputs.Count, color.GetOutputStatus);
+                    if (route.Id == detailedRouteId) DrawRouteHistory(route.Id, services);
                 }
             }
+
+            EditorGUILayout.Space();
+            DrawMidiHistory(services);
+            DrawTransportHistory(services);
+            DrawPerformance(services);
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Diagnostics", EditorStyles.boldLabel);
             foreach (var diagnostic in runtime.Services.GetDiagnostics().Reverse())
@@ -556,12 +589,186 @@ namespace MondmadeVJ0.Editor
         }
 
         private void OnEnable() => EditorApplication.update += RefreshWhilePlaying;
-        private void OnDisable() => EditorApplication.update -= RefreshWhilePlaying;
-        private void RefreshWhilePlaying() { if (Application.isPlaying && runtime != null) Repaint(); }
+        private void OnDisable()
+        {
+            EditorApplication.update -= RefreshWhilePlaying;
+            if (runtime != null && runtime.Services != null && !string.IsNullOrEmpty(detailedRouteId))
+                runtime.Services.SetRouteTraceSelected(detailedRouteId, false);
+            detailedRouteId = null;
+        }
+
+        private void RefreshWhilePlaying()
+        {
+            if (!Application.isPlaying || runtime == null || runtime.Services == null) return;
+            UpdateRates(runtime.Services);
+            Repaint();
+        }
+
+        private void SelectInitialRoute()
+        {
+            if (runtime == null || runtime.Services == null || !string.IsNullOrEmpty(detailedRouteId)) return;
+            foreach (var host in runtime.RouteHosts)
+            {
+                if (host == null) continue;
+                foreach (var route in host.Routes)
+                    if (route != null && route.Status == "Active") { SelectRoute(route.Id, true); return; }
+            }
+        }
+
+        private void SetRuntime(MondmadeVJ0Runtime value)
+        {
+            if (runtime != null && runtime.Services != null && !string.IsNullOrEmpty(detailedRouteId))
+                runtime.Services.SetRouteTraceSelected(detailedRouteId, false);
+            runtime = value;
+            detailedRouteId = null;
+        }
+
+        private void SelectRoute(string routeId, bool selected)
+        {
+            if (runtime == null || runtime.Services == null) return;
+            if (!selected)
+            {
+                runtime.Services.SetRouteTraceSelected(routeId, false);
+                if (detailedRouteId == routeId) detailedRouteId = null;
+                return;
+            }
+            if (!string.IsNullOrEmpty(detailedRouteId)) runtime.Services.SetRouteTraceSelected(detailedRouteId, false);
+            if (runtime.Services.SetRouteTraceSelected(routeId, true)) detailedRouteId = routeId;
+            else ShowNotification(new GUIContent("At most 32 Routes can be traced at once."));
+        }
+
+        private void DrawRouteHistory(string routeId, RuntimeServices services)
+        {
+            services.CopyRouteHistory(routeHistory, routeId, 128);
+            EditorGUILayout.LabelField("Raw → Modifiers → Final → Outputs", EditorStyles.miniBoldLabel);
+            if (routeHistory.Count == 0)
+            {
+                EditorGUILayout.LabelField("Waiting for the next value…", EditorStyles.miniLabel);
+                return;
+            }
+            for (var i = Math.Max(0, routeHistory.Count - 32); i < routeHistory.Count; i++)
+            {
+                var item = routeHistory[i];
+                var stage = item.Stage == RuntimeTraceStage.Modifier || item.Stage == RuntimeTraceStage.TriggerModifier
+                    ? $"{item.Stage}[{item.Index + 1}] {item.NodeName}" : item.Stage.ToString();
+                var outcome = string.IsNullOrEmpty(item.Outcome) ? string.Empty : " · " + item.Outcome;
+                var processing = item.ProcessingMilliseconds <= 0d ? string.Empty : $" · {item.ProcessingMilliseconds:F4} ms";
+                EditorGUILayout.LabelField($"{stage}: {item.Value?.ToString() ?? "null"}{outcome}{processing}", EditorStyles.miniLabel);
+            }
+        }
+
+        private void DrawMidiHistory(RuntimeServices services)
+        {
+            showMidiHistory = EditorGUILayout.Foldout(showMidiHistory, "MIDI Monitor", true, EditorStyles.foldoutHeader);
+            if (!showMidiHistory) return;
+            EditorGUILayout.LabelField($"IN raw {rawMidiPerSecond:F1}/s · logical {logicalMidiPerSecond:F1}/s · OUT LED queued {ledOutPerSecond:F1}/s", EditorStyles.miniLabel);
+            services.CopyMidiHistory(midiHistory, 96);
+            for (var i = Math.Max(0, midiHistory.Count - 24); i < midiHistory.Count; i++)
+            {
+                var item = midiHistory[i];
+                if (item.Kind == RuntimeMidiEventKind.RawInput)
+                    EditorGUILayout.LabelField($"IN Raw · {item.SurfaceName ?? item.SurfaceId} · ch {item.Channel + 1} · {RawAddressName(item.AddressType)} {item.Number} · {item.Value:F3}", EditorStyles.miniLabel);
+                else if (item.Kind == RuntimeMidiEventKind.LogicalInput)
+                    EditorGUILayout.LabelField($"IN {item.SurfaceName ?? item.SurfaceId}/{item.Label ?? item.ControlId} · {item.Value:F3} · {LogicalButtonState(item)}", EditorStyles.miniLabel);
+                else
+                    EditorGUILayout.LabelField($"OUT queued · {item.SurfaceName ?? item.SurfaceId}/{item.ControlId} · ch {item.Channel + 1} note {item.Number} · RGB({item.Red},{item.Green},{item.Blue}) · {item.Brightness:P0} · {LedEffectName(item.Effect)}", EditorStyles.miniLabel);
+            }
+        }
+
+        private void DrawTransportHistory(RuntimeServices services)
+        {
+            showTransportHistory = EditorGUILayout.Foldout(showTransportHistory, "Transport Monitor", true, EditorStyles.foldoutHeader);
+            if (!showTransportHistory) return;
+            var transport = services.Transport;
+            if (transport != null)
+                EditorGUILayout.LabelField($"{ReadText(transport, "ClockSource")} · {ReadText(transport, "SyncState")} · {transport.EffectiveBpm:F2} BPM · Beat {transport.BeatPosition:F3} · Phase {transport.BeatPhase:F3} · Bar {transport.BarIndex}", EditorStyles.miniLabel);
+            services.CopyTransportHistory(transportHistory, 96);
+            for (var i = Math.Max(0, transportHistory.Count - 24); i < transportHistory.Count; i++)
+            {
+                var item = transportHistory[i];
+                EditorGUILayout.LabelField($"{item.Kind} · {item.Bpm:F2} BPM · Beat {item.BeatPosition:F3}" + (string.IsNullOrEmpty(item.Detail) ? string.Empty : " · " + item.Detail), EditorStyles.miniLabel);
+            }
+        }
+
+        private void DrawPerformance(RuntimeServices services)
+        {
+            showPerformance = EditorGUILayout.Foldout(showPerformance, "Performance Monitor", true, EditorStyles.foldoutHeader);
+            if (!showPerformance) return;
+            var activeRoutes = 0;
+            var sources = 0;
+            var modifiers = 0;
+            foreach (var host in runtime.RouteHosts)
+            {
+                if (host == null) continue;
+                foreach (var route in host.Routes)
+                {
+                    if (route == null || route.Status != "Active") continue;
+                    activeRoutes++;
+                    sources++;
+                    var property = route.GetType().GetProperty("Modifiers");
+                    if (property?.GetValue(route) is System.Collections.ICollection collection) modifiers += collection.Count;
+                }
+            }
+            EditorGUILayout.LabelField($"Active Routes {activeRoutes} · Sources {sources} · Modifiers {modifiers} · Frame-updated callbacks {runtime.FrameSubscriberCount}", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField($"Route processing {services.RouteProcessingMeanMilliseconds:F4} ms mean · {services.RouteProcessingP99Milliseconds:F4} ms p99 · {services.RouteProcessingMaximumMilliseconds:F4} ms max · {services.RouteProcessingCount:N0} samples", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField($"Frame callback processing {services.FrameCallbackMeanMilliseconds:F4} ms mean · {services.FrameCallbackP99Milliseconds:F4} ms p99 · {services.FrameCallbackMaximumMilliseconds:F4} ms max · {services.LastFrameCallbackCount} callbacks", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField($"MIDI IN raw/logical {rawMidiPerSecond:F1}/{logicalMidiPerSecond:F1} per second · LED OUT {ledOutPerSecond:F1}/s · OSC IN/OUT {oscInPerSecond:F1}/{oscOutPerSecond:F1}/s", EditorStyles.miniLabel);
+        }
+
+        private void UpdateRates(RuntimeServices services)
+        {
+            var now = EditorApplication.timeSinceStartup;
+            var raw = services.RawMidiInputCount;
+            var logical = services.LogicalMidiInputCount;
+            var led = services.MidiLedOutputCount;
+            long oscIn = 0, oscOut = 0;
+            foreach (var module in runtime.ConfiguredModules)
+            {
+                if (module == null) continue;
+                oscIn += ReadLong(module, "ReceivedCount");
+                oscOut += ReadLong(module, "SentCount");
+            }
+            if (lastRateSampleTime > 0d)
+            {
+                var elapsed = now - lastRateSampleTime;
+                if (elapsed >= 0.5d)
+                {
+                    rawMidiPerSecond = (raw - lastRawMidi) / elapsed;
+                    logicalMidiPerSecond = (logical - lastLogicalMidi) / elapsed;
+                    ledOutPerSecond = (led - lastLedOut) / elapsed;
+                    oscInPerSecond = (oscIn - lastOscIn) / elapsed;
+                    oscOutPerSecond = (oscOut - lastOscOut) / elapsed;
+                }
+            }
+            lastRateSampleTime = now;
+            lastRawMidi = raw; lastLogicalMidi = logical; lastLedOut = led; lastOscIn = oscIn; lastOscOut = oscOut;
+        }
+
+        private static long ReadLong(object target, string propertyName)
+        {
+            try { return Convert.ToInt64(target.GetType().GetProperty(propertyName)?.GetValue(target) ?? 0L); }
+            catch { return 0L; }
+        }
+
+        private static string ReadText(object target, string propertyName)
+        {
+            try { return target.GetType().GetProperty(propertyName)?.GetValue(target)?.ToString() ?? "—"; }
+            catch { return "—"; }
+        }
+
+        private static string LogicalButtonState(RuntimeMidiTrace item)
+            => item.PressedDown ? "Pressed" : item.Released ? "Released" : item.Pressed ? "Held" : "Value";
+
+        private static string LedEffectName(int effect)
+            => effect == 0 ? "Solid" : effect == 1 ? "Blink" : effect == 2 ? "Pulse" : "Effect " + effect;
+
+        private static string RawAddressName(int addressType)
+            => addressType == 0 ? "Note" : addressType == 1 ? "CC" : addressType == 2 ? "Poly Aftertouch"
+                : addressType == 3 ? "Channel Pressure" : addressType == 4 ? "Pitch Bend" : "Address " + addressType;
 
         private static string ReadModuleSummary(object module)
         {
-            var names = new[] { "Status", "SyncState", "EffectiveBpm", "BeatPosition", "ReceivedCount", "SentCount", "DroppedCount", "DroppedOutputMessages", "MissedPulses", "MalformedCount", "P99LatenessMilliseconds", "MaximumLatenessMilliseconds", "MaximumDeadlineDriftMilliseconds" };
+            var names = new[] { "Status", "SyncState", "EffectiveBpm", "BeatPosition", "ReceivedCount", "SentCount", "SentPulses", "DroppedCount", "DroppedNormalMessages", "DroppedClockMessages", "DroppedOutputMessages", "MissedPulses", "MalformedCount", "P99LatenessMilliseconds", "MaximumLatenessMilliseconds", "MaximumDeadlineDriftMilliseconds" };
             var values = new List<string>();
             foreach (var name in names)
             {
@@ -593,12 +800,14 @@ namespace MondmadeVJ0.Editor
         {
             var errors = new List<string>();
             if (host == null) return errors;
+            var sceneHosts = GetSceneHosts(host).ToArray();
             var routeIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var route in host.Routes)
             {
                 if (route == null) { errors.Add($"{host.name}: null route or missing serialized type."); continue; }
                 if (string.IsNullOrWhiteSpace(route.Name)) errors.Add($"{host.name}: route {route.Id} has no name.");
-                if (!routeIds.Add(route.Id)) errors.Add($"{host.name}/{route.Name}: duplicate route id {route.Id}.");
+                if (string.IsNullOrWhiteSpace(route.Id)) errors.Add($"{host.name}/{route.Name}: route has no stable id.");
+                else if (!routeIds.Add(route.Id)) errors.Add($"{host.name}/{route.Name}: duplicate route id {route.Id}.");
                 if (!(GetRouteOutputs(route) is System.Collections.ICollection outputs) || outputs.Count == 0)
                     errors.Add($"{host.name}/{route.Name}: no Output is assigned.");
                 var source = GetRouteSource(route);
@@ -607,12 +816,30 @@ namespace MondmadeVJ0.Editor
                 foreach (var node in EnumerateNodes(route))
                 {
                     if (node == null) { errors.Add($"{host.name}/{route.Name}: missing node or type."); continue; }
-                    if (!nodeIds.Add(node.NodeId)) errors.Add($"{host.name}/{route.Name}: duplicate node id {node.NodeId}.");
+                    if (string.IsNullOrWhiteSpace(node.NodeId)) errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: node has no stable id.");
+                    else if (!nodeIds.Add(node.NodeId)) errors.Add($"{host.name}/{route.Name}: duplicate node id {node.NodeId}.");
                     ValidateNode(host, route, node, errors);
                 }
             }
-            ValidateSignalCycles(GetSceneHosts(host), errors);
+            ValidateSceneRouteIds(sceneHosts, errors);
+            ValidateSignalCycles(sceneHosts, errors);
             return errors;
+        }
+
+        private static void ValidateSceneRouteIds(IEnumerable<RouteHost> hosts, List<string> errors)
+        {
+            var routeIds = new Dictionary<string, RouteHost>(StringComparer.Ordinal);
+            foreach (var candidateHost in hosts)
+            foreach (var route in candidateHost.Routes)
+            {
+                if (route == null || string.IsNullOrWhiteSpace(route.Id)) continue;
+                if (routeIds.TryGetValue(route.Id, out var existingHost))
+                {
+                    if (existingHost != candidateHost)
+                        errors.Add($"{candidateHost.name}/{route.Name}: duplicate route id {route.Id} also exists in {existingHost.name}.");
+                }
+                else routeIds.Add(route.Id, candidateHost);
+            }
         }
 
         private static IEnumerable<RouteHost> GetSceneHosts(RouteHost host)
@@ -699,7 +926,355 @@ namespace MondmadeVJ0.Editor
                     ValidateNumericField(host, route, node, type, field, value, errors);
                 }
             }
-            ValidateAotAccessor(host, route, node, errors);
+            ValidateSpecializedTarget(host, route, node, errors);
+            ValidateMidiControlReferences(host, route, node, errors);
+            if (ValidateComponentMember(host, route, node, errors)) ValidateAotAccessor(host, route, node, errors);
+        }
+
+        private static bool ValidateComponentMember(RouteHost host, IRoute route, RouteNode node, List<string> errors)
+        {
+            Type outputBase = null;
+            for (var type = node.GetType(); type != null; type = type.BaseType)
+                if (type.IsGenericType && type.GetGenericTypeDefinition().Name == "ComponentMemberOutput`1")
+                { outputBase = type; break; }
+            if (outputBase == null) return true;
+
+            var target = GetMemberValue(node, "Target") as Component;
+            var memberName = GetMemberValue(node, "MemberName") as string;
+            if (target == null || string.IsNullOrWhiteSpace(memberName)) return true;
+            var valueType = outputBase.GetGenericArguments()[0];
+
+            var registryMethod = typeof(ComponentAccessorRegistry).GetMethods(BindingFlags.Static | BindingFlags.Public)
+                .FirstOrDefault(method => method.Name == "TryGet" && method.IsGenericMethodDefinition);
+            if (registryMethod != null)
+            {
+                var arguments = new object[] { target.GetType(), memberName, null };
+                if ((bool)registryMethod.MakeGenericMethod(valueType).Invoke(null, arguments)) return true;
+            }
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+            var field = target.GetType().GetField(memberName, flags);
+            if (field != null)
+            {
+                if (field.FieldType == valueType && !field.IsInitOnly && !field.IsLiteral) return true;
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: public field '{target.GetType().Name}.{memberName}' is not a writable {valueType.Name}.");
+                return false;
+            }
+
+            var property = target.GetType().GetProperty(memberName, flags);
+            if (property != null && property.PropertyType == valueType && property.GetSetMethod(nonPublic: false) != null) return true;
+            errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: '{target.GetType().Name}.{memberName}' is not a public writable {valueType.Name} member.");
+            return false;
+        }
+
+        private static void ValidateSpecializedTarget(RouteHost host, IRoute route, RouteNode node, List<string> errors)
+        {
+            var typeName = node.GetType().Name;
+            if (typeName.StartsWith("VFX", StringComparison.Ordinal))
+            {
+                var target = GetSerializedValue(node, "target");
+                var propertyName = GetSerializedValue(node, "propertyName") as string;
+                var methodName = typeName switch
+                {
+                    "VFXFloatOutput" => "HasFloat",
+                    "VFXIntOutput" => "HasInt",
+                    "VFXUIntOutput" => "HasUInt",
+                    "VFXBoolOutput" => "HasBool",
+                    "VFXVector2Output" => "HasVector2",
+                    "VFXVector3Output" => "HasVector3",
+                    "VFXVector4Output" => "HasVector4",
+                    "VFXColorOutput" => "HasVector4",
+                    "VFXMatrixOutput" => "HasMatrix4x4",
+                    "VFXTextureOutput" => "HasTexture",
+                    "VFXTextureIndexOutput" => "HasTexture",
+                    "VFXTriggerEventOutput" => "HasEvent",
+                    _ => null
+                };
+                var propertyNameToCheck = typeName == "VFXTriggerEventOutput"
+                    ? GetSerializedValue(node, "eventName") as string
+                    : propertyName;
+                if (target == null || string.IsNullOrWhiteSpace(propertyNameToCheck) || string.IsNullOrEmpty(methodName)) return;
+
+                try
+                {
+                    var hasProperty = target.GetType().GetMethod(methodName, new[] { typeof(int) });
+                    if (hasProperty == null) return;
+                    var propertyId = Shader.PropertyToID(propertyNameToCheck);
+                    if (!(bool)hasProperty.Invoke(target, new object[] { propertyId }))
+                        errors.Add($"{host.name}/{route.Name}/{typeName}: VFX property '{propertyNameToCheck}' is missing or has the wrong type.");
+                }
+                catch (TargetInvocationException exception)
+                {
+                    errors.Add($"{host.name}/{route.Name}/{typeName}: could not validate VFX property '{propertyName}': {exception.InnerException?.Message ?? exception.Message}");
+                }
+                catch (Exception exception)
+                {
+                    errors.Add($"{host.name}/{route.Name}/{typeName}: could not validate VFX property '{propertyName}': {exception.Message}");
+                }
+            }
+
+            if (typeName.StartsWith("Renderer", StringComparison.Ordinal) || typeName.StartsWith("Material", StringComparison.Ordinal))
+                ValidateShaderProperty(host, route, node, errors);
+            if (typeName.StartsWith("Animator", StringComparison.Ordinal))
+                ValidateAnimatorTarget(host, route, node, errors);
+            if (typeName.StartsWith("Volume", StringComparison.Ordinal))
+                ValidateVolumeTarget(host, route, node, errors);
+        }
+
+        private static void ValidateShaderProperty(RouteHost host, IRoute route, RouteNode node, List<string> errors)
+        {
+            var helpers = node.GetType().Assembly.GetType("MondmadeVJ0.RenderOutputHelpers", throwOnError: false);
+            if (helpers == null) return;
+            var rendererOutput = node.GetType().Name.StartsWith("Renderer", StringComparison.Ordinal);
+            var method = helpers.GetMethod(rendererOutput ? "ValidateRenderer" : "ValidateProperty",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            if (method == null) return;
+
+            var target = GetSerializedValue(node, "target");
+            var propertyName = GetSerializedValue(node, "propertyName") as string;
+            if (target == null || string.IsNullOrWhiteSpace(propertyName)) return;
+
+            var expectedProperty = FindProperty(node.GetType(), "PropertyType")?.GetValue(node);
+            var parameters = method.GetParameters();
+            var shaderPropertyType = parameters[rendererOutput ? 3 : 2].ParameterType;
+            if (expectedProperty == null && node.GetType().Name.EndsWith("TextureIndexOutput", StringComparison.Ordinal))
+                expectedProperty = Enum.Parse(shaderPropertyType, "Texture");
+            if (expectedProperty == null) return;
+
+            object[] arguments = rendererOutput
+                ? new[] { target, GetSerializedValue(node, "materialIndex") ?? 0, propertyName, expectedProperty }
+                : new[] { target, propertyName, expectedProperty, "Material" };
+            try { method.Invoke(null, arguments); }
+            catch (TargetInvocationException exception)
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: {exception.InnerException?.Message ?? exception.Message}");
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: could not validate shader property '{propertyName}': {exception.Message}");
+            }
+        }
+
+        private static void ValidateAnimatorTarget(RouteHost host, IRoute route, RouteNode node, List<string> errors)
+        {
+            if (!(GetSerializedValue(node, "target") is Animator animator)) return;
+            var typeName = node.GetType().Name;
+            if (animator.runtimeAnimatorController == null)
+            {
+                errors.Add($"{host.name}/{route.Name}/{typeName}: Animator has no RuntimeAnimatorController.");
+                return;
+            }
+
+            var isAnimatorParameterOutput = typeName == "AnimatorTriggerOutput";
+            for (var type = node.GetType(); type != null && !isAnimatorParameterOutput; type = type.BaseType)
+                isAnimatorParameterOutput = type.Name.StartsWith("AnimatorParameterOutput`", StringComparison.Ordinal);
+            if (isAnimatorParameterOutput)
+            {
+                var parameterName = GetSerializedValue(node, "parameterName") as string;
+                if (string.IsNullOrWhiteSpace(parameterName)) return;
+                var expected = typeName == "AnimatorTriggerOutput"
+                    ? "Trigger"
+                    : FindProperty(node.GetType(), "ParameterType")?.GetValue(node)?.ToString();
+                var hash = Animator.StringToHash(parameterName);
+                var found = false;
+                foreach (var parameter in animator.parameters)
+                    if (parameter.nameHash == hash && parameter.type.ToString() == expected) { found = true; break; }
+                if (!found) errors.Add($"{host.name}/{route.Name}/{typeName}: Animator parameter '{parameterName}' is missing or is not {expected}.");
+                return;
+            }
+
+            if (typeName == "AnimatorLayerWeightFloatOutput" || typeName == "AnimatorStateTriggerOutput")
+            {
+                var layerName = GetSerializedValue(node, "layerName") as string;
+                var layerIndex = !string.IsNullOrEmpty(layerName)
+                    ? animator.GetLayerIndex(layerName)
+                    : (int)(GetSerializedValue(node, "layerIndex") ?? 0);
+                if (layerIndex < 0 || layerIndex >= animator.layerCount)
+                {
+                    errors.Add($"{host.name}/{route.Name}/{typeName}: Animator layer '{layerName}' does not exist.");
+                    return;
+                }
+                if (typeName == "AnimatorStateTriggerOutput")
+                {
+                    var stateName = GetSerializedValue(node, "stateName") as string;
+                    if (!string.IsNullOrWhiteSpace(stateName) && !animator.HasState(layerIndex, Animator.StringToHash(stateName)))
+                        errors.Add($"{host.name}/{route.Name}/{typeName}: Animator state '{stateName}' does not exist on layer {layerIndex}.");
+                }
+            }
+        }
+
+        private static void ValidateVolumeTarget(RouteHost host, IRoute route, RouteNode node, List<string> errors)
+        {
+            Type outputBase = null;
+            for (var type = node.GetType(); type != null; type = type.BaseType)
+                if (type.IsGenericType && type.GetGenericTypeDefinition().Name == "VolumeParameterOutput`1")
+                { outputBase = type; break; }
+            if (outputBase == null || GetSerializedValue(node, "target") == null) return;
+
+            var typeName = GetSerializedValue(node, "componentTypeName") as string;
+            var parameterName = GetSerializedValue(node, "parameterName") as string;
+            if (string.IsNullOrWhiteSpace(typeName) || string.IsNullOrWhiteSpace(parameterName)) return;
+            var componentType = Type.GetType(typeName, throwOnError: false);
+            if (componentType == null)
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                    if ((componentType = assembly.GetType(typeName, throwOnError: false)) != null) break;
+            if (componentType == null || !typeof(ScriptableObject).IsAssignableFrom(componentType))
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: Volume component type '{typeName}' does not exist.");
+                return;
+            }
+
+            var field = componentType.GetField(parameterName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var expectedType = outputBase.GetGenericArguments()[0];
+            var parameterType = field?.FieldType;
+            while (parameterType != null && !(parameterType.IsGenericType && parameterType.GetGenericTypeDefinition().Name == "VolumeParameter`1"))
+                parameterType = parameterType.BaseType;
+            if (field == null || parameterType == null || parameterType.GetGenericArguments()[0] != expectedType)
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: Volume parameter '{componentType.Name}.{parameterName}' is missing or is not a {expectedType.Name} parameter.");
+                return;
+            }
+
+            var target = GetSerializedValue(node, "target");
+            var profile = GetMemberValue(target, "profile");
+            if (profile == null)
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: Volume target has no profile.");
+                return;
+            }
+            var hasComponent = GetMemberValue(profile, "components") is System.Collections.IEnumerable components
+                && components.Cast<object>().Any(component => component != null && component.GetType() == componentType);
+            var overrideMode = GetSerializedValue(node, "overrideMode")?.ToString();
+            if (!hasComponent && overrideMode != "Automatically")
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: Volume profile does not contain {componentType.Name}.");
+            else if (hasComponent)
+            {
+                var component = ((System.Collections.IEnumerable)GetMemberValue(profile, "components")).Cast<object>()
+                    .FirstOrDefault(candidate => candidate != null && candidate.GetType() == componentType);
+                if (field.GetValue(component) == null)
+                    errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: Volume parameter '{componentType.Name}.{parameterName}' is null.");
+            }
+        }
+
+        private static void ValidateMidiControlReferences(RouteHost host, IRoute route, RouteNode node, List<string> errors)
+        {
+            var controlFields = EnumerateSerializedFields(node.GetType())
+                .Where(field => field.FieldType.Name == "MidiControlReference"
+                    || field.FieldType.IsArray && field.FieldType.GetElementType()?.Name == "MidiControlReference")
+                .ToArray();
+            if (controlFields.Length == 0) return;
+
+            var hub = FindConfiguredMidiHub(host);
+            if (hub == null)
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: no MidiHub module is configured for this RouteHost.");
+                return;
+            }
+
+            foreach (var field in controlFields)
+            {
+                var fieldValue = field.GetValue(node);
+                if (fieldValue is System.Collections.IEnumerable references && !(fieldValue is string))
+                {
+                    foreach (var reference in references)
+                        ValidateMidiReference(host, route, node, field.Name, reference, hub, errors);
+                }
+                else ValidateMidiReference(host, route, node, field.Name, fieldValue, hub, errors);
+            }
+        }
+
+        private static void ValidateMidiReference(RouteHost host, IRoute route, RouteNode node, string fieldName,
+            object reference, Component hub, List<string> errors)
+        {
+            if (reference == null) return;
+            var surfaceId = GetMemberValue(reference, "SurfaceInstanceId") as string;
+            var controlId = GetMemberValue(reference, "ControlId") as string;
+            if (!TryFindMidiControl(hub, surfaceId, controlId, out var definition))
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: MIDI control '{surfaceId}/{controlId}' in '{fieldName}' does not exist in the configured MidiHub.");
+                return;
+            }
+
+            var constraint = node.GetType().GetInterfaces().FirstOrDefault(type => type.Name == "IMidiControlTypeConstraint");
+            var accepts = constraint?.GetMethod("AcceptsControlType");
+            var controlType = GetMemberValue(definition, "type");
+            if (accepts != null && !(bool)accepts.Invoke(node, new[] { (object)fieldName, controlType }))
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: MIDI control '{controlId}' has incompatible Control Type '{controlType}'.");
+
+            if (node.GetType().Name.StartsWith("MidiLed", StringComparison.Ordinal)
+                && !Convert.ToBoolean(GetMemberValue(definition, "hasLed")))
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: MIDI control '{controlId}' does not have an LED.");
+        }
+
+        private static Component FindConfiguredMidiHub(RouteHost host)
+        {
+            var scene = host.gameObject.scene;
+            if (!scene.IsValid() || !scene.isLoaded) return null;
+            foreach (var root in scene.GetRootGameObjects())
+            foreach (var runtime in root.GetComponentsInChildren<MondmadeVJ0Runtime>(true))
+            {
+                var routeHosts = GetSerializedValue(runtime, "routeHosts") as RouteHost[];
+                if (routeHosts == null || !routeHosts.Contains(host)) continue;
+                if (!(GetSerializedValue(runtime, "modules") is MonoBehaviour[] modules)) continue;
+                foreach (var module in modules)
+                    if (module != null && module.GetType().Name == "MidiHub") return module;
+            }
+            return null;
+        }
+
+        private static bool TryFindMidiControl(Component hub, string surfaceId, string controlId, out object definition)
+        {
+            definition = null;
+            if (!(GetMemberValue(hub, "Surfaces") is System.Collections.IEnumerable surfaces)) return false;
+            foreach (var surface in surfaces)
+            {
+                if (surface == null || !string.Equals(GetMemberValue(surface, "InstanceId") as string, surfaceId, StringComparison.Ordinal)) continue;
+                var profile = GetMemberValue(surface, "Profile");
+                if (!(GetMemberValue(profile, "Controls") is System.Collections.IEnumerable controls)) return false;
+                foreach (var control in controls)
+                    if (control != null && string.Equals(GetMemberValue(control, "id") as string, controlId, StringComparison.Ordinal))
+                    { definition = control; return true; }
+                return false;
+            }
+            return false;
+        }
+
+        private static IEnumerable<FieldInfo> EnumerateSerializedFields(Type type)
+        {
+            for (; type != null && type != typeof(object); type = type.BaseType)
+                foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                    if (!field.IsStatic && !field.IsNotSerialized) yield return field;
+        }
+
+        private static object GetSerializedValue(object target, string fieldName)
+            => FindSerializedField(target?.GetType(), fieldName)?.GetValue(target);
+
+        private static FieldInfo FindSerializedField(Type type, string fieldName)
+        {
+            for (; type != null && type != typeof(object); type = type.BaseType)
+            {
+                var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (field != null) return field;
+            }
+            return null;
+        }
+
+        private static PropertyInfo FindProperty(Type type, string propertyName)
+        {
+            for (; type != null && type != typeof(object); type = type.BaseType)
+            {
+                var property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (property != null) return property;
+            }
+            return null;
+        }
+
+        private static object GetMemberValue(object target, string memberName)
+        {
+            if (target == null) return null;
+            var type = target.GetType();
+            return type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target)
+                ?? type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
         }
 
         private static void ValidateNumericField(RouteHost host, IRoute route, RouteNode node, Type declaringType, FieldInfo field, object value, List<string> errors)
@@ -739,6 +1314,13 @@ namespace MondmadeVJ0.Editor
                 var member = type.GetProperty("MemberName")?.GetValue(node) as string;
                 if (target == null || string.IsNullOrWhiteSpace(member)) return;
                 var valueType = type.GetGenericArguments()[0];
+                var registryMethod = typeof(ComponentAccessorRegistry).GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .FirstOrDefault(method => method.Name == "TryGet" && method.IsGenericMethodDefinition);
+                if (registryMethod != null)
+                {
+                    var arguments = new object[] { target.GetType(), member, null };
+                    if ((bool)registryMethod.MakeGenericMethod(valueType).Invoke(null, arguments)) return;
+                }
                 var key = ComponentAccessorGenerator.Key(target.GetType().AssemblyQualifiedName, member, valueType.AssemblyQualifiedName);
                 if (!ComponentAccessorGenerator.GeneratedKeys().Contains(key))
                     errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: generate the IL2CPP accessor for {target.GetType().Name}.{member}.");
@@ -746,7 +1328,7 @@ namespace MondmadeVJ0.Editor
             }
         }
 
-        private static bool IsRequiredTargetField(string field) => field is "target" or "signal" or "profile" or "action";
+        private static bool IsRequiredTargetField(string field) => field is "target" or "signal" or "Signal" or "profile" or "action";
         private static bool IsRequiredArrayField(string field) => field is "objects" or "clips" or "textures" or "controls" or "actions" or "inputs";
         private static bool IsRequiredStringField(string field) => field is "memberName" or "propertyName" or "parameterName" or "eventName" or "stateName" or "componentTypeName";
         private static bool IsScalarNumeric(Type type) => type == typeof(float) || type == typeof(double) || type == typeof(int);

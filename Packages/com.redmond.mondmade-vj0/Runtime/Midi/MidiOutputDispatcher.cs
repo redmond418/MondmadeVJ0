@@ -97,6 +97,7 @@ namespace MondmadeVJ0
         public int PendingMessageCount => port == null ? 0 : port.PendingMessageCount;
         public bool IsIdle => port == null || port.IsIdle;
         public bool TryClaimClock(int owner) => port != null && port.TryClaimClock(owner);
+        public bool SetClockScheduleGeneration(int owner, int generation) => port != null && port.SetClockScheduleGeneration(owner, generation);
         public void ReleaseClock(int owner) => port?.ReleaseClock(owner);
         public bool QueueControl(byte[] message) => port != null && port.QueueControl(message);
         public bool QueueLed(string key, byte[] message) => port != null && port.QueueLed(key, message);
@@ -114,6 +115,7 @@ namespace MondmadeVJ0
     internal sealed class MidiOutputPort : IDisposable
     {
         private readonly object queueLock = new object();
+        private readonly object clockSendLock = new object();
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
         private readonly MidiOutputWorkQueue queue = new MidiOutputWorkQueue();
         private readonly Thread worker;
@@ -125,6 +127,7 @@ namespace MondmadeVJ0
         private string lastError;
         private RtMidi.MidiOut output;
         private int clockOwner;
+        private int clockScheduleGeneration;
         private long connectionGeneration;
         private int inFlight;
 
@@ -146,7 +149,7 @@ namespace MondmadeVJ0
                 IsBackground = true,
                 Name = "MondmadeVJ0 MIDI Output " + ordinal
             };
-            try { worker.Priority = ThreadPriority.AboveNormal; }
+            try { worker.Priority = ThreadPriority.Highest; }
             catch { }
             worker.Start();
         }
@@ -157,18 +160,39 @@ namespace MondmadeVJ0
             {
                 if (clockOwner != 0 && clockOwner != owner) return false;
                 clockOwner = owner;
+                Volatile.Write(ref clockScheduleGeneration, 0);
+                queue.SetClockGeneration(0);
                 return true;
             }
         }
 
+        public bool SetClockScheduleGeneration(int owner, int generation)
+        {
+            lock (clockSendLock)
+            {
+                lock (queueLock)
+                {
+                    if (clockOwner != owner || owner == 0) return false;
+                    Volatile.Write(ref clockScheduleGeneration, generation);
+                    queue.SetClockGeneration(generation);
+                }
+            }
+            wake.Set();
+            return true;
+        }
+
         public void ReleaseClock(int owner)
         {
-            lock (queueLock)
+            lock (clockSendLock)
             {
-                if (clockOwner == owner)
+                lock (queueLock)
                 {
-                    clockOwner = 0;
-                    queue.DiscardClock();
+                    if (clockOwner == owner)
+                    {
+                        clockOwner = 0;
+                        Volatile.Write(ref clockScheduleGeneration, 0);
+                        queue.SetClockGeneration(0);
+                    }
                 }
             }
             wake.Set();
@@ -271,19 +295,27 @@ namespace MondmadeVJ0
                 Interlocked.Increment(ref inFlight);
                 try
                 {
-                    if (packet.Kind == MidiOutputPacketKind.Clock &&
-                        Stopwatch.GetTimestamp() - packet.DeadlineTicks >= packet.PeriodTicks)
-                    {
-                        packet.ClockMetrics?.RecordMissed();
-                        continue;
-                    }
-
                     try
                     {
-                        var invocationTicks = packet.Kind == MidiOutputPacketKind.Clock ? Stopwatch.GetTimestamp() : 0L;
-                        output.SendMessage(packet.Message);
                         if (packet.Kind == MidiOutputPacketKind.Clock)
-                            packet.ClockMetrics?.RecordSent(packet.DeadlineTicks, invocationTicks, packet.Generation);
+                        {
+                            if (!WaitForClockDeadline(packet)) continue;
+
+                            lock (clockSendLock)
+                            {
+                                if (packet.Generation != Volatile.Read(ref clockScheduleGeneration) ||
+                                    Stopwatch.GetTimestamp() - packet.DeadlineTicks >= packet.PeriodTicks)
+                                {
+                                    packet.ClockMetrics?.RecordMissed();
+                                    continue;
+                                }
+
+                                var invocationTicks = Stopwatch.GetTimestamp();
+                                output.SendMessage(packet.Message);
+                                packet.ClockMetrics?.RecordSent(packet.DeadlineTicks, invocationTicks, packet.Generation);
+                            }
+                        }
+                        else output.SendMessage(packet.Message);
                     }
                     catch (Exception exception)
                     {
@@ -298,6 +330,30 @@ namespace MondmadeVJ0
             CloseOutput();
             Volatile.Write(ref connected, 0);
             Volatile.Write(ref status, "Closed");
+        }
+
+        private bool WaitForClockDeadline(MidiOutputPacket packet)
+        {
+            while (!stopping)
+            {
+                if (packet.Generation != Volatile.Read(ref clockScheduleGeneration))
+                {
+                    packet.ClockMetrics?.RecordMissed();
+                    return false;
+                }
+
+                var remaining = packet.DeadlineTicks - Stopwatch.GetTimestamp();
+                if (remaining <= 0) return true;
+                if (remaining > Stopwatch.Frequency / 500d)
+                {
+                    var milliseconds = (int)(remaining * 1000d / Stopwatch.Frequency) - 1;
+                    wake.WaitOne(Math.Max(1, milliseconds));
+                }
+                else Thread.SpinWait(32);
+            }
+
+            packet.ClockMetrics?.RecordMissed();
+            return false;
         }
 
         private void TryOpenOutput()
@@ -404,10 +460,18 @@ namespace MondmadeVJ0
         private readonly Dictionary<string, MidiOutputPacket> leds = new Dictionary<string, MidiOutputPacket>(StringComparer.Ordinal);
         private MidiOutputPacket clock;
         private bool hasClock;
+        private int clockGeneration;
         private long droppedMessages;
 
         public int Count => controls.Count + leds.Count + (hasClock ? 1 : 0);
         public long DroppedMessages => droppedMessages;
+
+        public void SetClockGeneration(int generation)
+        {
+            if (clockGeneration == generation) return;
+            clockGeneration = generation;
+            if (hasClock && clock.Generation != generation) DiscardClock();
+        }
 
         public bool EnqueueControl(byte[] message)
         {
@@ -442,7 +506,7 @@ namespace MondmadeVJ0
 
         public bool EnqueueClock(long deadlineTicks, long periodTicks, int generation, MidiClockSendMetrics metrics)
         {
-            if (periodTicks <= 0) { droppedMessages++; return false; }
+            if (periodTicks <= 0 || generation != clockGeneration) { droppedMessages++; return false; }
             if (hasClock) clock.ClockMetrics?.RecordMissed();
             clock = new MidiOutputPacket(MidiOutputPacketKind.Clock, ClockPulseMessage,
                 deadlineTicks: deadlineTicks, periodTicks: periodTicks, generation: generation, clockMetrics: metrics);

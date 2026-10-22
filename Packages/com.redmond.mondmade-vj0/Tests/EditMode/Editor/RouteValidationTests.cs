@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using MondmadeVJ0.Editor;
 using NUnit.Framework;
@@ -15,6 +17,8 @@ namespace MondmadeVJ0.Tests
         private SharedFloatSignal signalB;
         private RouteHost hostA;
         private RouteHost hostB;
+        private UnityEngine.Object extraAsset;
+        private string extraAssetPath;
 
         [SetUp]
         public void SetUp()
@@ -32,10 +36,17 @@ namespace MondmadeVJ0.Tests
         [TearDown]
         public void TearDown()
         {
-            if (hostAObject != null) Object.DestroyImmediate(hostAObject);
-            if (hostBObject != null) Object.DestroyImmediate(hostBObject);
-            if (signalAObject != null) Object.DestroyImmediate(signalAObject);
-            if (signalBObject != null) Object.DestroyImmediate(signalBObject);
+            if (hostAObject != null) UnityEngine.Object.DestroyImmediate(hostAObject);
+            if (hostBObject != null) UnityEngine.Object.DestroyImmediate(hostBObject);
+            if (signalAObject != null) UnityEngine.Object.DestroyImmediate(signalAObject);
+            if (signalBObject != null) UnityEngine.Object.DestroyImmediate(signalBObject);
+            if (!string.IsNullOrEmpty(extraAssetPath))
+            {
+                UnityEditor.AssetDatabase.DeleteAsset(extraAssetPath);
+                extraAsset = null;
+                extraAssetPath = null;
+            }
+            if (extraAsset != null) UnityEngine.Object.DestroyImmediate(extraAsset);
         }
 
         [Test]
@@ -76,6 +87,19 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void MissingSourceIsReportedBeforePlay()
+        {
+            var route = new FloatRoute();
+            route.Configure("source required", null);
+            route.Outputs.Add(new DebugFloatOutput());
+            hostA.AddRoute(route);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("source required") && issue.Contains("Source is not assigned")), Is.True);
+        }
+
+        [Test]
         public void DuplicateStableIdsAndInvalidRangesAreReportedBeforePlay()
         {
             var first = new FloatRoute();
@@ -100,6 +124,41 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void DuplicateRouteIdsAcrossHostsAreReportedBeforePlay()
+        {
+            var routeA = new FloatRoute();
+            routeA.Configure("host A route", new ConstantFloatSource());
+            routeA.Outputs.Add(new DebugFloatOutput());
+            hostA.AddRoute(routeA);
+            var routeB = new FloatRoute();
+            routeB.Configure("host B route", new ConstantFloatSource());
+            routeB.Outputs.Add(new DebugFloatOutput());
+            hostB.AddRoute(routeB);
+            SetField(routeB, "id", routeA.Id);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("duplicate route id") && issue.Contains("host B route")), Is.True);
+        }
+
+        [Test]
+        public void DuplicateNodeIdsWithinRouteAreReportedBeforePlay()
+        {
+            var source = new ConstantFloatSource();
+            var modifier = new AddFloatModifier();
+            var route = new FloatRoute();
+            route.Configure("duplicate node ids", source);
+            route.Modifiers.Add(modifier);
+            route.Outputs.Add(new DebugFloatOutput());
+            SetField(modifier, "nodeId", source.NodeId);
+            hostA.AddRoute(route);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("duplicate node id")), Is.True);
+        }
+
+        [Test]
         public void MissingUnityTargetIsReportedWithRouteAndNodeContext()
         {
             var route = new BoolRoute();
@@ -110,6 +169,216 @@ namespace MondmadeVJ0.Tests
             var issues = MondmadeVJ0Validation.Validate(hostA);
 
             Assert.That(issues.Exists(issue => issue.Contains("missing renderer target") && issue.Contains("required reference 'target' is missing")), Is.True);
+        }
+
+        [Test]
+        public void MissingAndWrongTypeShaderPropertiesAreReportedBeforePlay()
+        {
+            var shader = Shader.Find("Standard");
+            if (shader == null) Assert.Ignore("The built-in Standard shader is unavailable in this Editor.");
+            var material = new Material(shader);
+            extraAsset = material;
+            var rendererObject = new GameObject("Shader validation target");
+            var renderer = rendererObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            try
+            {
+                var rendererOutputType = FindLoadedType("MondmadeVJ0.RendererFloatOutput");
+                var materialOutputType = FindLoadedType("MondmadeVJ0.MaterialFloatOutput");
+                if (rendererOutputType == null || materialOutputType == null)
+                    Assert.Ignore("The Rendering integration is not installed in this project.");
+
+                var wrongTypeOutput = (IValueOutput<float>)Activator.CreateInstance(rendererOutputType);
+                SetField(wrongTypeOutput, "target", renderer);
+                SetField(wrongTypeOutput, "propertyName", "_Color");
+                var wrongTypeRoute = new FloatRoute();
+                wrongTypeRoute.Configure("shader type mismatch", new ConstantFloatSource());
+                wrongTypeRoute.Outputs.Add(wrongTypeOutput);
+                hostA.AddRoute(wrongTypeRoute);
+
+                var missingOutput = (IValueOutput<float>)Activator.CreateInstance(materialOutputType);
+                SetField(missingOutput, "target", material);
+                SetField(missingOutput, "propertyName", "_MondmadeMissingProperty");
+                var missingRoute = new FloatRoute();
+                missingRoute.Configure("missing shader property", new ConstantFloatSource());
+                missingRoute.Outputs.Add(missingOutput);
+                hostA.AddRoute(missingRoute);
+
+                var issues = MondmadeVJ0Validation.Validate(hostA);
+
+                Assert.That(issues.Exists(issue => issue.Contains("shader type mismatch") && issue.Contains("expected Float")), Is.True);
+                Assert.That(issues.Exists(issue => issue.Contains("missing shader property") && issue.Contains("does not exist")), Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rendererObject); }
+        }
+
+        [Test]
+        public void MissingAndWrongTypeAnimatorParametersAreReportedBeforePlay()
+        {
+            var outputType = FindLoadedType("MondmadeVJ0.AnimatorFloatOutput");
+            var controllerType = FindLoadedType("UnityEditor.Animations.AnimatorController");
+            if (outputType == null || controllerType == null)
+                Assert.Ignore("The Animator integration or Editor controller API is unavailable.");
+
+            var parameterType = typeof(AnimatorControllerParameterType);
+            var addParameter = controllerType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .FirstOrDefault(method => method.Name == "AddParameter" && method.GetParameters().Length == 2
+                    && method.GetParameters()[0].ParameterType == typeof(string) && method.GetParameters()[1].ParameterType == parameterType);
+            if (addParameter == null) Assert.Ignore("AnimatorController.AddParameter is unavailable in this Editor.");
+
+            extraAssetPath = "Assets/MondmadeVJ0TempA22.controller";
+            UnityEditor.AssetDatabase.DeleteAsset(extraAssetPath);
+            var createController = controllerType.GetMethod("CreateAnimatorControllerAtPath", BindingFlags.Static | BindingFlags.Public,
+                binder: null, types: new[] { typeof(string) }, modifiers: null);
+            if (createController == null) Assert.Ignore("AnimatorController.CreateAnimatorControllerAtPath is unavailable in this Editor.");
+            extraAsset = createController.Invoke(null, new object[] { extraAssetPath }) as UnityEngine.Object;
+            if (extraAsset == null) Assert.Ignore("Unity could not create a temporary AnimatorController asset.");
+            addParameter.Invoke(extraAsset, new[] { "ExistingBool", Enum.ToObject(parameterType, (int)AnimatorControllerParameterType.Bool) });
+            var targetObject = new GameObject("Animator validation target");
+            try
+            {
+                var animator = targetObject.AddComponent<Animator>();
+                animator.runtimeAnimatorController = (RuntimeAnimatorController)extraAsset;
+                var output = (IValueOutput<float>)Activator.CreateInstance(outputType);
+                SetField(output, "target", animator);
+                SetField(output, "parameterName", "ExistingBool");
+                var missingOutput = (IValueOutput<float>)Activator.CreateInstance(outputType);
+                SetField(missingOutput, "target", animator);
+                SetField(missingOutput, "parameterName", "DefinitelyMissing");
+                var route = new FloatRoute();
+                route.Configure("animator parameter type mismatch", new ConstantFloatSource());
+                route.Outputs.Add(output);
+                route.Outputs.Add(missingOutput);
+                hostA.AddRoute(route);
+
+                var issues = MondmadeVJ0Validation.Validate(hostA);
+
+                Assert.That(issues.Exists(issue => issue.Contains("animator parameter type mismatch")
+                    && issue.Contains("ExistingBool") && issue.Contains("not Float")), Is.True);
+                Assert.That(issues.Exists(issue => issue.Contains("animator parameter type mismatch")
+                    && issue.Contains("DefinitelyMissing") && issue.Contains("missing or is not Float")), Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(targetObject); }
+        }
+
+        [Test]
+        public void MissingVfxPropertyIsReportedBeforePlayWhenIntegrationIsInstalled()
+        {
+            var outputType = FindLoadedType("MondmadeVJ0.VFXFloatOutput");
+            if (outputType == null) Assert.Ignore("The VFX Graph integration is not installed in this project.");
+            var targetField = FindField(outputType, "target");
+            var targetObject = new GameObject("VFX validation target");
+            try
+            {
+                var target = targetObject.AddComponent(targetField.FieldType);
+                if (target == null) Assert.Ignore("Unity could not create a VisualEffect component in this Editor.");
+                if (target.GetType().GetMethod("HasFloat", new[] { typeof(int) }) == null)
+                    Assert.Ignore("VisualEffect.HasFloat(int) is unavailable in this package version.");
+                var output = (IValueOutput<float>)Activator.CreateInstance(outputType);
+                SetField(output, "target", target);
+                SetField(output, "propertyName", "MondmadeDefinitelyMissing");
+                var route = new FloatRoute();
+                route.Configure("missing VFX property", new ConstantFloatSource());
+                route.Outputs.Add(output);
+                hostA.AddRoute(route);
+
+                var issues = MondmadeVJ0Validation.Validate(hostA);
+
+                Assert.That(issues.Exists(issue => issue.Contains("missing VFX property") && issue.Contains("VFX property")), Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(targetObject); }
+        }
+
+        [Test]
+        public void MissingMidiControlAndIncompatibleControlTypeAreReportedBeforePlay()
+        {
+            var profileType = FindLoadedType("MondmadeVJ0.MidiSurfaceProfile");
+            var surfaceType = FindLoadedType("MondmadeVJ0.MidiSurfaceInstance");
+            var hubType = FindLoadedType("MondmadeVJ0.MidiHub");
+            var missingControlSourceType = FindLoadedType("MondmadeVJ0.MidiButtonBoolSource");
+            var mismatchSourceType = FindLoadedType("MondmadeVJ0.MidiAbsoluteFloatSource");
+            var referenceType = FindLoadedType("MondmadeVJ0.MidiControlReference");
+            if (profileType == null || surfaceType == null || hubType == null || missingControlSourceType == null
+                || mismatchSourceType == null || referenceType == null)
+                Assert.Ignore("The MIDI integration is not installed in this project.");
+
+            var createProfile = profileType.GetMethod("CreateApcMiniMk2Profile", BindingFlags.Public | BindingFlags.Static);
+            var profile = (UnityEngine.Object)createProfile.Invoke(null, null);
+            extraAsset = profile;
+            var surface = Activator.CreateInstance(surfaceType);
+            var surfaceId = surfaceType.GetProperty("InstanceId").GetValue(surface) as string;
+            var backendType = FindLoadedType("MondmadeVJ0.MidiInputBackend");
+            var configure = surfaceType.GetMethod("Configure");
+            configure.Invoke(surface, new[] { profile, "APC mini mk2", (object)0, Enum.ToObject(backendType, 0), -1, -1 });
+
+            hostAObject.SetActive(false);
+            var hub = hostAObject.AddComponent(hubType);
+            var surfaces = Array.CreateInstance(surfaceType, 1);
+            surfaces.SetValue(surface, 0);
+            SetField(hub, "surfaces", surfaces);
+            var runtime = hostAObject.AddComponent<MondmadeVJ0Runtime>();
+            SetField(runtime, "modules", new MonoBehaviour[] { (MonoBehaviour)hub });
+            SetField(runtime, "routeHosts", new[] { hostA });
+
+            AddMidiValidationRoute(missingControlSourceType, referenceType, surfaceId, "missing_control", "missing MIDI control");
+            AddMidiValidationRoute(mismatchSourceType, referenceType, surfaceId, "pad_0_0", "MIDI control type mismatch");
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("missing MIDI control") && issue.Contains("does not exist")), Is.True);
+            Assert.That(issues.Exists(issue => issue.Contains("MIDI control type mismatch") && issue.Contains("incompatible Control Type")), Is.True);
+        }
+
+        [Test]
+        public void MissingAndWrongTypeGenericComponentMembersAreReportedBeforePlay()
+        {
+            var targetObject = new GameObject("Component member validation target");
+            try
+            {
+                var target = targetObject.AddComponent<AudioSource>();
+                var missingOutput = new ComponentMemberFloatOutput();
+                SetField(missingOutput, "target", target);
+                SetField(missingOutput, "memberName", "MondmadeDefinitelyMissing");
+                var missingRoute = new FloatRoute();
+                missingRoute.Configure("missing component member", new ConstantFloatSource());
+                missingRoute.Outputs.Add(missingOutput);
+                hostA.AddRoute(missingRoute);
+
+                var wrongTypeOutput = new ComponentMemberIntOutput();
+                SetField(wrongTypeOutput, "target", target);
+                SetField(wrongTypeOutput, "memberName", "volume");
+                var wrongTypeRoute = new IntRoute();
+                wrongTypeRoute.Configure("component member type mismatch", new ConstantIntSource());
+                wrongTypeRoute.Outputs.Add(wrongTypeOutput);
+                hostA.AddRoute(wrongTypeRoute);
+
+                var issues = MondmadeVJ0Validation.Validate(hostA);
+
+                Assert.That(issues.Exists(issue => issue.Contains("missing component member") && issue.Contains("not a public writable Single member")), Is.True);
+                Assert.That(issues.Exists(issue => issue.Contains("component member type mismatch") && issue.Contains("not a public writable Int32 member")), Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(targetObject); }
+        }
+
+        private void AddMidiValidationRoute(Type sourceType, Type referenceType, string surfaceId, string controlId, string routeName)
+        {
+            var source = Activator.CreateInstance(sourceType);
+            var reference = Activator.CreateInstance(referenceType, new object[] { surfaceId, controlId });
+            SetField(source, "control", reference);
+            if (source is IValueSource<bool> boolSource)
+            {
+                var route = new BoolRoute();
+                route.Configure(routeName, boolSource);
+                route.Outputs.Add(new ValidationBoolOutput());
+                hostA.AddRoute(route);
+            }
+            else if (source is IValueSource<float> floatSource)
+            {
+                var route = new FloatRoute();
+                route.Configure(routeName, floatSource);
+                route.Outputs.Add(new ValidationFloatOutput());
+                hostA.AddRoute(route);
+            }
         }
 
         [Test]
@@ -143,7 +412,7 @@ namespace MondmadeVJ0.Tests
 
                 Assert.That(copiedTarget, Is.SameAs(renderer));
             }
-            finally { Object.DestroyImmediate(target); }
+            finally { UnityEngine.Object.DestroyImmediate(target); }
         }
 
         [Test]
@@ -180,6 +449,35 @@ namespace MondmadeVJ0.Tests
                 return;
             }
             throw new System.MissingFieldException(target.GetType().FullName, name);
+        }
+
+        private static Type FindLoadedType(string fullName)
+        {
+            var animatorEditorType = Type.GetType(fullName + ", UnityEditor.AnimationModule", throwOnError: false);
+            return animatorEditorType ?? AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType(fullName, throwOnError: false)).FirstOrDefault(type => type != null);
+        }
+
+        private static FieldInfo FindField(Type type, string name)
+        {
+            for (; type != null; type = type.BaseType)
+            {
+                var field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (field != null) return field;
+            }
+            throw new MissingFieldException(name);
+        }
+
+        private sealed class ValidationFloatOutput : IValueOutput<float>
+        {
+            public void Initialize(RouteContext context) { }
+            public void Write(float value) { }
+        }
+
+        private sealed class ValidationBoolOutput : IValueOutput<bool>
+        {
+            public void Initialize(RouteContext context) { }
+            public void Write(bool value) { }
         }
     }
 }

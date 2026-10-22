@@ -110,9 +110,9 @@ MIDI Clockは24 pulse / quarter note、SPPは1単位=1/4 beatとして扱う。S
 
 外部の四分音符位置とライブラリのEffective Beatを区別する。Multiplier変更時はEffective Beatを連続に保ち、以後の速度だけ変える。MIDI Master出力はEffective BPM / Beatを送るが、External MIDIモードでは同じPortへのClock再送を禁止する。
 
-Master送信は、Port ordinalと取得時port名をキーにした共有出力dispatcherの専用workerで行う。MidiHubとMidiClockSenderは同じ出力leaseを参照カウントし、同じRtMidi.MidiOut handleを開く。同一Portの送信はこのworkerだけが行い、Unity APIはworkerから呼ばない。transport controlを先に送り、ClockをLEDより優先する。LEDはSurface / Control単位で最新値へ集約し、workerは各LED message後に優先queueを再確認して分割配送する。Clockの期限を過ぎて送れないpulseは欠落として数え、burstで追い付かない。切断時は未送信のClock / transport controlを破棄し、LEDのDesiredだけを保持する。再接続時は同じordinalとport名を確認して開き、接続世代を更新する。Hubは最新DesiredをFull Resyncする。
+Master送信は、Port ordinalと取得時port名をキーにした共有出力dispatcherの専用workerで行う。MidiHubとMidiClockSenderは同じ出力leaseを参照カウントし、同じRtMidi.MidiOut handleを開く。同一Portの送信はこのworkerだけが行い、Unity APIはworkerから呼ばない。transport controlを先に送り、ClockをLEDより優先する。LEDはSurface / Control単位で最新値へ集約し、workerは各LED message後に優先queueを再確認して分割配送する。Clock schedulerは絶対期限の2ms前から共有queueへpulseを渡し、output workerは期限まで待ってから送信する。Stop / Seek / tempo変更時はschedule世代を進めてqueue内・worker待機中の古いpulseを破棄し、送信中の1件が完了するまで世代変更を直列化する。Clockの期限を次pulse周期以上過ぎて送れないpulseは欠落として数え、burstで追い付かない。切断時は未送信のClock / transport controlを破棄し、LEDのDesiredだけを保持する。再接続時は同じordinalとport名を確認して開き、接続世代を更新する。Hubは最新DesiredをFull Resyncする。
 
-Clockの送信呼出し遅延は、workerが`SendMessage`を呼ぶ直前に取得したStopwatch時刻とpulseの絶対期限との差で、最大値とp99を計る。p99は1µs幅のhistogramから保守的に丸め、Monitorからの読取は最大1秒ごとに更新する。欠落数にはschedulerが飛ばしたpulse、queue内で置換されたpulse、worker到着時に次pulse周期以上古かったpulseを含める。累積期限ずれは同じscheduler世代の最初のClock呼出しを基準に、実際の経過時間と理想期限間隔との差の最大絶対値とする。BPM変更・Seek・再接続後は別世代として基準を置き直す。これはハードリアルタイム保証ではない。
+Clockの送信呼出し遅延は、workerが`SendMessage`を呼ぶ直前に取得したStopwatch時刻とpulseの絶対期限との差で、最大値とp99を計る。p99は1µs幅のhistogramから保守的に丸め、Monitorからの読取は最大1秒ごとに更新する。欠落数にはschedulerが飛ばしたpulse、queue内で置換されたpulse、workerの期限待機中に次pulse周期以上古くなったpulseを含める。累積期限ずれは同じscheduler世代の最初のClock呼出しを基準に、実際の経過時間と理想期限間隔との差の最大絶対値とする。BPM変更・Seek・再接続後は別世代として基準を置き直す。これはハードリアルタイム保証ではない。
 
 採用する合格目標は、BPM 120 / 174 / 240・各10分、60fps、1000 Route、LED全灯更新10HzのmacOS arm64 / Windows x64環境で、送信呼出し時刻の誤差p99≤2ms、最大≤10ms、欠落0、累積期限ずれ≤1ms。外部受信機での実測も記録し、USB / 機器遅延は別列にする。未達は実装不合格としてbackendまたはschedulerを改善し、機能完成扱いにしない。OS設定と計測機器は結果に必ず添付する。
 
@@ -178,7 +178,7 @@ SerializeReferenceの型名変更はMovedFrom等で移行し、保存schemaVersi
 
 Source / ModifierのBind・処理例外はそのRouteをFault状態へし、最後の値を保持して購読を止める。Output単独の失敗はそのOutputだけFaultにし、同Routeの他Outputを継続する。Faultは明示Retryまたは再Enableで復帰を試みる。通信切断・一時的な未受信はFaultではなく接続状態として扱う。
 
-同じ診断は初回と5秒ごとの集計だけをLogへ出す。Monitor履歴はRuntimeあたり4096件、通常はFinal値・件数のみ、中間値は選択Route最大32件に限定する。Release Playerでは履歴・Profiler計時を既定OFF、状態保持は継続する。60fps・1000単純Float Routeの合計処理時間p99≤1ms、定常Main Thread GC Alloc=0 byte / frameを目標とし、計測環境とNode構成を結果に残す。MIDI / OSCの可変長受信bufferはpoolを利用する。
+同じ診断は初回と5秒ごとの集計だけをLogへ出す。Runtime Monitorは全Routeの現在Final値とOutput状態を表示し、Raw→Modifier→Final→Outputの値履歴は選択Route最大32件に限る。Route / MIDI / Transportの各履歴はRuntimeあたり4096件で、上書き件数を表示する。MIDIはLogical / Raw / LED送信queue、TransportはTapと受信MIDI Clock pulse / commandを記録し、送信ClockはModule summaryのsent / missed / lateness統計を表示する。Performance MonitorはRoute出力・同じframe内のpipeline stage時間とFrame callback時間のmean / p99 / max、Route / Source / Modifier / Frame callback数、およびMIDI / OSC件数・毎秒率を表示する。frameを跨ぐmodifierの待機時間は処理時間に混ぜない。p99は64段の対数histogramから保守的な上限値として算出する。CaptureはEditor / Development Buildで切替可能、Release Playerでは履歴・計時を既定OFFとし、無効時は値boxing・履歴lock・Stopwatch読取を行わない。macOS arm64 Editorで200,000 eventの無効capture経路は直接Subject 10.50ns / event・0 byteに対して、Trace wrapperが34.16ns / event・0 byteだった。追加23.65ns / eventを受け入れ、1000 Route / 60fpsの単純Float処理時間目標p99≤1msはRelease計測で別途確認する。MIDI / OSCの可変長受信bufferはpoolを利用する。
 
 ## D20：Audio・OSC
 

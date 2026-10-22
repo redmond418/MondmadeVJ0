@@ -1,6 +1,6 @@
 # パッケージ構成と導入
 
-更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、最新EditMode 91/91・通常PlayMode 7/7・APC Pad 1物理入力probe 1/1・LED目視probe 1/1を確認した。Git URL導入はローカル`git+file` commitで確認済み。R3＋Unity標準moduleのみの構成と、Input System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認し、macOS universal x86_64 + arm64のMono / IL2CPPとWindows x64 Mono Player buildも成功した。公開HTTPS Git URL、依存部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
+更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、最新EditMode 111/111・通常PlayMode 7/7・APC Pad 1物理入力probe 1/1・LED目視probe 1/1を確認した。Git URL導入はローカル`git+file` commitで確認済み。R3＋Unity標準moduleのみの構成と、Input System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認し、最新差分でmacOS universal（x86_64 + arm64）Mono / IL2CPPとWindows x64 Mono Player buildも成功した。公開HTTPS Git URL、依存部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
 
 ## 配置
 
@@ -76,7 +76,7 @@ Core Editorは利用可能なIntegrationだけを型登録から列挙する。�
 
 OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
 
-任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。R3のみとInput System＋MIDI＋OSCの部分構成はlocal UPM packageでimport・compileを確認済み。ローカルGit repositoryの`git+file` URLからcommit `037d5be`を新規導入し、UPM testables指定後にEditMode 70/70件を確認した。公開HTTPS URL / release tagからの導入は、commitをpushしておらずrelease tagも未作成のため未検証。macOS universal Playerでは全依存構成のMono / IL2CPP、Windows x64ではMono cross-buildを確認済み。部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
+任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。R3のみとInput System＋MIDI＋OSCの部分構成はlocal UPM packageでimport・compileを確認済み。ローカルGit repositoryの`git+file` URLからcommit `037d5be`を新規導入し、UPM testables指定後にEditMode 70/70件を確認した。公開HTTPS URL / release tagからの導入は、commitをpushしておらずrelease tagも未作成のため未検証。最新差分のmacOS universal（x86_64 + arm64）全依存Mono / IL2CPP PlayerとWindows x64 Mono cross-buildが成功した。部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
 
 ## 導入手順
 

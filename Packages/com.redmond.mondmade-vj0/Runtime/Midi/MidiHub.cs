@@ -278,7 +278,14 @@ namespace MondmadeVJ0
                             queuedAll = false;
                             services?.Report("MIDI_OUTPUT_QUEUE", $"LED output queue rejected {surfaceId}/{control.id}.", nodeId: control.id);
                         }
-                        else sentPayloads[key] = payload;
+                        else
+                        {
+                            sentPayloads[key] = payload;
+                            services?.RecordMidiLedQueued(surfaceId, runtime.Instance.ProductName, control.id, control.outputChannel, payload.Number,
+                                payload.Value, Mathf.RoundToInt(Mathf.Clamp01(style.color.r) * 255f),
+                                Mathf.RoundToInt(Mathf.Clamp01(style.color.g) * 255f),
+                                Mathf.RoundToInt(Mathf.Clamp01(style.color.b) * 255f), style.brightness, (int)style.effect);
+                        }
                     }
                     catch (Exception exception)
                     {
@@ -595,6 +602,8 @@ namespace MondmadeVJ0
                 var state = new MidiControlState(value, velocity, pressed, pressure, definition.groupIndex);
                 runtime.State = state;
                 var change = new MidiControlChange(new MidiControlReference(packet.SurfaceId, definition.id), state, !previous.Pressed && state.Pressed, previous.Pressed && !state.Pressed);
+                services?.RecordMidiLogical(packet.SurfaceId, surface.Instance.ProductName, definition.id, definition.label, packet.Channel,
+                    state.Value, state.Velocity, state.Pressure, state.Pressed, change.PressedDown, change.Released);
                 InvokeControlChanged(change);
             }
         }
@@ -618,6 +627,8 @@ namespace MondmadeVJ0
 
         private void InvokeRawInputObserved(MidiRawMessage message)
         {
+            var surfaceName = surfaceRuntime.TryGetValue(message.SurfaceInstanceId, out var surface) ? surface.Instance.ProductName : message.SurfaceInstanceId;
+            services?.RecordMidiRaw(message.SurfaceInstanceId, surfaceName, (int)message.AddressType, message.Channel, message.Number, message.Value);
             var callbacks = rawInputCallbacks;
             for (var i = 0; i < callbacks.Length; i++)
             {

@@ -17,6 +17,7 @@ namespace MondmadeVJ0
 
         public RuntimeServices Services { get; internal set; }
         public IFrameClock Clock => frameClock;
+        public int FrameSubscriberCount => frameClock.SubscriberCount;
         public IReadOnlyList<MonoBehaviour> ConfiguredModules => modules;
         public IReadOnlyList<RouteHost> RouteHosts => routeHosts;
 

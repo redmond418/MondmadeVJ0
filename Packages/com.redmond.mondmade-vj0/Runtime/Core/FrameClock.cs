@@ -13,6 +13,7 @@ namespace MondmadeVJ0
         public double DspTime { get; private set; }
         public double DeltaTime { get; private set; }
         public double UnscaledDeltaTime { get; private set; }
+        public int SubscriberCount => callbacks.Length;
         public event Action<double, double> Updated
         {
             add { lock (callbackLock) callbacks = AddCallback(callbacks, value); }
@@ -32,6 +33,8 @@ namespace MondmadeVJ0
         internal void NotifyUpdated(RuntimeServices services)
         {
             var snapshot = callbacks;
+            var measure = services.MonitorCaptureEnabled;
+            var started = measure ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
             for (var i = 0; i < snapshot.Length; i++)
             {
                 try { snapshot[i](UnscaledDeltaTime, UnscaledTime); }
@@ -40,6 +43,7 @@ namespace MondmadeVJ0
                     services.Report("FRAME_CLOCK", "A FrameClock subscriber failed.", exception: exception);
                 }
             }
+            if (measure) services.RecordFrameCallbacks(snapshot.Length, System.Diagnostics.Stopwatch.GetTimestamp() - started);
         }
 
         private static Action<double, double>[] AddCallback(Action<double, double>[] current, Action<double, double> callback)

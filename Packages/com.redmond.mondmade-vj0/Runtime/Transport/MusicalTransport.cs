@@ -156,19 +156,29 @@ namespace MondmadeVJ0
                 lastTap = timestamp;
                 tapIntervals.Clear();
                 candidateIntervals.Clear();
+                services?.RecordTransportEvent(RuntimeTransportEventKind.Tap, timestamp, EffectiveBpm, beatPosition, "Tap history started");
                 return;
             }
             var interval = timestamp - lastTap;
             lastTap = timestamp;
             var bpm = 60d / interval;
-            if (bpm < 30d || bpm > 300d) { tapIntervals.Clear(); candidateIntervals.Clear(); return; }
+            if (bpm < 30d || bpm > 300d)
+            {
+                tapIntervals.Clear(); candidateIntervals.Clear();
+                services?.RecordTransportEvent(RuntimeTransportEventKind.Tap, timestamp, EffectiveBpm, beatPosition, "Tap outside 30–300 BPM");
+                return;
+            }
             var medianInterval = Median(tapIntervals);
             if (tapIntervals.Count >= 3 && medianInterval > 0d && Math.Abs(interval - medianInterval) / medianInterval > 0.2d)
             {
                 if (candidateIntervals.Count == 0 || Math.Abs(interval - candidateIntervals[candidateIntervals.Count - 1]) / candidateIntervals[candidateIntervals.Count - 1] <= 0.2d)
                     candidateIntervals.Add(interval);
                 else { candidateIntervals.Clear(); candidateIntervals.Add(interval); }
-                if (candidateIntervals.Count < 2) return;
+                if (candidateIntervals.Count < 2)
+                {
+                    services?.RecordTransportEvent(RuntimeTransportEventKind.Tap, timestamp, EffectiveBpm, beatPosition, "Tempo change candidate");
+                    return;
+                }
                 tapIntervals.Clear();
                 tapIntervals.AddRange(candidateIntervals);
                 candidateIntervals.Clear();
@@ -181,6 +191,7 @@ namespace MondmadeVJ0
             }
             var median = Median(tapIntervals);
             if (median > 0d) SetBaseBpm(60d / median);
+            services?.RecordTransportEvent(RuntimeTransportEventKind.Tap, timestamp, EffectiveBpm, beatPosition, "Tap accepted");
         }
 
         public void ResetPhase()
@@ -188,6 +199,7 @@ namespace MondmadeVJ0
             AdvanceTimelineRevision();
             beatPosition = 0d;
             barOrigin = 0d;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.Seek, Time.realtimeSinceStartupAsDouble, EffectiveBpm, beatPosition, "Reset phase");
             if (clockSource == TransportClockSource.External)
             {
                 lastExternalBeat = 0d;
@@ -208,6 +220,7 @@ namespace MondmadeVJ0
             AdvanceTimelineRevision();
             beatPosition = position;
             barOrigin = position - PositiveFraction((position - barOrigin) / BarLengthBeats) * BarLengthBeats;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.Seek, Time.realtimeSinceStartupAsDouble, EffectiveBpm, beatPosition, "Seek");
             if (clockSource == TransportClockSource.External)
             {
                 lastExternalBeat = position;
@@ -262,6 +275,7 @@ namespace MondmadeVJ0
         public void OnClockPulse(double monotonicTimestamp, double nativeTimestamp)
         {
             if (clockSource != TransportClockSource.External || !running) return;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.MidiClockPulse, monotonicTimestamp, EffectiveBpm, beatPosition);
             if (!double.IsNaN(lastMidiClockPulse))
             {
                 var interval = monotonicTimestamp - lastMidiClockPulse;
@@ -288,6 +302,7 @@ namespace MondmadeVJ0
         public void OnStart(double monotonicTimestamp)
         {
             if (clockSource != TransportClockSource.External) return;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.MidiClockStart, monotonicTimestamp, EffectiveBpm, beatPosition);
             midiClockIntervals.Clear();
             lastMidiClockPulse = double.NaN;
             ResetPhase();
@@ -300,6 +315,7 @@ namespace MondmadeVJ0
         public void OnContinue(double monotonicTimestamp)
         {
             if (clockSource != TransportClockSource.External) return;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.MidiClockContinue, monotonicTimestamp, EffectiveBpm, beatPosition);
             running = true;
             lastMidiClockPulse = double.NaN;
             hasExternalClock = false;
@@ -312,6 +328,7 @@ namespace MondmadeVJ0
         public void OnStop(double monotonicTimestamp)
         {
             if (clockSource != TransportClockSource.External) return;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.MidiClockStop, monotonicTimestamp, EffectiveBpm, beatPosition);
             if (running) AdvanceTimelineRevision();
             running = false;
             lastMidiClockPulse = double.NaN;
@@ -324,6 +341,7 @@ namespace MondmadeVJ0
             if (clockSource != TransportClockSource.External) return;
             if (sixteenthNotes < 0 || sixteenthNotes > 16383) { services?.Report("MIDI_SPP_RANGE", "Rejected an out-of-range Song Position Pointer."); return; }
             var position = sixteenthNotes / 4d;
+            services?.RecordTransportEvent(RuntimeTransportEventKind.SongPosition, monotonicTimestamp, EffectiveBpm, position, sixteenthNotes.ToString());
             Seek(position);
             lastExternalBeat = position;
             lastExternalTime = monotonicTimestamp;

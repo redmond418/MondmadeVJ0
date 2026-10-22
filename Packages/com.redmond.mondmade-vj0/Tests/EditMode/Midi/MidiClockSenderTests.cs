@@ -38,6 +38,7 @@ namespace MondmadeVJ0.Tests
         {
             var queue = new MidiOutputWorkQueue();
             var metrics = new MidiClockSendMetrics();
+            queue.SetClockGeneration(1);
             var mutableLed = new byte[] { 0x96, 56, 21 };
             Assert.That(queue.EnqueueLed("pad", mutableLed), Is.True);
             mutableLed[2] = 0;
@@ -64,6 +65,7 @@ namespace MondmadeVJ0.Tests
         {
             var queue = new MidiOutputWorkQueue();
             var metrics = new MidiClockSendMetrics();
+            queue.SetClockGeneration(1);
             queue.EnqueueControl(new byte[] { 0xFA });
             queue.EnqueueClock(100, 10, 1, metrics);
             queue.EnqueueLed("pad", new byte[] { 0x96, 56, 21 });
@@ -76,6 +78,22 @@ namespace MondmadeVJ0.Tests
             Assert.That(queue.TryDequeue(out var led), Is.True);
             Assert.That(led.Kind, Is.EqualTo(MidiOutputPacketKind.Led));
             Assert.That(led.Message[2], Is.EqualTo(21));
+        }
+
+        [Test]
+        public void SharedOutputQueueDropsPendingClockWhenTransportScheduleGenerationChanges()
+        {
+            var queue = new MidiOutputWorkQueue();
+            var metrics = new MidiClockSendMetrics();
+            queue.SetClockGeneration(7);
+            Assert.That(queue.EnqueueClock(100, 10, 7, metrics), Is.True);
+
+            queue.SetClockGeneration(8);
+
+            Assert.That(queue.Count, Is.Zero);
+            Assert.That(metrics.MissedPulses, Is.EqualTo(1));
+            Assert.That(queue.EnqueueClock(110, 10, 7, metrics), Is.False, "A stale scheduler cannot add another pulse after a seek or Stop.");
+            Assert.That(queue.DroppedMessages, Is.EqualTo(1));
         }
 
         [Test]

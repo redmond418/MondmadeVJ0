@@ -142,6 +142,7 @@ namespace MondmadeVJ0
                 return;
             }
             outputGeneration = output.ConnectionGeneration;
+            output.SetClockScheduleGeneration(clockOwner, scheduleGeneration);
             status = output.Status;
         }
 
@@ -168,6 +169,7 @@ namespace MondmadeVJ0
                 scheduleOutputGeneration = output == null ? 0 : output.ConnectionGeneration;
                 scheduleRunning = true;
                 scheduleGeneration++;
+                output?.SetClockScheduleGeneration(clockOwner, scheduleGeneration);
             }
         }
 
@@ -178,6 +180,7 @@ namespace MondmadeVJ0
                 if (!scheduleRunning) return;
                 scheduleRunning = false;
                 scheduleGeneration++;
+                output?.SetClockScheduleGeneration(clockOwner, scheduleGeneration);
             }
         }
 
@@ -211,8 +214,8 @@ namespace MondmadeVJ0
                     if (milliseconds > 0) Thread.Sleep(milliseconds);
                     continue;
                 }
-                if (remaining > 0) { Thread.SpinWait(32); continue; }
 
+                var queued = false;
                 lock (scheduleLock)
                 {
                     if (!scheduleRunning || generation != scheduleGeneration || index != nextPulseIndex) continue;
@@ -224,9 +227,10 @@ namespace MondmadeVJ0
                         continue;
                     }
                     nextPulseIndex++;
+                    var periodTicks = Math.Max(1L, (long)period);
+                    queued = lease.QueueClock(deadline, periodTicks, generation, metrics);
                 }
-                var periodTicks = Math.Max(1L, (long)period);
-                if (!lease.QueueClock(deadline, periodTicks, generation, metrics)) metrics.RecordMissed();
+                if (!queued) metrics.RecordMissed();
             }
         }
 

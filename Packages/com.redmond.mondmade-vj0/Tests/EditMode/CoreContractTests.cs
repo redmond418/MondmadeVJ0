@@ -5,6 +5,7 @@ using System.Reflection;
 using NUnit.Framework;
 using R3;
 using UnityEngine;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace MondmadeVJ0.Tests
 {
@@ -38,6 +39,134 @@ namespace MondmadeVJ0.Tests
             state?.Clear();
             if (hostObject != null) UnityEngine.Object.DestroyImmediate(hostObject);
             if (runtimeObject != null) UnityEngine.Object.DestroyImmediate(runtimeObject);
+        }
+
+        [Test]
+        public void SelectedRouteMonitorCapturesRawModifierFinalAndOutputValues()
+        {
+            var services = runtime.Services;
+            var source = new TestFloatSource();
+            var route = new FloatRoute();
+            route.Configure("Monitor pipeline", source);
+            var modifier = new MultiplyFloatModifier();
+            SetField(modifier, "factor", 2f);
+            route.Modifiers.Add(modifier);
+            var output = new RecordingFloatOutput();
+            route.Outputs.Add(output);
+            Assert.That(services.SetRouteTraceSelected(route.Id, true), Is.True);
+
+            route.Bind(runtime, host, state);
+            source.Emit(0.25f);
+            var history = new List<RuntimeRouteTrace>();
+            services.CopyRouteHistory(history, route.Id);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                RuntimeTraceStage.SourceRaw, RuntimeTraceStage.Modifier, RuntimeTraceStage.Final, RuntimeTraceStage.Output,
+            }, history.ConvertAll(item => item.Stage));
+            CollectionAssert.AreEqual(new[] { 0.25f, 0.5f, 0.5f, 0.5f }, history.ConvertAll(item => (float)item.Value));
+            CollectionAssert.AreEqual(new[] { 0.5f }, output.Values);
+            Assert.That(services.RouteProcessingCount, Is.EqualTo(2), "The modifier and output/write stages are timed separately.");
+            route.Unbind();
+        }
+
+        [Test]
+        public void A23DisabledMonitorAddsNoPerEmissionAllocation()
+        {
+            const int iterations = 200000;
+            var services = runtime.Services;
+            var selection = services.GetRouteTraceSelection("a23-disabled-cost");
+            services.SetRouteTraceSelected(selection.RouteId, true);
+            var direct = new Subject<int>();
+            var traced = new Subject<int>();
+            var sink = 0;
+            using (direct.Subscribe(value => sink = value))
+            using (services.TraceRoute(traced, selection, "disabled-cost", RuntimeTraceStage.SourceRaw, -1, null, "TestSource").Subscribe(value => sink = value))
+            {
+                services.MonitorCaptureEnabled = false;
+                for (var i = 0; i < 2000; i++) { direct.OnNext(i); traced.OnNext(i); }
+                var directAllocatedStart = GC.GetAllocatedBytesForCurrentThread();
+                var directStart = Stopwatch.GetTimestamp();
+                for (var i = 0; i < iterations; i++) direct.OnNext(i);
+                var directTicks = Stopwatch.GetTimestamp() - directStart;
+                var directAllocated = GC.GetAllocatedBytesForCurrentThread() - directAllocatedStart;
+                var tracedAllocatedStart = GC.GetAllocatedBytesForCurrentThread();
+                var tracedStart = Stopwatch.GetTimestamp();
+                for (var i = 0; i < iterations; i++) traced.OnNext(i);
+                var tracedTicks = Stopwatch.GetTimestamp() - tracedStart;
+                var tracedAllocated = GC.GetAllocatedBytesForCurrentThread() - tracedAllocatedStart;
+                var directNs = directTicks * 1e9d / Stopwatch.Frequency / iterations;
+                var tracedNs = tracedTicks * 1e9d / Stopwatch.Frequency / iterations;
+                UnityEngine.Debug.Log($"A23_DISABLED_CAPTURE,direct_ns_per_event={directNs:F2},instrumented_ns_per_event={tracedNs:F2},overhead_ns_per_event={tracedNs - directNs:F2},direct_allocated={directAllocated},instrumented_allocated={tracedAllocated},iterations={iterations},platform={Application.platform},cpu={SystemInfo.processorType}");
+                Assert.That(tracedAllocated, Is.LessThanOrEqualTo(directAllocated + 128), "Disabled capture should not allocate per event.");
+                Assert.That(sink, Is.EqualTo(iterations - 1));
+                Assert.That(services.RouteTraceCount, Is.EqualTo(0));
+            }
+            direct.Dispose();
+            traced.Dispose();
+            services.MonitorCaptureEnabled = true;
+        }
+
+        [Test]
+        public void MonitorHistoriesStayBoundedAndCaptureCanBeDisabled()
+        {
+            var services = runtime.Services;
+            const int samples = RuntimeServices.MonitorHistoryCapacity + 3;
+            for (var i = 0; i < samples; i++)
+                services.RecordRouteValue("route", "bounded", RuntimeTraceStage.Final, -1, null, null, i, null);
+
+            var history = new List<RuntimeRouteTrace>();
+            services.CopyRouteHistory(history, "route");
+            Assert.That(history.Count, Is.EqualTo(RuntimeServices.MonitorHistoryCapacity));
+            Assert.That((int)history[0].Value, Is.EqualTo(3));
+            Assert.That((int)history[history.Count - 1].Value, Is.EqualTo(samples - 1));
+            Assert.That(services.DroppedRouteHistoryCount, Is.EqualTo(3));
+
+            services.MonitorCaptureEnabled = false;
+            services.RecordRouteValue("route", "bounded", RuntimeTraceStage.Final, -1, null, null, samples, null);
+            services.CopyRouteHistory(history, "route");
+            Assert.That(history.Count, Is.EqualTo(RuntimeServices.MonitorHistoryCapacity));
+            Assert.That((int)history[history.Count - 1].Value, Is.EqualTo(samples - 1));
+        }
+
+        [Test]
+        public void RouteTraceSelectionIsLimitedToThirtyTwoRoutes()
+        {
+            var services = runtime.Services;
+            for (var i = 0; i < RuntimeServices.MonitorRouteSelectionLimit; i++)
+                Assert.That(services.SetRouteTraceSelected("route-" + i, true), Is.True);
+            Assert.That(services.SelectedRouteCount, Is.EqualTo(RuntimeServices.MonitorRouteSelectionLimit));
+            Assert.That(services.SetRouteTraceSelected("overflow", true), Is.False);
+            Assert.That(services.SetRouteTraceSelected("route-0", false), Is.True);
+            Assert.That(services.SetRouteTraceSelected("overflow", true), Is.True);
+        }
+
+        [Test]
+        public void MonitorStoresLogicalAndRawMidiAsWellAsTapAndClockHistory()
+        {
+            var services = runtime.Services;
+            services.RecordMidiRaw("surface", "APC mini mk2", 1, 2, 74, 0.75f);
+            services.RecordMidiLogical("surface", "APC mini mk2", "fader", "Fader 1", 2, 0.75f, 0f, 0f, false, false, false);
+            services.RecordMidiLedQueued("surface", "APC mini mk2", "pad_0_0", 0, 56, 4f, 0, 255, 0, 1f, 0);
+            services.RecordTransportEvent(RuntimeTransportEventKind.Tap, 1d, 120d, 2d, "Tap accepted");
+            services.RecordTransportEvent(RuntimeTransportEventKind.MidiClockPulse, 1.01d, 120d, 2.04d);
+
+            var midi = new List<RuntimeMidiTrace>();
+            var transport = new List<RuntimeTransportTrace>();
+            services.CopyMidiHistory(midi);
+            services.CopyTransportHistory(transport);
+            CollectionAssert.AreEqual(new[]
+            {
+                RuntimeMidiEventKind.RawInput, RuntimeMidiEventKind.LogicalInput, RuntimeMidiEventKind.LedOutputQueued,
+            }, midi.ConvertAll(item => item.Kind));
+            Assert.That(midi[0].AddressType, Is.EqualTo(1));
+            Assert.That(midi[0].SurfaceName, Is.EqualTo("APC mini mk2"));
+            Assert.That(midi[1].Label, Is.EqualTo("Fader 1"));
+            Assert.That(midi[2].Green, Is.EqualTo(255));
+            CollectionAssert.AreEqual(new[]
+            {
+                RuntimeTransportEventKind.Tap, RuntimeTransportEventKind.MidiClockPulse,
+            }, transport.ConvertAll(item => item.Kind));
         }
 
         [TestCase(0f)]
