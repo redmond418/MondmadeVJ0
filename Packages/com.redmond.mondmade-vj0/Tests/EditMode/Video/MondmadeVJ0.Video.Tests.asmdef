@@ -1,0 +1,17 @@
+{
+  "name": "MondmadeVJ0.Video.Tests",
+  "rootNamespace": "MondmadeVJ0.Tests.Video",
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Video"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": ["MONDMADE_HAS_TEST_FRAMEWORK"],
+  "versionDefines": [
+    { "name": "com.unity.test-framework", "expression": "[1.1.0,2.0.0)", "define": "MONDMADE_HAS_TEST_FRAMEWORK" }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

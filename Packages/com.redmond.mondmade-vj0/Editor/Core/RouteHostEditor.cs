@@ -823,6 +823,7 @@ namespace MondmadeVJ0.Editor
                 }
             }
             ValidateSceneRouteIds(sceneHosts, errors);
+            ValidateOutputConflicts(sceneHosts, errors);
             ValidateSignalCycles(sceneHosts, errors);
             return errors;
         }
@@ -850,6 +851,163 @@ namespace MondmadeVJ0.Editor
             var hosts = new List<RouteHost>();
             foreach (var root in scene.GetRootGameObjects()) hosts.AddRange(root.GetComponentsInChildren<RouteHost>(true));
             return hosts;
+        }
+
+        private static void ValidateOutputConflicts(IEnumerable<RouteHost> hosts, List<string> errors)
+        {
+            var writers = new Dictionary<string, string>(StringComparer.Ordinal);
+            var reported = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var host in hosts)
+            foreach (var route in host.Routes)
+            {
+                if (route == null || !(GetRouteOutputs(route) is System.Collections.IEnumerable outputs)) continue;
+                var outputIndex = 0;
+                foreach (var candidate in outputs)
+                {
+                    var currentIndex = outputIndex++;
+                    if (!(candidate is RouteNode output)) continue;
+                    var current = $"{host.name}/{route.Name}/Output {currentIndex + 1} ({output.GetType().Name})";
+                    foreach (var writer in GetOutputConflictWriters(output))
+                    {
+                        if (writers.TryGetValue(writer.Key, out var first))
+                        {
+                            var message = $"{current}: conflicts with {first}; both write {writer.Description}. Merge the input into one Route.";
+                            if (reported.Add(message)) errors.Add(message);
+                        }
+                        else writers.Add(writer.Key, current);
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<OutputConflictWriter> GetOutputConflictWriters(RouteNode output)
+        {
+            if (output == null) yield break;
+            var typeName = output.GetType().Name;
+
+            if (TryGetTransformOutputFootprint(output, typeName, out var transform, out var property, out var axis))
+            {
+                foreach (var writer in TransformFootprint(transform, property, axis)) yield return writer;
+                yield break;
+            }
+
+            UnityEngine.Object target = null;
+            var slot = 0;
+            var kind = string.Empty;
+            if (typeName.StartsWith("Renderer", StringComparison.Ordinal))
+            {
+                target = GetSerializedValue(output, "target") as Renderer;
+                slot = Convert.ToInt32(GetSerializedValue(output, "materialIndex") ?? 0);
+                kind = "renderer";
+            }
+            else if (typeName.StartsWith("Material", StringComparison.Ordinal))
+            {
+                var mode = GetSerializedValue(output, "outputMode")?.ToString();
+                if (mode == "Instance")
+                {
+                    target = GetSerializedValue(output, "renderer") as Renderer;
+                    slot = Convert.ToInt32(GetSerializedValue(output, "materialIndex") ?? 0);
+                    kind = "renderer";
+                }
+                else
+                {
+                    target = GetSerializedValue(output, "target") as Material;
+                    kind = "material";
+                }
+            }
+            else
+            {
+                var type = output.GetType();
+                var isVolumeParameter = false;
+                for (; type != null && type != typeof(object); type = type.BaseType)
+                    if (type.IsGenericType && type.GetGenericTypeDefinition().Name == "VolumeParameterOutput`1")
+                    { isVolumeParameter = true; break; }
+                if (!isVolumeParameter) yield break;
+                target = GetSerializedValue(output, "target") as UnityEngine.Object;
+                var component = GetSerializedValue(output, "componentTypeName") as string;
+                var parameter = GetSerializedValue(output, "parameterName") as string;
+                if (target == null || string.IsNullOrWhiteSpace(component) || string.IsNullOrWhiteSpace(parameter)) yield break;
+                var volumeKey = $"volume/{target.GetInstanceID()}/{component}/{parameter}";
+                var displayComponent = component.Split(',')[0].Trim();
+                yield return new OutputConflictWriter(volumeKey, $"Volume {target.name} {displayComponent}.{parameter}");
+                yield break;
+            }
+
+            var propertyName = GetSerializedValue(output, "propertyName") as string;
+            if (string.IsNullOrWhiteSpace(propertyName) || target == null) yield break;
+            var key = $"{kind}/{target.GetInstanceID()}/{slot}/{propertyName}";
+            var description = kind == "renderer"
+                ? $"Renderer {target.name} slot {slot} property '{propertyName}'"
+                : $"Material {target.name} property '{propertyName}'";
+            yield return new OutputConflictWriter(key, description);
+        }
+
+        private static bool TryGetTransformOutputFootprint(RouteNode output, string typeName,
+            out Transform target, out string property, out string axis)
+        {
+            target = null;
+            property = null;
+            axis = null;
+            var channel = -1;
+            var worldSpace = false;
+            if (typeName == "TransformPositionVector3Output" || typeName == "TransformPositionAxisFloatOutput") channel = 0;
+            else if (typeName == "TransformRotationVector3Output" || typeName == "TransformRotationAxisFloatOutput") channel = 1;
+            else if (typeName == "TransformScaleVector3Output" || typeName == "TransformScaleAxisFloatOutput") channel = 2;
+            if (channel >= 0)
+            {
+                target = GetSerializedValue(output, "target") as Transform;
+                worldSpace = channel < 2 && Convert.ToBoolean(GetSerializedValue(output, "worldSpace") ?? false);
+                property = channel == 0 ? (worldSpace ? "position" : "localPosition")
+                    : channel == 1 ? (worldSpace ? "eulerAngles" : "localEulerAngles") : "localScale";
+                if (typeName.EndsWith("AxisFloatOutput", StringComparison.Ordinal))
+                {
+                    var axisValue = GetSerializedValue(output, "axis")?.ToString();
+                    if (axisValue != "X" && axisValue != "Y" && axisValue != "Z") return false;
+                    axis = axisValue;
+                }
+                return target != null;
+            }
+
+            Type componentOutput = null;
+            for (var type = output.GetType(); type != null && type != typeof(object); type = type.BaseType)
+                if (type.IsGenericType && type.GetGenericTypeDefinition().Name == "ComponentMemberOutput`1")
+                { componentOutput = type; break; }
+            if (componentOutput == null || componentOutput.GetGenericArguments()[0] != typeof(Vector3)) return false;
+            target = GetMemberValue(output, "Target") as Transform;
+            if (target == null) return false;
+            var memberName = GetMemberValue(output, "MemberName") as string;
+            switch (memberName)
+            {
+                case "position": property = "position"; break;
+                case "localPosition": property = "localPosition"; break;
+                case "eulerAngles": property = "eulerAngles"; break;
+                case "localEulerAngles": property = "localEulerAngles"; break;
+                case "localScale": property = "localScale"; break;
+                default: return false;
+            }
+            return true;
+        }
+
+        private static IEnumerable<OutputConflictWriter> TransformFootprint(Transform target, string property, string axis)
+        {
+            if (target == null || string.IsNullOrWhiteSpace(property)) yield break;
+            var instanceId = target.GetInstanceID();
+            var description = $"Transform {target.name}.{property}";
+            if (axis != null)
+            {
+                yield return new OutputConflictWriter($"transform/{instanceId}/{property}/{axis}", description);
+                yield break;
+            }
+            yield return new OutputConflictWriter($"transform/{instanceId}/{property}/X", description);
+            yield return new OutputConflictWriter($"transform/{instanceId}/{property}/Y", description);
+            yield return new OutputConflictWriter($"transform/{instanceId}/{property}/Z", description);
+        }
+
+        private readonly struct OutputConflictWriter
+        {
+            public readonly string Key;
+            public readonly string Description;
+            public OutputConflictWriter(string key, string description) { Key = key; Description = description; }
         }
 
         internal static object GetRouteSource(IRoute route)
@@ -916,7 +1074,8 @@ namespace MondmadeVJ0.Editor
                     var value = field.GetValue(node);
                     if (field.GetCustomAttribute<SerializeReference>() != null && value == null)
                         errors.Add($"{host.name}/{route.Name}/{type.Name}: connected node '{field.Name}' is missing.");
-                    if (typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType) && value == null && IsRequiredTargetField(field.Name))
+                    if (typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType) && value == null && IsRequiredTargetField(field.Name)
+                        && !IsMaterialOutputReference(node, field.Name))
                         errors.Add($"{host.name}/{route.Name}/{type.Name}: required reference '{field.Name}' is missing.");
                     if (value is Array array && typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType.GetElementType()))
                         for (var i = 0; i < array.Length; i++) if (array.GetValue(i) == null) errors.Add($"{host.name}/{route.Name}/{type.Name}: reference '{field.Name}[{i}]' is missing.");
@@ -931,6 +1090,10 @@ namespace MondmadeVJ0.Editor
             ValidateMidiControlReferences(host, route, node, errors);
             if (ValidateComponentMember(host, route, node, errors)) ValidateAotAccessor(host, route, node, errors);
         }
+
+        private static bool IsMaterialOutputReference(RouteNode node, string fieldName)
+            => node != null && node.GetType().Name.StartsWith("Material", StringComparison.Ordinal)
+                && (fieldName == "target" || fieldName == "renderer");
 
         private static bool ValidateComponentMember(RouteHost host, IRoute route, RouteNode node, List<string> errors)
         {
@@ -1026,23 +1189,32 @@ namespace MondmadeVJ0.Editor
         {
             var helpers = node.GetType().Assembly.GetType("MondmadeVJ0.RenderOutputHelpers", throwOnError: false);
             if (helpers == null) return;
-            var rendererOutput = node.GetType().Name.StartsWith("Renderer", StringComparison.Ordinal);
-            var method = helpers.GetMethod(rendererOutput ? "ValidateRenderer" : "ValidateProperty",
+            var typeName = node.GetType().Name;
+            var rendererOutput = typeName.StartsWith("Renderer", StringComparison.Ordinal);
+            var materialOutput = typeName.StartsWith("Material", StringComparison.Ordinal);
+            var instanceMaterialOutput = materialOutput && GetSerializedValue(node, "outputMode")?.ToString() == "Instance";
+            var useRenderer = rendererOutput || instanceMaterialOutput;
+            var method = helpers.GetMethod(useRenderer ? "ValidateRenderer" : "ValidateProperty",
                 BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
             if (method == null) return;
 
-            var target = GetSerializedValue(node, "target");
+            var target = instanceMaterialOutput ? GetSerializedValue(node, "renderer") : GetSerializedValue(node, "target");
             var propertyName = GetSerializedValue(node, "propertyName") as string;
+            if (materialOutput && target == null)
+            {
+                errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: { (instanceMaterialOutput ? "Renderer" : "Shared Asset material") } is not assigned.");
+                return;
+            }
             if (target == null || string.IsNullOrWhiteSpace(propertyName)) return;
 
             var expectedProperty = FindProperty(node.GetType(), "PropertyType")?.GetValue(node);
             var parameters = method.GetParameters();
-            var shaderPropertyType = parameters[rendererOutput ? 3 : 2].ParameterType;
+            var shaderPropertyType = parameters[useRenderer ? 3 : 2].ParameterType;
             if (expectedProperty == null && node.GetType().Name.EndsWith("TextureIndexOutput", StringComparison.Ordinal))
                 expectedProperty = Enum.Parse(shaderPropertyType, "Texture");
             if (expectedProperty == null) return;
 
-            object[] arguments = rendererOutput
+            object[] arguments = useRenderer
                 ? new[] { target, GetSerializedValue(node, "materialIndex") ?? 0, propertyName, expectedProperty }
                 : new[] { target, propertyName, expectedProperty, "Material" };
             try { method.Invoke(null, arguments); }
@@ -1137,7 +1309,10 @@ namespace MondmadeVJ0.Editor
             }
 
             var target = GetSerializedValue(node, "target");
-            var profile = GetMemberValue(target, "profile");
+            var hasInstantiatedProfile = target?.GetType().GetMethod("HasInstantiatedProfile", Type.EmptyTypes);
+            var profile = hasInstantiatedProfile != null && (bool)hasInstantiatedProfile.Invoke(target, null)
+                ? GetMemberValue(target, "profile")
+                : GetMemberValue(target, "sharedProfile");
             if (profile == null)
             {
                 errors.Add($"{host.name}/{route.Name}/{node.GetType().Name}: Volume target has no profile.");

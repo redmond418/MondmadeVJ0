@@ -197,6 +197,9 @@ namespace MondmadeVJ0.Tests
                 hostA.AddRoute(wrongTypeRoute);
 
                 var missingOutput = (IValueOutput<float>)Activator.CreateInstance(materialOutputType);
+                var materialOutputModeType = FindLoadedType("MondmadeVJ0.MaterialOutputMode");
+                if (materialOutputModeType != null)
+                    SetField(missingOutput, "outputMode", Enum.Parse(materialOutputModeType, "SharedAsset"));
                 SetField(missingOutput, "target", material);
                 SetField(missingOutput, "propertyName", "_MondmadeMissingProperty");
                 var missingRoute = new FloatRoute();

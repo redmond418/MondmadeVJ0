@@ -29,7 +29,7 @@ Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意�
 ## 開発環境と検証
 
 - Unity 6000.3.8f1、macOS arm64 Editor
-- EditMode 114/114、通常PlayMode 7/7を通過（PlayModeのExplicit 5件は実機操作待ち）
+- EditMode 127/127、通常PlayMode 7/7を通過（PlayModeのExplicit 5件は実機操作待ち）
 - macOS universal Mono / IL2CPP Player、Windows x64 Mono Playerのbuildを確認
 - APC mini mk2でPad 1入力と緑色LED表示を確認
 

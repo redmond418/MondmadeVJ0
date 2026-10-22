@@ -67,6 +67,14 @@ namespace MondmadeVJ0
                     try
                     {
                         if (outputs[i] == null) throw new InvalidOperationException($"Output {i} is missing.");
+                        if (outputs[i] is IAsyncRouteOutputFaultSource asyncOutput)
+                        {
+                            var outputIndex = i;
+                            Action<string, string, Exception> faultHandler = (code, message, exception) =>
+                                FaultOutput(runtime, outputIndex, code, message, exception);
+                            asyncOutput.Faulted += faultHandler;
+                            scope.Add(() => asyncOutput.Faulted -= faultHandler);
+                        }
                         outputs[i].Initialize(context);
                         outputStatuses[i] = "Ready";
                     }
@@ -106,6 +114,15 @@ namespace MondmadeVJ0
         }
 
         private static string ExceptionNodeId(object node) => (node as RouteNode)?.NodeId;
+
+        private void FaultOutput(MondmadeVJ0Runtime runtime, int index, string code, string message, Exception exception)
+        {
+            if (outputFaults == null || outputStatuses == null || index < 0 || index >= outputFaults.Length || outputFaults[index]) return;
+            outputFaults[index] = true;
+            outputStatuses[index] = "Faulted";
+            runtime.Services.Report(string.IsNullOrEmpty(code) ? "OUTPUT_ASYNC" : code,
+                $"Output {index} failed asynchronously on route '{routeName}': {message}", id, ExceptionNodeId(outputs[index]), exception);
+        }
 
         private void WriteValue(T value)
         {
@@ -219,6 +236,14 @@ namespace MondmadeVJ0
                     try
                     {
                         if (outputs[i] == null) throw new InvalidOperationException($"Output {i} is missing.");
+                        if (outputs[i] is IAsyncRouteOutputFaultSource asyncOutput)
+                        {
+                            var outputIndex = i;
+                            Action<string, string, Exception> faultHandler = (code, message, exception) =>
+                                FaultOutput(runtime, outputIndex, code, message, exception);
+                            asyncOutput.Faulted += faultHandler;
+                            scope.Add(() => asyncOutput.Faulted -= faultHandler);
+                        }
                         outputs[i].Initialize(context);
                         outputStatuses[i] = "Ready";
                     }
@@ -274,6 +299,15 @@ namespace MondmadeVJ0
                 }
             }
             if (measure) runtime.Services.RecordRouteProcessing(System.Diagnostics.Stopwatch.GetTimestamp() - started);
+        }
+
+        private void FaultOutput(MondmadeVJ0Runtime runtime, int index, string code, string message, Exception exception)
+        {
+            if (outputFaults == null || outputStatuses == null || index < 0 || index >= outputFaults.Length || outputFaults[index]) return;
+            outputFaults[index] = true;
+            outputStatuses[index] = "Faulted";
+            runtime.Services.Report(string.IsNullOrEmpty(code) ? "OUTPUT_ASYNC" : code,
+                $"Output {index} failed asynchronously on route '{routeName}': {message}", id, (outputs[index] as RouteNode)?.NodeId, exception);
         }
 
         private void Fault(MondmadeVJ0Runtime runtime, Exception ex)

@@ -20,6 +20,12 @@ namespace MondmadeVJ0
         void Invoke();
     }
 
+    /// <summary>Allows an Output with asynchronous work to report a later, isolated failure to its Route.</summary>
+    public interface IAsyncRouteOutputFaultSource
+    {
+        event Action<string, string, Exception> Faulted;
+    }
+
     public interface IRoute
     {
         string Id { get; }

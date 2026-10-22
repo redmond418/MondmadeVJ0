@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage Projectで全Runtime / Editor assemblyをコンパイルし、最終差分を同期した隔離CheckoutでEditMode 114件と通常PlayMode 7件が通過した。Play前Validationは原文第53章の不正設定を各利用可能Integrationで検査する試験を追加した。MIDI ClockとLEDの送信経路を優先queueと同一Port workerへ統合し、Clock pulseは期限2ms前にworkerへ渡して絶対期限に合わせて送る。APC mini mk2でPad 1入力・緑色LED表示をユーザーに再確認してもらった。A14の15秒および61秒/速度ごとの実機負荷probeは通過したが、10分計測ではない。61秒probeの累積ずれは2.70〜4.00msで1ms目標を超えたため、合格として扱わない。A23 MonitorはRoute中間値・MIDI・Transport履歴、処理計測とON/OFFを実装し、無効時の計測コストを測定した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage Projectで全Runtime / Editor assemblyをコンパイルし、最終差分を同期した隔離CheckoutでEditMode 127件と通常PlayMode 7件が通過した。Play前Validationは原文第53章の不正設定を各利用可能Integrationで検査する試験を追加した。D16のMaterial / Volume clone lease、Transform / Generic / Shader書込競合診断、Video prepare待ち・timeout・FaultもEditMode契約テストに追加した。MIDI ClockとLEDの送信経路を優先queueと同一Port workerへ統合し、Clock pulseは期限2ms前にworkerへ渡して絶対期限に合わせて送る。APC mini mk2でPad 1入力・緑色LED表示をユーザーに再確認してもらった。A14の15秒および61秒/速度ごとの実機負荷probeは通過したが、10分計測ではない。61秒probeの累積ずれは2.70〜4.00msで1ms目標を超えたため、合格として扱わない。A23 MonitorはRoute中間値・MIDI・Transport履歴、処理計測とON/OFFを実装し、無効時の計測コストを測定した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
@@ -87,7 +87,7 @@
 | A16 | LED状態 | Toggle / IndexをMIDI以外から変更しても映像とLEDが一致。Interaction Flash終了で下位State Layerへ戻る |
 | A17 | LED送信・切断保持 | 静止状態では再送なし。同フレームの更新がControl単位で集約。Fader=0.7、Toggle=true、Hold=trueの状態でUSBを抜いても値が変わらず、再接続で最新DesiredをFull Resync。実入力後だけValue更新し、Panic中は再接続でもOFFを維持 |
 | A18 | Input System | 2 Routeが同じActionを使い、一方をDisableしても他方を維持。既存PlayerInputとの所有権も確認 |
-| A19 | Unity Output | カタログ全Outputを対応型・不正型・対象欠落で検証。MPBの他Propertyと共存、Asset / Volume変更の所有権、Video準備待ちを確認 |
+| A19 | Unity Output | カタログ全Outputを対応型・不正型・対象欠落で検証。MPBの他Property共存、Material / Volume clone leaseと復元、Volume Override状態、Renderer / Transform / Volume書込競合、Video Value / Trigger保留・prepare失敗・10秒timeoutを確認 |
 | A20 | OSC / Audio | 型・チャンネル対応、受信thread、Queue、Hz指定、値の単位、Hysteresis / Cooldownを検証。無入力時の現在値も確認 |
 | A21 | Inspector保存 | Route / Node複製・Copy / Paste・Undo / Redo・保存 / 再読込後に型と参照が保たれ、意図せず実行状態を共有しない |
 | A22 | Validation | 原文第53章の不正構成をすべて作り、Editor診断が該当Routeを指す |
@@ -99,7 +99,7 @@
 | 対象 | 結果 |
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
-| EditMode | Core契約、Transport、OSC Adapter、Editor Validationの原文53章全項目・VFX / Animator / Shader / MIDI参照・Component member型、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、共有MIDI出力workerの優先queue / LED coalescing / Clock metric / schedule世代破棄、時間Modifier、Quantize / Subdivision境界、Monitor履歴と計測コスト、RouteHost複製・Copy / Paste・Undo / Redo・Scene保存 / 再読込を含む114 testsが114/114通過 |
+| EditMode | Core契約、Transport、OSC Adapter、Editor Validationの原文53章全項目・VFX / Animator / Shader / MIDI参照・Component member型、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、共有MIDI出力workerの優先queue / LED coalescing / Clock metric / schedule世代破棄、時間Modifier、Quantize / Subdivision境界、Monitor履歴と計測コスト、RouteHost複製・Copy / Paste・Undo / Redo・Scene保存 / 再読込、Material / Volume clone leaseとTransform / Genericを含むOutput競合、Video prepare共有・Faultを含む127 testsが127/127通過 |
 | A06 Route隔離 | Source.Buildで例外を投げるRouteだけがFaultedとなり、Route名付き診断を残し、同じRuntime上の正常Routeは初期値を出力してActiveを維持 |
 | A08 数値境界 | Negative Modulo / Lookup上下端 / 0除算 / NaN入力時の最終有限値保持を確認し、NaN設定をPlay前に報告 |
 | A03 単一評価 | StepとSeconds Envelopeを3 Outputへ接続し、各Trigger SourceのBuild 1回、全Outputで同一の状態遷移と値列を確認 |
@@ -107,7 +107,7 @@
 | A11 Grid負荷 | 1025件を同一Beat境界へ予約し、大きく遅れた1フレームで256件だけ発火、期限超過768件とQueue超過1件をそれぞれ診断することを確認 |
 | A16 LED状態 | 外部Shared TriggerでToggleBoolを変えた時にState LEDが更新され、Interaction Flash終了後に最新State Layerへ戻ることをPlayModeで確認 |
 | A21 Inspector保存 | Route複製でRoute / 子Node IDが再生成されること、Copy / Paste後の値の保持と独立性、Undo / Redo、managed-referenceのRoute型 / 値 / IDと同Scene Renderer参照のScene保存 / 再読込をEditModeで確認。複製処理が基底クラスのSerializeReferenceを走査せず子Node IDを共有していた不具合を修正 |
-| A22 Editor Validation | 原文第53章の未設定Source / Output、Null target、VFX property不足、Animator parameter不足・型違い、Shader property不足・型違い、MIDI Control不足・Control Type違い、Route / Node Stable ID重複、Composite接続不良、Signal循環、逆RangeをStageで検証。Generic Component member不足・型違いも検出。全114 EditMode testが通過 |
+| A22 Editor Validation | 原文第53章の未設定Source / Output、Null target、VFX property不足、Animator parameter不足・型違い、Shader property不足・型違い、MIDI Control不足・Control Type違い、Route / Node Stable ID重複、Composite接続不良、Signal循環、逆RangeをStageで検証。Generic Component member不足・型違い、Renderer / Material / Volume / Transformの複数Writer競合も検出。全127 EditMode testが通過 |
 | A23 Monitor | Source Raw / Modifier / Final / Outputを選択Routeごとに表示し、MIDI raw / logical / LED queuedとTap / MIDI Clock履歴、Transport状態、Route・Frame callback時間とMIDI / OSC毎秒件数を表示。各履歴は4096件、詳細Route選択上限32、Releaseではcapture既定OFF。Stageの測定でcapture OFFのtrace経路は直接Subject 10.50ns/event・0 byteに対しinstrumented 34.16ns/event・0 byte、追加23.65ns/event（20万event、macOS arm64 Editor）。Route履歴の上限・無効化・MIDI / Transportデータ・Source→Modifier→Output履歴もEditModeで検証 |
 | PlayMode | lifecycle、MIDI Surfaceの分離、Note On velocity=0 Release、3形式のRelative Encoder、Button / Velocity / Fader / Knob / Pitch Bend / Aftertouch、XY→Vector2、LED Layer復帰の7 testsが7/7通過。明示指定の実機試験は別枠 |
 | APC mini mk2 | Input / Outputを機器名で検出。実機の左上Pad 1からNote 56を受信し、物理入力probe 1/1通過。LEDのON（0x96, 56, 21）/OFF送信payloadを検証。Pad 1 LED probeとClock 24 pulse＋LED queueの共有worker結合probeを各1/1通過。緑点灯もユーザーが目視再確認 |

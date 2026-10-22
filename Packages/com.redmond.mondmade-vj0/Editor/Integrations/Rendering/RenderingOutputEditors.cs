@@ -22,9 +22,19 @@ namespace MondmadeVJ0.Editor
     [CustomPropertyDrawer(typeof(MaterialTextureOutput))]
     public sealed class ShaderOutputDrawer : PropertyDrawer
     {
-        public override float GetPropertyHeight(SerializedProperty property, GUIContent label) => DirectChildren(property)
-            .Where(child => child.name != "nodeId")
-            .Sum(child => EditorGUI.GetPropertyHeight(child, true) + EditorGUIUtility.standardVerticalSpacing);
+        private const string SharedAssetWarning = "Shared Asset mode writes directly to the material asset and affects every user of that asset.";
+
+        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        {
+            var isMaterialOutput = IsMaterialOutput(property);
+            var mode = property.FindPropertyRelative("outputMode")?.enumValueIndex ?? 0;
+            var height = DirectChildren(property)
+                .Where(child => child.name != "nodeId" && IsVisible(child.name, isMaterialOutput, mode))
+                .Sum(child => EditorGUI.GetPropertyHeight(child, true) + EditorGUIUtility.standardVerticalSpacing);
+            if (isMaterialOutput && mode == (int)MaterialOutputMode.SharedAsset)
+                height += EditorStyles.helpBox.CalcHeight(new GUIContent(SharedAssetWarning), Mathf.Max(1f, EditorGUIUtility.currentViewWidth - 48f)) + EditorGUIUtility.standardVerticalSpacing;
+            return height;
+        }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
@@ -32,16 +42,40 @@ namespace MondmadeVJ0.Editor
             var children = DirectChildren(property).Where(child => child.name != "nodeId").ToArray();
             var material = ResolveMaterial(property);
             var outputType = property.managedReferenceValue?.GetType();
+            var isMaterialOutput = IsMaterialOutput(property);
+            var mode = property.FindPropertyRelative("outputMode")?.enumValueIndex ?? 0;
             var y = position.y;
             foreach (var child in children)
             {
+                if (!IsVisible(child.name, isMaterialOutput, mode)) continue;
                 var height = EditorGUI.GetPropertyHeight(child, true);
                 var row = new Rect(position.x, y, position.width, height);
                 if (child.name == "propertyName") DrawShaderProperty(row, child, material, outputType);
+                else if (isMaterialOutput && child.name == "target") EditorGUI.PropertyField(row, child, new GUIContent("Shared Asset"), true);
                 else EditorGUI.PropertyField(row, child, true);
                 y += height + EditorGUIUtility.standardVerticalSpacing;
             }
+            if (isMaterialOutput && mode == (int)MaterialOutputMode.SharedAsset)
+            {
+                var height = EditorStyles.helpBox.CalcHeight(new GUIContent(SharedAssetWarning), position.width);
+                EditorGUI.HelpBox(new Rect(position.x, y, position.width, height), SharedAssetWarning, MessageType.Warning);
+            }
             EditorGUI.EndProperty();
+        }
+
+        private static bool IsMaterialOutput(SerializedProperty property)
+            => property.managedReferenceValue is MaterialPropertyOutput<float>
+                || property.managedReferenceValue is MaterialPropertyOutput<int>
+                || property.managedReferenceValue is MaterialPropertyOutput<Vector4>
+                || property.managedReferenceValue is MaterialPropertyOutput<Color>
+                || property.managedReferenceValue is MaterialPropertyOutput<Texture>;
+
+        private static bool IsVisible(string fieldName, bool isMaterialOutput, int mode)
+        {
+            if (!isMaterialOutput) return true;
+            if (fieldName == "target") return mode == (int)MaterialOutputMode.SharedAsset;
+            if (fieldName == "renderer" || fieldName == "materialIndex") return mode == (int)MaterialOutputMode.Instance;
+            return true;
         }
 
         private static IEnumerable<SerializedProperty> DirectChildren(SerializedProperty parent)
@@ -58,8 +92,14 @@ namespace MondmadeVJ0.Editor
 
         private static Material ResolveMaterial(SerializedProperty property)
         {
+            var isMaterialOutput = IsMaterialOutput(property);
+            var mode = property.FindPropertyRelative("outputMode")?.enumValueIndex ?? 0;
             var target = property.FindPropertyRelative("target")?.objectReferenceValue;
-            if (target is Material material) return material;
+            if (isMaterialOutput && mode == (int)MaterialOutputMode.SharedAsset && target is Material sharedMaterial)
+                return sharedMaterial;
+            if (isMaterialOutput && mode == (int)MaterialOutputMode.Instance)
+                target = property.FindPropertyRelative("renderer")?.objectReferenceValue;
+            if (!isMaterialOutput && target is Material material) return material;
             if (target is Renderer renderer)
             {
                 var index = property.FindPropertyRelative("materialIndex")?.intValue ?? 0;

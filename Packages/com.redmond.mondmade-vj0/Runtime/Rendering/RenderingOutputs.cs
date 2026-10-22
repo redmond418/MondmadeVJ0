@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -7,6 +8,18 @@ using UnityEngine.Rendering;
 namespace MondmadeVJ0
 {
     public enum VolumeOverrideMode { Always, FollowExisting, Automatically }
+    public enum MaterialOutputMode { Instance, SharedAsset }
+
+    internal static class RenderingOutputServices
+    {
+        public static RenderingResourceService GetResourceService(RouteContext context)
+        {
+            if (context.Services.TryGet<RenderingResourceService>(out var service)) return service;
+            service = new RenderingResourceService();
+            context.Services.Register(service);
+            return service;
+        }
+    }
 
     internal static class RenderOutputHelpers
     {
@@ -20,6 +33,7 @@ namespace MondmadeVJ0
             var actual = shader.GetPropertyType(index);
             var matches = expected == ShaderPropertyType.Vector && actual == ShaderPropertyType.Color
                        || expected == ShaderPropertyType.Color && actual == ShaderPropertyType.Vector
+                       || expected == ShaderPropertyType.Float && actual == ShaderPropertyType.Range
                        || actual == expected;
             if (!matches) throw new InvalidOperationException($"{label} property '{propertyName}' is {actual}, expected {expected}.");
             return Shader.PropertyToID(propertyName);
@@ -90,20 +104,49 @@ namespace MondmadeVJ0
     [Serializable]
     public abstract class MaterialPropertyOutput<T> : RouteNode, IValueOutput<T>
     {
+        [SerializeField] private MaterialOutputMode outputMode = MaterialOutputMode.Instance;
+        [SerializeField] protected Renderer renderer;
+        [SerializeField] protected int materialIndex;
+        // Kept under the original serialized field name for existing Shared Asset references.
         [SerializeField] protected Material target;
         [SerializeField] protected string propertyName;
         [NonSerialized] protected int propertyId;
+        [NonSerialized] protected Material outputMaterial;
         protected abstract ShaderPropertyType PropertyType { get; }
         protected abstract void Set(int id, T value);
-        public void Initialize(RouteContext context) => propertyId = RenderOutputHelpers.ValidateProperty(target, propertyName, PropertyType, "Material");
+        public void Initialize(RouteContext context)
+        {
+            RenderingResourceService.ResourceLease lease = null;
+            var material = target;
+            if (outputMode == MaterialOutputMode.Instance)
+            {
+                RenderOutputHelpers.ValidateRenderer(renderer, materialIndex, propertyName, PropertyType);
+                lease = RenderingOutputServices.GetResourceService(context).AcquireMaterial(renderer, materialIndex);
+                material = lease.Material;
+            }
+            try
+            {
+                propertyId = RenderOutputHelpers.ValidateProperty(material, propertyName, PropertyType, "Material");
+                outputMaterial = material;
+                context.Scope.Add(() => outputMaterial = null);
+                if (lease != null) context.Scope.Add(lease);
+            }
+            catch
+            {
+                lease?.Dispose();
+                outputMaterial = null;
+                throw;
+            }
+        }
+
         public void Write(T value) => Set(propertyId, value);
     }
 
-    [Serializable] public sealed class MaterialFloatOutput : MaterialPropertyOutput<float> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Float; protected override void Set(int id,float value)=>target.SetFloat(id,value); }
-    [Serializable] public sealed class MaterialIntOutput : MaterialPropertyOutput<int> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Int; protected override void Set(int id,int value)=>target.SetInt(id,value); }
-    [Serializable] public sealed class MaterialVectorOutput : MaterialPropertyOutput<Vector4> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Vector; protected override void Set(int id,Vector4 value)=>target.SetVector(id,value); }
-    [Serializable] public sealed class MaterialColorOutput : MaterialPropertyOutput<Color> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Color; protected override void Set(int id,Color value)=>target.SetColor(id,value); }
-    [Serializable] public sealed class MaterialTextureOutput : MaterialPropertyOutput<Texture> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Texture; protected override void Set(int id,Texture value)=>target.SetTexture(id,value); }
+    [Serializable] public sealed class MaterialFloatOutput : MaterialPropertyOutput<float> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Float; protected override void Set(int id,float value)=>outputMaterial.SetFloat(id,value); }
+    [Serializable] public sealed class MaterialIntOutput : MaterialPropertyOutput<int> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Int; protected override void Set(int id,int value)=>outputMaterial.SetInt(id,value); }
+    [Serializable] public sealed class MaterialVectorOutput : MaterialPropertyOutput<Vector4> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Vector; protected override void Set(int id,Vector4 value)=>outputMaterial.SetVector(id,value); }
+    [Serializable] public sealed class MaterialColorOutput : MaterialPropertyOutput<Color> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Color; protected override void Set(int id,Color value)=>outputMaterial.SetColor(id,value); }
+    [Serializable] public sealed class MaterialTextureOutput : MaterialPropertyOutput<Texture> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Texture; protected override void Set(int id,Texture value)=>outputMaterial.SetTexture(id,value); }
 
     public abstract class VolumeParameterOutput<T> : RouteNode, IValueOutput<T>
     {
@@ -113,34 +156,63 @@ namespace MondmadeVJ0
         [SerializeField] private VolumeOverrideMode overrideMode = VolumeOverrideMode.Always;
         [NonSerialized] private VolumeParameter parameter;
         [NonSerialized] private Action<T> setValue;
+        [NonSerialized] private T initialValue;
 
         public void Initialize(RouteContext context)
         {
             if (target == null) throw new InvalidOperationException("Volume target is not assigned.");
             var type = ResolveComponentType(componentTypeName);
-            var profile = target.profile;
-            if (profile == null) throw new InvalidOperationException("Volume has no profile.");
-            var component = profile.components.FirstOrDefault(candidate => candidate != null && candidate.GetType() == type);
-            if (component == null && overrideMode == VolumeOverrideMode.Automatically)
-                component = profile.Add(type, overrides: true);
-            if (component == null) throw new InvalidOperationException($"Volume profile does not contain {type.Name}.");
-            if (string.IsNullOrWhiteSpace(parameterName)) throw new InvalidOperationException("Volume parameter name is empty.");
-            var field = type.GetField(parameterName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (field == null || !typeof(VolumeParameter<T>).IsAssignableFrom(field.FieldType))
-                throw new InvalidOperationException($"Volume parameter '{type.Name}.{parameterName}' is not a {typeof(T).Name} parameter.");
-            parameter = field.GetValue(component) as VolumeParameter;
-            var typed = field.GetValue(component) as VolumeParameter<T>;
-            if (parameter == null || typed == null) throw new InvalidOperationException($"Volume parameter '{type.Name}.{parameterName}' is null.");
-            var setter = typeof(VolumeParameter<T>).GetProperty(nameof(VolumeParameter<T>.value))?.GetSetMethod();
-            if (setter == null) throw new InvalidOperationException($"Volume parameter '{type.Name}.{parameterName}' has no setter.");
-            setValue = (Action<T>)Delegate.CreateDelegate(typeof(Action<T>), typed, setter);
-            if (overrideMode != VolumeOverrideMode.FollowExisting) parameter.overrideState = true;
+            var lease = RenderingOutputServices.GetResourceService(context).AcquireVolumeProfile(target);
+            try
+            {
+                var profile = lease.Profile;
+                var component = profile.components.FirstOrDefault(candidate => candidate != null && candidate.GetType() == type);
+                if (component == null && overrideMode == VolumeOverrideMode.Automatically)
+                    component = profile.Add(type, overrides: true);
+                if (component == null) throw new InvalidOperationException($"Volume profile does not contain {type.Name}.");
+                if (string.IsNullOrWhiteSpace(parameterName)) throw new InvalidOperationException("Volume parameter name is empty.");
+                var field = type.GetField(parameterName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field == null || !typeof(VolumeParameter<T>).IsAssignableFrom(field.FieldType))
+                    throw new InvalidOperationException($"Volume parameter '{type.Name}.{parameterName}' is not a {typeof(T).Name} parameter.");
+                parameter = field.GetValue(component) as VolumeParameter;
+                var typed = field.GetValue(component) as VolumeParameter<T>;
+                if (parameter == null || typed == null) throw new InvalidOperationException($"Volume parameter '{type.Name}.{parameterName}' is null.");
+                var setter = typeof(VolumeParameter<T>).GetProperty(nameof(VolumeParameter<T>.value))?.GetSetMethod();
+                if (setter == null) throw new InvalidOperationException($"Volume parameter '{type.Name}.{parameterName}' has no setter.");
+                setValue = (Action<T>)Delegate.CreateDelegate(typeof(Action<T>), typed, setter);
+                initialValue = typed.value;
+                if (overrideMode == VolumeOverrideMode.Always) parameter.overrideState = true;
+                if (!component.active) context.Report("VOLUME_COMPONENT_INACTIVE", $"Volume component {type.Name} is inactive; its parameter is writable but may not affect the rendered result.", this);
+                context.Scope.Add(ResetRuntimeState);
+                context.Scope.Add(lease);
+            }
+            catch
+            {
+                lease.Dispose();
+                ResetRuntimeState();
+                throw;
+            }
         }
 
         public void Write(T value)
         {
-            if (overrideMode == VolumeOverrideMode.FollowExisting && !parameter.overrideState) return;
+            switch (overrideMode)
+            {
+                case VolumeOverrideMode.Always:
+                    parameter.overrideState = true;
+                    break;
+                case VolumeOverrideMode.Automatically:
+                    parameter.overrideState = !EqualityComparer<T>.Default.Equals(value, initialValue);
+                    break;
+            }
             setValue(value);
+        }
+
+        private void ResetRuntimeState()
+        {
+            parameter = null;
+            setValue = null;
+            initialValue = default;
         }
 
         private static Type ResolveComponentType(string typeName)

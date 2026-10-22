@@ -1,0 +1,18 @@
+{
+  "name": "MondmadeVJ0.Rendering.Tests",
+  "rootNamespace": "MondmadeVJ0.Tests.Rendering",
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Core.Editor", "MondmadeVJ0.Rendering", "Unity.RenderPipelines.Core.Runtime"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": ["MONDMADE_HAS_URP", "MONDMADE_HAS_TEST_FRAMEWORK"],
+  "versionDefines": [
+    { "name": "com.unity.render-pipelines.universal", "expression": "[17.3.0,17.4.0)", "define": "MONDMADE_HAS_URP" },
+    { "name": "com.unity.test-framework", "expression": "[1.1.0,2.0.0)", "define": "MONDMADE_HAS_TEST_FRAMEWORK" }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}
