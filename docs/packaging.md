@@ -1,6 +1,6 @@
 # パッケージ構成と導入
 
-更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、最終差分を同期した隔離CheckoutでEditMode 147/147・通常PlayMode 7/7（Explicit 6件は別途skip）・APC Pad 1物理入力probe 1/1・LED目視probe 1/1を確認した。EditModeにはMaterial / Volume資源lease、Transform / Generic / Shader書込競合診断、Video prepare待ちとFault通知、Lasp AudioのdBFS / Spectrum / Trigger、OSC UDP / queue契約の試験を含む。Git URL導入はローカル`git+file` commitで確認済み。R3＋Unity標準moduleのみの構成と、Input System＋MIDI＋OSCを加えた部分構成でlocal UPM packageのimport / compileを確認し、最新差分でmacOS universal（x86_64 + arm64）Mono / IL2CPPとWindows x64 Mono Player buildも成功した。公開HTTPS Git URL、依存部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
+更新日：2026-10-23（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** package、Setup Window、Core / Integration Editor、EditMode / PlayMode testsを配置した。Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイルし、最終差分を同期した隔離CheckoutでEditMode 147/147・通常PlayMode 7/7（Explicit 6件は別途skip）・APC Pad 1物理入力probe 1/1・LED目視probe 1/1を確認した。EditModeにはMaterial / Volume資源lease、Transform / Generic / Shader書込競合診断、Video prepare待ちとFault通知、Lasp AudioのdBFS / Spectrum / Trigger、OSC UDP / queue契約の試験を含む。Git URL導入はローカル`git+file` commitで確認済み。R3 / Unsafe / NuGetForUnityとUnity標準moduleだけの構成でlocal UPM import・compile、macOS universal IL2CPP、Windows x64 Mono Player buildが成功し、Input System＋MIDI＋OSC部分構成のlocal import・compileも確認した。最新差分の全依存macOS universal（x86_64 + arm64）Mono / IL2CPPとWindows x64 Mono Player buildも成功した。公開HTTPS Git URL、MIDI / OSC部分構成のPlayer build、Windows IL2CPP、Windows実機、長時間受け入れは未完了。
 
 ## 配置
 
@@ -48,7 +48,7 @@ package IDは `com.redmond.mondmade-vj0`。namespace / assemblyのprefixは `Mon
 
 | フォルダ | Runtime assembly | 内容・外部依存（採用基準版） |
 | --- | --- | --- |
-| Core | MondmadeVJ0.Core | Route、Source / Modifier、Signal、Clock契約、Root、Unity Object / Transform / AudioSource出力。R3 1.3.0本体、com.cysharp.r3 1.3.0、Unity Audio module |
+| Core | MondmadeVJ0.Core | Route、Source / Modifier、Signal、Clock契約、Root、Unity Object / Transform / AudioSource出力。R3 1.3.0本体、com.cysharp.r3 1.3.0、System.Runtime.CompilerServices.Unsafe 6.0.0、Unity Audio module |
 | Transport | MondmadeVJ0.Transport | Core、Transport、Grid / Quantize、Tap。Coreのinterfaceを実装 |
 | InputSystem | MondmadeVJ0.InputSystem | Core、com.unity.inputsystem 1.18.0 |
 | Midi | MondmadeVJ0.Midi | Core、Minis 1.3.2、RtMidi 2.2.0、Input System。Raw Clock連携はCoreのinterface経由 |
@@ -76,11 +76,11 @@ Core Editorは利用可能なIntegrationだけを型登録から列挙する。�
 
 OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
 
-任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。R3のみとInput System＋MIDI＋OSCの部分構成はlocal UPM packageでimport・compileを確認済み。ローカルGit repositoryの`git+file` URLからcommit `037d5be`を新規導入し、UPM testables指定後にEditMode 70/70件を確認した。公開HTTPS URL / release tagからの導入は、commitをpushしておらずrelease tagも未作成のため未検証。最新差分のmacOS universal（x86_64 + arm64）全依存Mono / IL2CPP PlayerとWindows x64 Mono cross-buildが成功した。部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
+任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。NuGetForUnity、R3、Unsafe、Unity標準moduleだけの構成はlocal UPM packageのimport・compileを確認し、macOS universal IL2CPPとWindows x64 Mono Player buildも成功した。Input System＋MIDI＋OSCの部分構成はlocal UPM import・compileまで確認済み。ローカルGit repositoryの`git+file` URLからcommit `037d5be`を新規導入し、UPM testables指定後にEditMode 70/70件を確認した。公開HTTPS URL / release tagからの導入は、commitをpushしておらずrelease tagも未作成のため未検証。最新差分のmacOS universal（x86_64 + arm64）全依存Mono / IL2CPP PlayerとWindows x64 Mono cross-buildが成功した。Input System＋MIDI＋OSC部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
 
 ## 導入手順
 
-1. 必須依存のR3本体とUnity UPM部分を導入する。NuGetForUnityの手順・採用版・推移依存を固定し、重複DLLを検査する。外部DLLは再梱包しない。CoreにはUnity Audio、AnimatorにはAnimation、VideoにはVideoの標準moduleが必要。
+1. Unity UPM部分を導入する。SetupはNuGetForUnityからR3 1.3.0とSystem.Runtime.CompilerServices.Unsafe 6.0.0を導入する。UnsafeはR3の.NET Standard 2.1 targetが参照し、IL2CPP Linkに必要。CoreにはUnity Audio、AnimatorにはAnimation、VideoにはVideoの標準moduleが必要。
 2. Package Managerの「Install package from git URL」でMondmadeVJ0を**1回だけ**追加する。
 3. パッケージ内のSetup Windowで必要な外部Integration依存をまとめて導入する。既存の互換版は再導入せず、依存が揃うと対応assemblyが有効になる。
 
@@ -90,11 +90,11 @@ https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmad
 
 RELEASE_TAGは実在する検証済みtagへ置き換える。完成時の公開版は1.0.0から始めるが、配布tagはまだ作成していない。ライブ用はtagまたはcommitへ固定する。URL形式は[UnityのGit dependencies](https://docs.unity3d.com/6000.3/Documentation/Manual/upm-git.html)に従う。
 
-SetupはInput System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphから利用するものを選び、固定版をUnity Package Manager Client APIで追加する。未選択の任意依存は追加しない。R3 NuGet本体はNuGetForUnityから導入する。Coreがコンパイルできる前提でSetupを開く。MondmadeVJ0の機能別packageを追加するbootstrapや、複数のMondmadeVJ0 Git URL登録は不要。
+SetupはInput System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphから利用するものを選び、固定版をUnity Package Manager Client APIで追加する。未選択の任意依存は追加しない。Setup WindowからR3本体とUnsafeも導入できる。MondmadeVJ0の機能別packageを追加するbootstrapや、複数のMondmadeVJ0 Git URL登録は不要。
 
 Keijiroのscoped registryが不足していればProject Settingsの設定項目を案内する。OSC forkは固定commitのGit URLで導入し、同じIDのupstreamと二重登録しない。package.jsonのGit依存による自動解決は使わない。ユーザーのmanifestを文字列置換せず、既存registryと設定を保持する。
 
-導入後はRuntime Root・必要Module・RouteHostをScene / Prefabへ配置する。自動的に全Sceneを変更したりSingletonを生成したりしない。必須R3と必要な外部ライブラリの導入は別途必要だが、MondmadeVJ0自身の登録・更新は1つで済む。
+導入後はRuntime Root・必要Module・RouteHostをScene / Prefabへ配置する。自動的に全Sceneを変更したりSingletonを生成したりしない。R3、Unsafeと必要な外部ライブラリの導入は別途必要だが、MondmadeVJ0自身の登録・更新は1つで済む。
 
 ## 開発用QuickStart
 
@@ -113,6 +113,6 @@ Scene内のPort ordinalは開発時のAPC列挙結果を初期値にする。別
 
 対象はUnity 6000.3系列以降、基準Editorは6000.3.8f1。macOS arm64 / Windows x64のEditorとStandalone（Mono / IL2CPP）を検証する。対象と試験済み結果は区別する。
 
-releaseは1つのversion・tagで更新する。全機能の完成判定に加え、R3のみ・一部外部依存あり・全依存ありの各構成でGit導入・Editor import・Playerビルドを検証する。機能ごとに別のMondmadeVJ0 packageを登録する操作がないことも確認する。
+releaseは1つのversion・tagで更新する。全機能の完成判定に加え、Core必須依存のみ・一部外部依存あり・全依存ありの各構成でGit導入・Editor import・Playerビルドを検証する。機能ごとに別のMondmadeVJ0 packageを登録する操作がないことも確認する。
 
 LICENSE・外部依存通知・CHANGELOG・移行手順を同梱する。公開ライセンスは所有者の判断とし、この文書更新では新設しない。ライセンスは追加していない。NuGetForUnityが生成する`Assets/Packages/`と`Assets/packages.config`は復元物としてGit ignoreする。

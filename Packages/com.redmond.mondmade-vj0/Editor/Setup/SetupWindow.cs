@@ -13,6 +13,8 @@ namespace MondmadeVJ0.Editor.Setup
     public sealed class SetupWindow : EditorWindow
     {
         private const string R3Version = "1.3.0";
+        private const string R3UnsafeVersion = "6.0.0";
+        private const string R3UnsafePackageId = "System.Runtime.CompilerServices.Unsafe";
         private const string InputSystemId = "com.unity.inputsystem@1.18.0";
         private const string UrpId = "com.unity.render-pipelines.universal@17.3.0";
         private const string MinisUrl = "https://github.com/keijiro/Minis.git?path=/Packages/jp.keijiro.minis#efd9e01d563804bfd35961beecf1fc78e89e0873";
@@ -84,30 +86,35 @@ namespace MondmadeVJ0.Editor.Setup
 
         private void DrawR3Status()
         {
-            var version = GetInstalledR3Version();
-            if (version == R3Version)
+            var r3Version = GetInstalledNugetVersion("R3");
+            var unsafeVersion = GetInstalledNugetVersion(R3UnsafePackageId);
+            if (r3Version == R3Version && unsafeVersion == R3UnsafeVersion)
             {
-                EditorGUILayout.HelpBox($"Required R3 NuGet {R3Version} is installed.", MessageType.Info);
+                EditorGUILayout.HelpBox($"Required R3 NuGet {R3Version} and {R3UnsafePackageId} {R3UnsafeVersion} are installed.", MessageType.Info);
                 return;
             }
 
-            var message = string.IsNullOrEmpty(version)
-                ? $"Required R3 NuGet {R3Version} is not installed."
-                : $"R3 NuGet {version} is installed; this package requires {R3Version}.";
-            EditorGUILayout.HelpBox(message, MessageType.Warning);
+            var missing = new List<string>();
+            if (r3Version != R3Version)
+                missing.Add(string.IsNullOrEmpty(r3Version) ? $"R3 {R3Version}" : $"R3 {r3Version} (requires {R3Version})");
+            if (unsafeVersion != R3UnsafeVersion)
+                missing.Add(string.IsNullOrEmpty(unsafeVersion)
+                    ? $"{R3UnsafePackageId} {R3UnsafeVersion}"
+                    : $"{R3UnsafePackageId} {unsafeVersion} (requires {R3UnsafeVersion})");
+            EditorGUILayout.HelpBox("Required NuGet packages are missing or have different versions: " + string.Join(", ", missing) + ".", MessageType.Warning);
             using (new EditorGUI.DisabledScope(request != null))
             {
-                if (GUILayout.Button("Install required R3 NuGet"))
+                if (GUILayout.Button("Install required R3 NuGet and dependencies"))
                     InstallR3();
             }
         }
 
-        private static string GetInstalledR3Version()
+        private static string GetInstalledNugetVersion(string packageId)
         {
             try
             {
                 var package = InstalledPackagesManager.InstalledPackages
-                    .FirstOrDefault(item => string.Equals(item.Id, "R3", StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(item => string.Equals(item.Id, packageId, StringComparison.OrdinalIgnoreCase));
                 return package?.Version ?? string.Empty;
             }
             catch
@@ -121,17 +128,24 @@ namespace MondmadeVJ0.Editor.Setup
             operation = $"Installing R3 NuGet {R3Version} and its required packages…";
             try
             {
-                if (!NugetPackageInstaller.InstallIdentifier(new NugetPackageIdentifier("R3", R3Version)))
-                    throw new InvalidOperationException("NuGetForUnity could not install R3.");
-                operation = $"Installed R3 NuGet {R3Version}. Unity will recompile the package assemblies.";
-                Debug.Log($"[MondmadeVJ0] Installed R3 NuGet {R3Version}.");
+                InstallRequiredNuget("R3", R3Version);
+                InstallRequiredNuget(R3UnsafePackageId, R3UnsafeVersion);
+                operation = $"Installed R3 NuGet {R3Version} and {R3UnsafePackageId} {R3UnsafeVersion}. Unity will recompile the package assemblies.";
+                Debug.Log($"[MondmadeVJ0] {operation}");
             }
             catch (Exception exception)
             {
                 operation = $"R3 install failed: {exception.Message}";
                 Debug.LogException(exception);
             }
-            GetWindow<SetupWindow>().Repaint();
+            Resources.FindObjectsOfTypeAll<SetupWindow>().FirstOrDefault()?.Repaint();
+        }
+
+        private static void InstallRequiredNuget(string packageId, string version)
+        {
+            if (GetInstalledNugetVersion(packageId) == version) return;
+            if (!NugetPackageInstaller.InstallIdentifier(new NugetPackageIdentifier(packageId, version)))
+                throw new InvalidOperationException($"NuGetForUnity could not install {packageId} {version}.");
         }
 
         private static void InstallSelected(bool inputSystem, bool urp, bool midi, bool osc, bool lasp, bool cinemachine, bool vfx)

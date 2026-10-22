@@ -5,14 +5,14 @@ Inspectorで組み立てる型安全なVJ制御Route基盤。Core、Musical Tran
 ## Requirements
 
 - Unity 6000.3以降
-- R3 NuGet 1.3.0（同梱Setupから導入）
+- R3 NuGet 1.3.0とSystem.Runtime.CompilerServices.Unsafe 6.0.0（同梱Setupから導入）
 - Coreで使うUnity Audio module。Animator / Video出力には対応するUnity標準module
 - Input System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphの各Integrationは任意
 
 ## Setup
 
 1. Package ManagerからこのUPMパッケージを導入します。
-2. `Tools > Mondmade VJ0 > Setup`を開き、R3を導入し、必要なIntegrationだけを選んで追加します。
+2. `Tools > Mondmade VJ0 > Setup`を開き、R3と必須の推移依存を導入し、必要なIntegrationだけを選んで追加します。
 3. Sceneへ`MondmadeVJ0Runtime`と必要なModule、`RouteHost`を配置します。
 4. Route InspectorでSource、Modifier、Outputを追加します。Play前ValidationとRuntime Monitorで設定と状態を確認します。
 
@@ -20,4 +20,4 @@ APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../As
 
 ## Verification status
 
-Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをcompileし、EditMode 147/147・通常PlayMode 7/7（実機依存Explicit 6件はskip）を確認しています。R3のみとInput System＋MIDI＋OSCの部分構成でもlocal UPM packageのcompileを確認しました。Lasp Audio契約、OSC strict Type Tag・UDP loopback / main-thread delivery、8192件Queueの契約試験も通過しました。実入力デバイスを使ったAudio captureは未確認です。APC mini mk2のRtMidi input / output portをOpenし、実機の左上Pad 1がNote 56を送ること、Pad 1のLED点灯とON/OFF payloadを検証しました。Runtime MonitorにはRaw / Modifier / Final / Output、MIDI、Tap / Clock履歴とPerformance計測を実装しています。最新差分のmacOS universal（x86_64 + arm64）Mono / IL2CPPとWindows x64 Mono Player buildが成功しました。Windows IL2CPP module、Windows上の実機、USB再接続、MIDI Clockの10分負荷と外部受信機実測、公開HTTPS URLからの導入は未確認です。未実施の受け入れ項目は[実装・検証計画](../../docs/implementation-plan.md)に記録します。
+Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをcompileし、EditMode 147/147・通常PlayMode 7/7（実機依存Explicit 6件はskip）を確認しています。任意IntegrationのUPM依存を含めないR3＋NuGetForUnity＋Unity標準moduleの構成もcompileし、macOS universal IL2CPPとWindows x64 Mono Player buildを確認しました。Input System＋MIDI＋OSCを加えた部分構成のlocal UPM compileも確認しています。R3のIL2CPPリンクに必要なUnsafe 6.0.0をSetupから導入する経路も検証しました。Lasp Audio契約、OSC strict Type Tag・UDP loopback / main-thread delivery、8192件Queueの契約試験も通過しました。実入力デバイスを使ったAudio captureは未確認です。APC mini mk2のRtMidi input / output portをOpenし、実機の左上Pad 1がNote 56を送ること、Pad 1のLED点灯とON/OFF payloadを検証しました。Runtime MonitorにはRaw / Modifier / Final / Output、MIDI、Tap / Clock履歴とPerformance計測を実装しています。最新差分のmacOS universal（x86_64 + arm64）Mono / IL2CPPとWindows x64 Mono Player buildが成功しました。Windows IL2CPP module、Windows上の実機、USB再接続、MIDI Clockの10分負荷と外部受信機実測、公開HTTPS URLからの導入は未確認です。未実施の受け入れ項目は[実装・検証計画](../../docs/implementation-plan.md)に記録します。
