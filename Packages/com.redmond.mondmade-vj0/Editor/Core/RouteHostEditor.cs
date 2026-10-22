@@ -599,7 +599,7 @@ namespace MondmadeVJ0.Editor
                 if (route == null) { errors.Add($"{host.name}: null route or missing serialized type."); continue; }
                 if (string.IsNullOrWhiteSpace(route.Name)) errors.Add($"{host.name}: route {route.Id} has no name.");
                 if (!routeIds.Add(route.Id)) errors.Add($"{host.name}/{route.Name}: duplicate route id {route.Id}.");
-                if (GetRouteOutputs(route) is System.Collections.ICollection outputs && outputs.Count == 0)
+                if (!(GetRouteOutputs(route) is System.Collections.ICollection outputs) || outputs.Count == 0)
                     errors.Add($"{host.name}/{route.Name}: no Output is assigned.");
                 var source = GetRouteSource(route);
                 if (source == null) errors.Add($"{host.name}/{route.Name}: Source is not assigned.");

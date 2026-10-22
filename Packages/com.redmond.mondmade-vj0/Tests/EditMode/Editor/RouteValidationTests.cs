@@ -76,6 +76,43 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void DuplicateStableIdsAndInvalidRangesAreReportedBeforePlay()
+        {
+            var first = new FloatRoute();
+            first.Configure("first route", new ConstantFloatSource());
+            first.Outputs.Add(new DebugFloatOutput());
+            hostA.AddRoute(first);
+
+            var second = new FloatRoute();
+            var clamp = new ClampFloatModifier();
+            SetField(clamp, "minimum", 2f);
+            SetField(clamp, "maximum", 1f);
+            second.Configure("invalid range route", new ConstantFloatSource());
+            second.Modifiers.Add(clamp);
+            second.Outputs.Add(new DebugFloatOutput());
+            hostA.AddRoute(second);
+            SetField(second, "id", first.Id);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("duplicate route id")), Is.True);
+            Assert.That(issues.Exists(issue => issue.Contains("invalid range route") && issue.Contains("minimum must not exceed maximum")), Is.True);
+        }
+
+        [Test]
+        public void MissingUnityTargetIsReportedWithRouteAndNodeContext()
+        {
+            var route = new BoolRoute();
+            route.Configure("missing renderer target", new ConstantBoolSource());
+            route.Outputs.Add(new RendererEnabledBoolOutput());
+            hostA.AddRoute(route);
+
+            var issues = MondmadeVJ0Validation.Validate(hostA);
+
+            Assert.That(issues.Exists(issue => issue.Contains("missing renderer target") && issue.Contains("required reference 'target' is missing")), Is.True);
+        }
+
+        [Test]
         public void ManagedReferenceClonePreservesUnityObjectReferences()
         {
             var target = new GameObject("Clone target");
@@ -118,6 +155,15 @@ namespace MondmadeVJ0.Tests
         }
 
         private static void SetField(object target, string name, object value)
-            => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
+        {
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                var field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (field == null) continue;
+                field.SetValue(target, value);
+                return;
+            }
+            throw new System.MissingFieldException(target.GetType().FullName, name);
+        }
     }
 }
