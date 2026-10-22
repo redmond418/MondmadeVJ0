@@ -166,6 +166,66 @@ namespace MondmadeVJ0.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator ExternalSignalUpdatesMidiLedStateAndInteractionFlashFallsBackToStateLayer()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "LED layers", new[]
+            {
+                new MidiSurfaceControl { id = "pad", type = MidiControlType.Button, hasLed = true, outputAddressType = MidiAddressType.Note, outputChannel = 0, outputNumber = 56 }
+            });
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "LED layers", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var signalObject = new GameObject("LED state trigger");
+            var signal = signalObject.AddComponent<SharedTriggerSignal>();
+
+            var stateTrigger = new SignalTriggerSource();
+            SetField(stateTrigger, "signal", signal);
+            var toggle = new ToggleBoolSource();
+            SetField(toggle, "trigger", stateTrigger);
+            var stateRoute = new BoolRoute();
+            stateRoute.Configure("external LED state", toggle);
+            var stateOutput = new MidiLedBoolOutput();
+            SetField(stateOutput, "control", new MidiControlReference(surface.InstanceId, "pad"));
+            stateRoute.Outputs.Add(stateOutput);
+
+            var flashTrigger = new SignalTriggerSource();
+            SetField(flashTrigger, "signal", signal);
+            var flashRoute = new TriggerRoute();
+            flashRoute.Configure("interaction LED flash", flashTrigger);
+            var flashOutput = new MidiLedTriggerFlashOutput();
+            SetField(flashOutput, "control", new MidiControlReference(surface.InstanceId, "pad"));
+            SetField(flashOutput, "durationSeconds", 0.05f);
+            flashRoute.Outputs.Add(flashOutput);
+
+            var harness = CreateRouteHarness(surface, stateRoute, flashRoute);
+            try
+            {
+                var key = surface.InstanceId + "\0pad";
+                var initial = ResolveLedStyle(harness.Hub, key);
+                Assert.That(initial.brightness, Is.EqualTo(0f));
+
+                signal.Fire();
+                Assert.That(stateRoute.CurrentValue, Is.True);
+                var flashing = ResolveLedStyle(harness.Hub, key);
+                Assert.That(flashing.color, Is.EqualTo(Color.white), "The Interaction layer must temporarily override the State LED.");
+                Assert.That(flashing.brightness, Is.EqualTo(1f));
+
+                yield return new WaitForSecondsRealtime(0.12f);
+
+                var restored = ResolveLedStyle(harness.Hub, key);
+                Assert.That(restored.color, Is.EqualTo(Color.green), "When the Interaction flash expires, the latest State LED must become visible again.");
+                Assert.That(restored.brightness, Is.EqualTo(1f));
+            }
+            finally
+            {
+                DestroyHarness(harness);
+                Object.Destroy(signalObject);
+                Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
         private static MidiSurfaceControl Relative(string id, int number, MidiRelativeMode mode)
             => new MidiSurfaceControl { id = id, type = MidiControlType.RelativeEncoder, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = number, relativeMode = mode, initialValue = 0.5f, minimum = 0f, maximum = 1f };
 
@@ -181,7 +241,7 @@ namespace MondmadeVJ0.Tests
             return new Harness(gameObject, hub, runtime);
         }
 
-        private static Harness CreateRouteHarness(MidiSurfaceInstance surface, Vector2Route route)
+        private static Harness CreateRouteHarness(MidiSurfaceInstance surface, params IRoute[] routes)
         {
             var gameObject = new GameObject("MIDI XY route contract test");
             gameObject.SetActive(false);
@@ -191,9 +251,15 @@ namespace MondmadeVJ0.Tests
             SetField(hub, "surfaces", new[] { surface });
             SetField(runtime, "modules", new MonoBehaviour[] { hub });
             SetField(runtime, "routeHosts", new[] { host });
-            SetField(host, "routes", new List<IRoute> { route });
+            SetField(host, "routes", new List<IRoute>(routes));
             gameObject.SetActive(true);
             return new Harness(gameObject, hub, runtime);
+        }
+
+        private static MidiLedStyle ResolveLedStyle(MidiHub hub, string key)
+        {
+            var method = typeof(MidiHub).GetMethod("ResolveLayer", BindingFlags.Instance | BindingFlags.NonPublic);
+            return (MidiLedStyle)method.Invoke(hub, new object[] { key });
         }
 
         private static void PushRaw(Harness harness, string surfaceId, byte status, byte number, byte value)

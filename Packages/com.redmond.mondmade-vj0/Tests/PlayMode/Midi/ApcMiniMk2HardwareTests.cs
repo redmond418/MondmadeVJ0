@@ -156,6 +156,109 @@ namespace MondmadeVJ0.Tests
             yield return null;
         }
 
+        [Explicit("Requires a person to press Pad 1 and unplug/reconnect the APC mini mk2 when prompted.")]
+        [UnityTest]
+        public IEnumerator ReconnectPreservesInputStateAndResyncsDesiredLedWhilePanicIsLatched()
+        {
+            var inputPort = FindPort(true);
+            var outputPort = FindPort(false);
+            if (inputPort < 0 || outputPort < 0)
+                Assert.Inconclusive("APC mini mk2 RtMidi input and output ports were not both available.");
+
+            var profile = MidiSurfaceProfile.CreateApcMiniMk2Profile();
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
+            var padReference = new MidiControlReference(surface.InstanceId, "pad_0_0");
+            var faderReference = new MidiControlReference(surface.InstanceId, "fader_1");
+            var runtimeObject = new GameObject("APC mini mk2 reconnect probe");
+            runtimeObject.SetActive(false);
+            var hub = runtimeObject.AddComponent<MidiHub>();
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            SetField(hub, "surfaces", new[] { surface });
+            SetField(runtime, "modules", new MonoBehaviour[] { hub });
+            var padPressed = false;
+            var padReleased = false;
+            System.Action<MidiControlChange> capture = change =>
+            {
+                if (change.Reference.SurfaceInstanceId != surface.InstanceId || change.Reference.ControlId != "pad_0_0") return;
+                if (change.PressedDown) padPressed = true;
+                if (change.Released) padReleased = true;
+            };
+            hub.ControlChanged += capture;
+            runtimeObject.SetActive(true);
+
+            var owner = hub.CreateLayerOwner(null);
+            try
+            {
+                yield return null;
+                Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
+                Debug.Log("[APC_RECONNECT_PAD_READY] Tap and release upper-left Pad 1 once to confirm physical input.");
+                var waitUntil = Time.realtimeSinceStartup + 45f;
+                while ((!padPressed || !padReleased) && Time.realtimeSinceStartup < waitUntil) yield return null;
+                Assert.That(padPressed && padReleased, Is.True, "Pad 1 press and release must be received before the disconnect probe.");
+
+                InjectControl(hub, surface.InstanceId, MidiAddressType.Note, 0, 56, 100f / 127f);
+                InjectControl(hub, surface.InstanceId, MidiAddressType.ControlChange, 0, 0x30, 0.7f);
+                var retainedPad = hub.GetState(padReference);
+                var retainedFader = hub.GetState(faderReference);
+                Assert.That(retainedPad.Pressed, Is.True);
+                Assert.That(retainedFader.Value, Is.EqualTo(0.7f).Within(0.0001f));
+
+                hub.SetLed(padReference, owner, MidiLedLayer.State, new MidiLedStyle { color = Color.green, brightness = 1f, effect = MidiLedEffect.Solid });
+                hub.FlushFrame(runtime.Services);
+                var outputBeforeDisconnect = GetRawOutput(hub, surface.InstanceId);
+                Assert.That(outputBeforeDisconnect, Is.Not.Null);
+                Assert.That(GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_0"), Is.EqualTo(21));
+
+                Debug.Log("[APC_RECONNECT_UNPLUG_READY] Unplug the APC mini mk2 USB cable now; the probe waits up to 45 seconds.");
+                waitUntil = Time.realtimeSinceStartup + 45f;
+                var disconnected = false;
+                while (Time.realtimeSinceStartup < waitUntil)
+                {
+                    yield return new WaitForSecondsRealtime(0.5f);
+                    if (FindPort(true) < 0 && FindPort(false) < 0) { disconnected = true; break; }
+                }
+                Assert.That(disconnected, Is.True, "Both APC mini mk2 MIDI ports must disappear after unplugging.");
+                Assert.That(hub.GetState(padReference).Pressed, Is.EqualTo(retainedPad.Pressed), "The last Pad state must survive USB disconnection.");
+                Assert.That(hub.GetState(faderReference).Value, Is.EqualTo(retainedFader.Value).Within(0.0001f), "The last Fader value must survive USB disconnection.");
+
+                hub.PanicAllOff();
+                hub.FlushFrame(runtime.Services);
+                Debug.Log("[APC_RECONNECT_PLUG_READY] Panic is latched while disconnected. Reconnect the APC mini mk2 USB cable now.");
+                waitUntil = Time.realtimeSinceStartup + 45f;
+                var reconnectedAndSynced = false;
+                while (Time.realtimeSinceStartup < waitUntil)
+                {
+                    yield return new WaitForSecondsRealtime(0.5f);
+                    var currentOutput = GetRawOutput(hub, surface.InstanceId);
+                    if (FindPort(true) >= 0 && FindPort(false) >= 0 && currentOutput != null && !System.Object.ReferenceEquals(currentOutput, outputBeforeDisconnect) && IsOutputOk(currentOutput) &&
+                        GetSentPayloads(hub).Count == 80 && GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_0") == 0)
+                    {
+                        reconnectedAndSynced = true;
+                        break;
+                    }
+                }
+
+                Assert.That(reconnectedAndSynced, Is.True, "Reconnect must reopen the Output port and resync all LEDs to Panic OFF.");
+                Assert.That(hub.PanicLatched, Is.True);
+                Assert.That(hub.GetState(padReference).Pressed, Is.EqualTo(retainedPad.Pressed));
+                Assert.That(hub.GetState(faderReference).Value, Is.EqualTo(retainedFader.Value).Within(0.0001f));
+
+                hub.ResumeOutputs();
+                hub.FlushFrame(runtime.Services);
+                Assert.That(hub.PanicLatched, Is.False);
+                Assert.That(GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_0"), Is.EqualTo(21), "Resuming output must restore the latest desired LED state.");
+            }
+            finally
+            {
+                hub.ControlChanged -= capture;
+                hub.RemoveLayerOwner(owner);
+                Object.Destroy(runtimeObject);
+                Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
         private static int FindPort(bool input)
         {
             try
@@ -186,6 +289,20 @@ namespace MondmadeVJ0.Tests
 
         private static IDictionary GetSentPayloads(MidiHub hub)
             => (IDictionary)typeof(MidiHub).GetField("sentPayloads", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hub);
+
+        private static byte GetPayloadValue(IDictionary sent, string key)
+            => (byte)sent[key].GetType().GetField("Value").GetValue(sent[key]);
+
+        private static bool IsOutputOk(object output)
+            => output != null && (bool)output.GetType().GetProperty("IsOk").GetValue(output);
+
+        private static void InjectControl(MidiHub hub, string surfaceId, MidiAddressType type, int channel, int number, float value)
+        {
+            var packetType = typeof(MidiHub).GetNestedType("InputPacket", BindingFlags.NonPublic);
+            var constructor = packetType.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)[0];
+            var packet = constructor.Invoke(new object[] { surfaceId, type, channel, number, value, 0, 0L, null, 0, 0d });
+            typeof(MidiHub).GetMethod("ProcessControl", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hub, new[] { packet });
+        }
 
         private static void SetField(object target, string name, object value)
             => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
