@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection;
 using NUnit.Framework;
 using R3;
 using UnityEngine;
@@ -45,6 +46,41 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void LongVirtualRunKeepsPositionAndDerivedPhasesContinuousAcrossTempoChanges()
+        {
+            transport.SetTimeSignature(3, 4);
+            const int FramesPerSegment = 12000;
+            const double FrameSeconds = 1d / 60d;
+
+            for (var frame = 0; frame < FramesPerSegment; frame++) transport.Tick(services, FrameSeconds);
+            Assert.That(transport.BeatPosition, Is.EqualTo(400d).Within(1e-8d));
+            var beforeTempoChange = transport.BeatPosition;
+            transport.SetBaseBpm(90d);
+            Assert.That(transport.BeatPosition, Is.EqualTo(beforeTempoChange).Within(1e-12d));
+            transport.SetMultiplier(1.5d);
+            Assert.That(transport.BeatPosition, Is.EqualTo(beforeTempoChange).Within(1e-12d));
+
+            for (var frame = 0; frame < FramesPerSegment; frame++) transport.Tick(services, FrameSeconds);
+            Assert.That(transport.BeatPosition, Is.EqualTo(850d).Within(1e-8d));
+            beforeTempoChange = transport.BeatPosition;
+            transport.SetBaseBpm(80d);
+            transport.SetMultiplier(0.5d);
+            Assert.That(transport.BeatPosition, Is.EqualTo(beforeTempoChange).Within(1e-12d));
+
+            for (var frame = 0; frame < FramesPerSegment; frame++) transport.Tick(services, FrameSeconds);
+
+            var expected = 400d + 450d + 400d / 3d;
+            Assert.That(transport.BeatPosition, Is.EqualTo(expected).Within(1e-8d));
+            Assert.That(transport.BeatPhase, Is.EqualTo(expected - System.Math.Floor(expected)).Within(1e-8d));
+            Assert.That(transport.BarPhase, Is.EqualTo(7d / 9d).Within(1e-8d));
+            var tripletPosition = transport.BeatPosition / (1d / 6d);
+            var expectedTripletPhase = tripletPosition - System.Math.Floor(tripletPosition);
+            var tripletPhase = TriggerModifierClock.GridPhase(QuantizeGrid.QuarterTriplet, transport);
+            Assert.That(tripletPhase, Is.EqualTo(expectedTripletPhase).Within(1e-12d));
+            Assert.That(System.Math.Min(tripletPhase, 1d - tripletPhase), Is.LessThan(1e-8d), "Accumulated floating point error may place a boundary just below zero phase.");
+        }
+
+        [Test]
         public void MeterChangeAppliesAtNextBarAndEmitsBeatAndBarBoundaries()
         {
             var beats = new List<long>();
@@ -74,6 +110,38 @@ namespace MondmadeVJ0.Tests
             Assert.That(transport.BaseBpm, Is.EqualTo(120d).Within(1e-6d));
             transport.Tap(2.9d);
             Assert.That(transport.BaseBpm, Is.EqualTo(60d / 0.7d).Within(1e-4d));
+        }
+
+        [Test]
+        public void TapTimeoutStartsANewTempoHistory()
+        {
+            transport.Tap(0d);
+            transport.Tap(0.5d);
+            transport.Tap(1d);
+            transport.Tap(1.5d);
+            transport.Tap(4d);
+            transport.Tap(4.75d);
+            Assert.That(transport.BaseBpm, Is.EqualTo(80d).Within(1e-6d), "The timeout must discard the old 120 BPM intervals.");
+            transport.Tap(5.5d);
+            Assert.That(transport.BaseBpm, Is.EqualTo(80d).Within(1e-6d));
+        }
+
+        [TestCase(2d, 30d)]
+        [TestCase(0.2d, 300d)]
+        public void TapTempoAcceptsBpmLimits(double interval, double expectedBpm)
+        {
+            transport.Tap(0d);
+            transport.Tap(interval);
+            Assert.That(transport.BaseBpm, Is.EqualTo(expectedBpm).Within(1e-6d));
+        }
+
+        [TestCase(2.01d)]
+        [TestCase(0.199d)]
+        public void TapTempoRejectsIntervalsOutsideBpmLimits(double interval)
+        {
+            transport.Tap(0d);
+            transport.Tap(interval);
+            Assert.That(transport.BaseBpm, Is.EqualTo(120d).Within(1e-6d));
         }
 
         [Test]
@@ -194,6 +262,47 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void BeatDelayWaitsForTransportAndDiscardsQueueOnStop()
+        {
+            var frameClock = new ManualFrameClock();
+            services.Register<IFrameClock>(frameClock);
+            var runtimeObject = new GameObject("Beat delay test runtime");
+            runtimeObject.SetActive(false);
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            runtime.Services = services;
+            var scope = new BindingScope();
+            var source = new Subject<Unit>();
+            var modifier = new DelayTriggerModifier();
+            typeof(DelayTriggerModifier).GetField("timeUnit", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(modifier, TriggerTimeUnit.Beats);
+            typeof(DelayTriggerModifier).GetField("delay", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(modifier, 0.5f);
+            var context = new RouteContext(runtime, null, new RuntimeStateStore(), scope, "beat-delay-test");
+            var emitted = 0;
+            var output = modifier.Apply(source, context).Subscribe(_ => emitted++);
+            scope.Add(output);
+
+            transport.Seek(0.25d);
+            source.OnNext(Unit.Default);
+            transport.Tick(services, 0.125d);
+            frameClock.Step();
+            Assert.That(emitted, Is.Zero);
+            transport.Tick(services, 0.125d);
+            frameClock.Step();
+            Assert.That(emitted, Is.EqualTo(1));
+
+            source.OnNext(Unit.Default);
+            transport.SetRunning(false);
+            frameClock.Step();
+            transport.SetRunning(true);
+            transport.Tick(services, 2d);
+            frameClock.Step();
+            Assert.That(emitted, Is.EqualTo(1), "A stopped Transport must clear pending Beat delays before it resumes.");
+
+            scope.Dispose();
+            transport.Shutdown(services);
+            Object.DestroyImmediate(runtimeObject);
+        }
+
+        [Test]
         public void BarSubdivisionResetsOnSeekAndUsesNewOrigin()
         {
             transport.SetTimeSignature(3, 4);
@@ -220,6 +329,41 @@ namespace MondmadeVJ0.Tests
             frameClock.Step();
             Assert.That(transport.BeatPosition, Is.EqualTo(9d).Within(1e-9d));
             Assert.That(emitted, Is.EqualTo(1), "The next bar boundary from the new origin must emit once.");
+
+            scope.Dispose();
+            transport.Shutdown(services);
+            Object.DestroyImmediate(runtimeObject);
+        }
+
+        [Test]
+        public void BarSubdivisionEmitsMeterChangeBoundaryAndUsesNewBarLength()
+        {
+            transport.Seek(3d);
+            var frameClock = new ManualFrameClock();
+            services.Register<IFrameClock>(frameClock);
+            var runtimeObject = new GameObject("Meter change subdivision runtime");
+            runtimeObject.SetActive(false);
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            runtime.Services = services;
+            var scope = new BindingScope();
+            var source = new SubdivisionTriggerSource();
+            typeof(SubdivisionTriggerSource).GetField("grid", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(source, QuantizeGrid.Bar);
+            var context = new RouteContext(runtime, null, new RuntimeStateStore(), scope, "meter-subdivision-test");
+            var emitted = 0;
+            var subscription = source.Build(context).Subscribe(_ => emitted++);
+            scope.Add(subscription);
+
+            transport.SetTimeSignature(3, 4);
+            transport.Tick(services, 0.5d);
+            frameClock.Step();
+            Assert.That(transport.BeatPosition, Is.EqualTo(4d).Within(1e-9d));
+            Assert.That(transport.BarLengthBeats, Is.EqualTo(3d));
+            Assert.That(emitted, Is.EqualTo(1), "The old bar boundary where the new meter starts is also a Bar subdivision.");
+
+            transport.Tick(services, 1.5d);
+            frameClock.Step();
+            Assert.That(transport.BeatPosition, Is.EqualTo(7d).Within(1e-9d));
+            Assert.That(emitted, Is.EqualTo(2), "The next subdivision must follow the new 3/4 bar length.");
 
             scope.Dispose();
             transport.Shutdown(services);

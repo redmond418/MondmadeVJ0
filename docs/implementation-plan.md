@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 70件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 80件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。ローカルGit URLからのUPM導入後も70件通過し、APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
@@ -8,8 +8,8 @@
 
 - [x] [設計判断](design-notes.md)D01〜D03・D18と[導入仕様](packaging.md)：保存形式、namespace、配布単位、Runtime / Transportの依存境界を確定
 - [x] 単一UPMフォルダ、package.json、機能別Runtime / Editor / Tests asmdef
-- [x] R3導入手順、外部依存の固定一覧、Setup Windowを実装。Git URLのみでの新規利用導入試験は未完
-- [x] 任意IntegrationのVersion Defines / Define Constraintsを設定。Stageの全依存あり、R3とUnity標準moduleのみ、Input System＋MIDI＋OSCを含む部分構成でimport・compileを確認。Git URL新規導入は未完
+- [x] R3導入手順、外部依存の固定一覧、Setup Windowを実装。ローカルGit URLからの新規導入を確認。公開HTTPS URL・release tagは未確認
+- [x] 任意IntegrationのVersion Defines / Define Constraintsを設定。Stageの全依存あり、R3とUnity標準moduleのみ、Input System＋MIDI＋OSCを含む部分構成でimport・compileを確認。公開HTTPS URL・release tagは未確認
 - [x] 必要パッケージの採用版とPlayer backendを記録。Unity 6000.3.8f1/macOS arm64 Editorで依存解決
 - [x] Core / Integration / Editor / Testsのassembly分離。R3＋Unity標準module構成で任意Integrationなしのimport / compileを確認。Git URL導入は未完
 - [x] 8 Route具体型、generic API、RouteContext、Runtime Root、共通Binding Scope
@@ -26,8 +26,8 @@
 
 ### Transport
 
-- [x] double Clock / epoch、BPM / Multiplier、Beat / Bar / 拍子、Phase連続性
-- [x] Tap Tempo、Nudge / Reset、各Transport Source / Output
+- [x] double Clock / epoch、BPM / Multiplier、Beat / Bar / 拍子、Phase連続性。10分相当の仮想ClockでBPM / Multiplier変更後のPositionを検証
+- [x] Tap Tempo、Nudge / Reset、各Transport Source / Output。Tapのtimeoutと30 / 300 BPM境界を検証
 - [x] 通常・三連Subdivision、Quantize SchedulerとTrigger Modifier。全10 Gridの境界、Bar origin、Seek後の予約破棄をEditModeで検証
 - [x] DSP / Unscaled / External MIDI / External OSCのClock切替
 - [x] MIDI Clock受信と送信、Running / SPP、外部同期状態の復元
@@ -99,7 +99,7 @@
 | 対象 | 結果 |
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
-| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、Quantize / Subdivisionの全Grid境界とSeek / Clock再取得の70 testsが70/70通過 |
+| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、時間Modifier、Quantize / Subdivisionの全Grid境界とSeek / Clock再取得の80 testsが80/80通過 |
 | PlayMode | lifecycle、MIDI Surfaceの分離、Note On velocity=0 Release、3形式のRelative Encoder、Button / Velocity / Fader / Knob / Pitch Bend / Aftertouch、XY→Vector2の6 testsが6/6通過。明示指定の実機試験は別枠 |
 | APC mini mk2 | Input / Outputを機器名で検出し、両portをOpen。実機の左上Pad 1からNote 56を受信し、物理入力probe 1/1通過。LEDのON（0x96, 56, 21）/OFF送信payloadを検証。Pad 1の緑点灯も目視確認 |
 | PlayMode合計 | 通常runは6/6通過。Explicit物理入力とLED表示試験は通常runでSkippedし、別途明示実行してそれぞれ1/1通過 |
@@ -107,7 +107,7 @@
 | Windows Player | Windows Build Support (Mono)を導入し、Unity 6000.3.8f1からWindows x64 Mono build成功、errors=0。20 warningsはWindows非対応URP shader variantsのimport診断。Hubの同Editor向けmodule一覧にWindows IL2CPPはなく、IL2CPP buildは未実施 |
 | R3最小構成 | Unity標準moduleを明示し、Input System / URP / MIDI / OSC / Lasp / Cinemachine / VFX GraphなしでUPM local packageをimport。Core / Setup / Animator / Transport / Videoがcompileし、欠落した任意Integrationの参照エラーなし |
 | 部分構成 | UPM local packageにInput System＋MIDI＋OSCを追加し、Lasp / Cinemachine / URP / VFX Graphなしでimport・compile。MIDI / OSC assemblyが有効、未導入Integrationのassemblyは無効 |
-| 未実施 | Git URLからの新規導入、部分構成ごとのPlayer build、Windows IL2CPP / Windows実機実行、Player上のOSC / 全Integration、MIDI Clock 10分精度、USB切断・再接続 |
+| 未実施 | 公開HTTPS URL / release tagからの導入、部分構成ごとのPlayer build、Windows IL2CPP / Windows実機実行、Player上のOSC / 全Integration、MIDI Clock 10分精度、USB切断・再接続 |
 
 上記は検証した環境に限る。Acceptance A01〜A24をすべて通過した記録が揃うまでは全体完了としない。
 

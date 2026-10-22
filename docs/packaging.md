@@ -76,7 +76,7 @@ Core Editorは利用可能なIntegrationだけを型登録から列挙する。�
 
 OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
 
-任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。R3のみとInput System＋MIDI＋OSCの部分構成はlocal UPM packageでimport・compileを確認済み。macOS universal Playerでは全依存構成のMono / IL2CPP、Windows x64ではMono cross-buildを確認済み。Git URLからの新規導入、部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
+任意依存なし・一部のみ・全依存ありの実プロジェクトで、欠落参照のimportエラーも含めて検証する。R3のみとInput System＋MIDI＋OSCの部分構成はlocal UPM packageでimport・compileを確認済み。ローカルGit repositoryの`git+file` URLからcommit `037d5be`を新規導入し、UPM testables指定後にEditMode 70/70件を確認した。公開HTTPS URL / release tagからの導入は、commitをpushしておらずrelease tagも未作成のため未検証。macOS universal Playerでは全依存構成のMono / IL2CPP、Windows x64ではMono cross-buildを確認済み。部分構成のPlayer build、Windows IL2CPPは未検証であり、条件設定だけで動作確認済みとは扱わない。
 
 ## 導入手順
 

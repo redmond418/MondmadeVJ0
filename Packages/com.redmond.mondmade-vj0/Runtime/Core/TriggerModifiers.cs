@@ -66,7 +66,7 @@ namespace MondmadeVJ0
         {
             var step = GridBeats(grid, transport);
             var origin = grid == QuantizeGrid.Bar ? position - transport.BarPhase * transport.BarLengthBeats : 0d;
-            return origin + (Math.Floor((position - origin) / step + tolerance) + 1d) * step;
+            return origin + (Math.Floor((position - origin) / step + tolerance / step) + 1d) * step;
         }
     }
 

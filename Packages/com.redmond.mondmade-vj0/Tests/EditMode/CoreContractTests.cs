@@ -219,6 +219,55 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void DelayUsesElapsedFrameTimeAndDoesNotEmitAfterDisposal()
+        {
+            var context = Context();
+            var source = new TestTriggerSource();
+            var modifier = new DelayTriggerModifier();
+            SetField(modifier, "delay", 0.1f);
+            var emitted = 0;
+            var subscription = modifier.Apply(source.Build(context), context).Subscribe(_ => emitted++);
+            try
+            {
+                source.Fire();
+                Assert.That(emitted, Is.Zero);
+                testFrameClock.Advance(0.25d);
+                Assert.That(emitted, Is.EqualTo(1), "A delayed trigger should release on the first frame after its deadline.");
+
+                source.Fire();
+                subscription.Dispose();
+                testFrameClock.Advance(1d);
+                Assert.That(emitted, Is.EqualTo(1), "Disposing a delayed stream must clear pending work.");
+            }
+            finally
+            {
+                subscription.Dispose();
+                context.Scope.Dispose();
+            }
+        }
+
+        [Test]
+        public void DebounceMovesItsDeadlineWhenAnotherTriggerArrives()
+        {
+            var context = Context();
+            var source = new TestTriggerSource();
+            var modifier = new DebounceTriggerModifier();
+            SetField(modifier, "seconds", 0.05f);
+            var emitted = 0;
+            using (modifier.Apply(source.Build(context), context).Subscribe(_ => emitted++))
+            {
+                source.Fire();
+                testFrameClock.Advance(0.03d);
+                source.Fire();
+                testFrameClock.Advance(0.03d);
+                Assert.That(emitted, Is.Zero, "The first deadline must be replaced by the most recent trigger.");
+                testFrameClock.Advance(0.03d);
+                Assert.That(emitted, Is.EqualTo(1));
+            }
+            context.Scope.Dispose();
+        }
+
+        [Test]
         public void ValueRouteEvaluatesSourceOnceAndFansOutSameInitialValue()
         {
             var source = new CountingSource(5.25f);

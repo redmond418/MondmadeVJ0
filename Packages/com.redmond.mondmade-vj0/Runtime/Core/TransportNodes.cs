@@ -62,6 +62,7 @@ namespace MondmadeVJ0
     {
         [SerializeField] private QuantizeGrid grid = QuantizeGrid.Beat;
         private const int MaxPerFrame = 256;
+        private const double BoundaryTolerance = 1e-7d;
         public Observable<Unit> Build(RouteContext context)
         {
             var transport = TransportNodeHelpers.RequireTransport(context);
@@ -72,7 +73,7 @@ namespace MondmadeVJ0
             {
                 var current = transport.BeatPosition;
                 var timelineRevision = transport.TimelineRevision;
-                var next = TriggerModifierClock.NextSubdivisionBoundary(grid, transport, current, 1e-7d);
+                var next = TriggerModifierClock.NextSubdivisionBoundary(grid, transport, current, BoundaryTolerance);
                 Action<double, double> update = (_, __) =>
                 {
                     var now = transport.BeatPosition;
@@ -84,23 +85,35 @@ namespace MondmadeVJ0
                         timelineRevision = transport.TimelineRevision;
                         return;
                     }
-                    if (!transport.IsRunning || timelineRevision != transport.TimelineRevision || now + 1e-7d < current || Math.Abs(currentStep - step) > 1e-10d)
+                    if (!transport.IsRunning || timelineRevision != transport.TimelineRevision || now + BoundaryTolerance < current)
                     {
                         current = now;
                         step = currentStep;
                         timelineRevision = transport.TimelineRevision;
-                        next = TriggerModifierClock.NextSubdivisionBoundary(grid, transport, now, 1e-7d);
+                        next = TriggerModifierClock.NextSubdivisionBoundary(grid, transport, now, BoundaryTolerance);
                         return;
                     }
-                    current = now;
+                    if (Math.Abs(currentStep - step) > 1e-10d)
+                    {
+                        var previousPosition = current;
+                        var origin = now - transport.BarPhase * transport.BarLengthBeats;
+                        var barsFromNext = (next - origin) / currentStep;
+                        var nextIsOnNewGrid = grid == QuantizeGrid.Bar && next <= now + BoundaryTolerance && Math.Abs(barsFromNext - Math.Round(barsFromNext)) * currentStep <= BoundaryTolerance;
+                        step = currentStep;
+                        timelineRevision = transport.TimelineRevision;
+                        current = now;
+                        if (!nextIsOnNewGrid)
+                            next = origin + (Math.Floor((previousPosition - origin) / step + BoundaryTolerance / step) + 1d) * step;
+                    }
+                    else current = now;
                     var count = 0;
-                    while (next <= now + 1e-7d && count < MaxPerFrame)
+                    while (next <= now + BoundaryTolerance && count < MaxPerFrame)
                     {
                         observer.OnNext(Unit.Default);
                         next += step;
                         count++;
                     }
-                    if (next <= now + 1e-7d)
+                    if (next <= now + BoundaryTolerance)
                     {
                         var dropped = (int)Math.Min(int.MaxValue, Math.Floor((now - next) / step) + 1d);
                         next += dropped * step;
