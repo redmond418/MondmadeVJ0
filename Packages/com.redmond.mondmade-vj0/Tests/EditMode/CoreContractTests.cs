@@ -359,6 +359,50 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void StatefulStepAndEnvelopeEvaluateOneTransitionForThreeOutputs()
+        {
+            var stepTrigger = new TestTriggerSource();
+            var step = new StepIntSource();
+            SetField(step, "trigger", stepTrigger);
+            var stepOutputs = new[] { new RecordingIntOutput(), new RecordingIntOutput(), new RecordingIntOutput() };
+            var stepRoute = new IntRoute();
+            stepRoute.Configure("single Step transition", step);
+            foreach (var output in stepOutputs) stepRoute.Outputs.Add(output);
+            stepRoute.Bind(runtime, host, state);
+            try
+            {
+                Assert.That(stepTrigger.BuildCount, Is.EqualTo(1));
+                stepTrigger.Fire();
+                stepTrigger.Fire();
+                foreach (var output in stepOutputs) CollectionAssert.AreEqual(new[] { 0, 1, 2 }, output.Values);
+            }
+            finally { stepRoute.Unbind(); }
+
+            var envelopeTrigger = new TestTriggerSource();
+            var envelope = new TriggerEnvelopeFloatSource();
+            SetField(envelope, "trigger", envelopeTrigger);
+            SetField(envelope, "attack", 0.1f);
+            SetField(envelope, "hold", 0f);
+            SetField(envelope, "release", 0.2f);
+            var envelopeOutputs = new[] { new RecordingFloatOutput(), new RecordingFloatOutput(), new RecordingFloatOutput() };
+            var envelopeRoute = new FloatRoute();
+            envelopeRoute.Configure("single Envelope transition", envelope);
+            foreach (var output in envelopeOutputs) envelopeRoute.Outputs.Add(output);
+            envelopeRoute.Bind(runtime, host, state);
+            try
+            {
+                Assert.That(envelopeTrigger.BuildCount, Is.EqualTo(1));
+                envelopeTrigger.Fire();
+                testFrameClock.Advance(0d, 0.125d);
+                Assert.That(envelopeRoute.CurrentValue, Is.GreaterThan(0f));
+                Assert.That(envelopeOutputs[0].Values, Is.Not.Empty);
+                CollectionAssert.AreEqual(envelopeOutputs[0].Values, envelopeOutputs[1].Values);
+                CollectionAssert.AreEqual(envelopeOutputs[0].Values, envelopeOutputs[2].Values);
+            }
+            finally { envelopeRoute.Unbind(); }
+        }
+
+        [Test]
         public void RouteDisableDisposesItsBindingAndReenableCanBindAgain()
         {
             var source = new CountingSource(2f);
@@ -518,6 +562,13 @@ namespace MondmadeVJ0.Tests
             }
         }
 
+        private sealed class RecordingIntOutput : IValueOutput<int>
+        {
+            public readonly List<int> Values = new List<int>();
+            public void Initialize(RouteContext context) { }
+            public void Write(int value) => Values.Add(value);
+        }
+
         private sealed class ThrowingFloatOutput : IValueOutput<float>
         {
             public void Initialize(RouteContext context) { }
@@ -527,7 +578,8 @@ namespace MondmadeVJ0.Tests
         private sealed class TestTriggerSource : ITriggerSource
         {
             private readonly Subject<Unit> subject = new Subject<Unit>();
-            public Observable<Unit> Build(RouteContext context) => subject;
+            public int BuildCount { get; private set; }
+            public Observable<Unit> Build(RouteContext context) { BuildCount++; return subject; }
             public void Fire() => subject.OnNext(Unit.Default);
         }
 

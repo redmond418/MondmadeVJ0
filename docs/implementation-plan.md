@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 83件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。ローカルGit URLからのUPM導入後も70件通過し、APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 84件と通常PlayMode 6件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。ローカルGit URLからのUPM導入後も70件通過し、APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
@@ -99,7 +99,8 @@
 | 対象 | 結果 |
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
-| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、時間Modifier、Quantize / Subdivisionの全Grid境界・Seek / Clock再取得・overload境界を含む83 testsが83/83通過 |
+| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、時間Modifier、Quantize / Subdivisionの全Grid境界・Seek / Clock再取得・overload境界を含む84 testsが84/84通過 |
+| A03 単一評価 | StepとSeconds Envelopeを3 Outputへ接続し、各Trigger SourceのBuild 1回、全Outputで同一の状態遷移と値列を確認 |
 | A09 時間処理 | SmoothDampはPause中もUnscaled Clockで入力停止後に追従し、購読破棄後のFrameClock更新を止める。Seconds EnvelopeはPause中のUnscaled時間と大きな1フレームによるAttack / Hold / Release通過、破棄後の停止を確認。Delay / Debounce / Beat Delayの既存試験と合わせEditModeで検証 |
 | A11 Grid負荷 | 1025件を同一Beat境界へ予約し、大きく遅れた1フレームで256件だけ発火、期限超過768件とQueue超過1件をそれぞれ診断することを確認 |
 | PlayMode | lifecycle、MIDI Surfaceの分離、Note On velocity=0 Release、3形式のRelative Encoder、Button / Velocity / Fader / Knob / Pitch Bend / Aftertouch、XY→Vector2の6 testsが6/6通過。明示指定の実機試験は別枠 |
