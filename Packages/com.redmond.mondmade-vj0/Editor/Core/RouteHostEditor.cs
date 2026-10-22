@@ -561,7 +561,7 @@ namespace MondmadeVJ0.Editor
 
         private static string ReadModuleSummary(object module)
         {
-            var names = new[] { "Status", "SyncState", "EffectiveBpm", "BeatPosition", "ReceivedCount", "SentCount", "DroppedCount", "MalformedCount", "P99LatenessMilliseconds", "MaximumLatenessMilliseconds" };
+            var names = new[] { "Status", "SyncState", "EffectiveBpm", "BeatPosition", "ReceivedCount", "SentCount", "DroppedCount", "MissedPulses", "MalformedCount", "P99LatenessMilliseconds", "MaximumLatenessMilliseconds", "MaximumDeadlineDriftMilliseconds" };
             var values = new List<string>();
             foreach (var name in names)
             {

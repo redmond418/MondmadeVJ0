@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Stage ProjectのEditMode 45件・通常PlayMode 6件、APC Pad 1物理入力1件、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。Windows IL2CPP module、MIDI Clock精度、USB再接続、Git URL導入、Player上の全Integration受け入れは継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Stage ProjectのEditMode 55件・通常PlayMode 6件、APC Pad 1物理入力と緑色LED点灯、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。Windows IL2CPP module、MIDI Clock精度、USB再接続、Git URL導入、Player上の全Integration受け入れは継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
 
 ## 採用済みの判断
 
@@ -110,7 +110,7 @@ MIDI Clockは24 pulse / quarter note、SPPは1単位=1/4 beatとして扱う。S
 
 外部の四分音符位置とライブラリのEffective Beatを区別する。Multiplier変更時はEffective Beatを連続に保ち、以後の速度だけ変える。MIDI Master出力はEffective BPM / Beatを送るが、External MIDIモードでは同じPortへのClock再送を禁止する。
 
-Master送信は専用workerとStopwatchの絶対期限で行い、Unity APIをworkerから呼ばない。1 Portの送信は同一workerへ直列化する。ClockをLEDより優先し、LEDキューを分割する。遅延したClockはまとめてburstせず過ぎたpulseを落として期限へ追い付く。これはハードリアルタイム保証ではない。
+Master送信は専用workerとStopwatchの絶対期限で行い、Unity APIをworkerから呼ばない。1 Portの送信は同一workerへ直列化する。ClockをLEDより優先し、LEDキューを分割する。遅延したClockはまとめてburstせず過ぎたpulseを落として期限へ追い付く。送信期限からの最大ずれ、p99ずれ、欠落pulse数をRuntimeから参照できる。これはハードリアルタイム保証ではない。
 
 採用する合格目標は、BPM 120 / 174 / 240・各10分、60fps、1000 Route、LED全灯更新10HzのmacOS arm64 / Windows x64環境で、送信呼出し時刻の誤差p99≤2ms、最大≤10ms、欠落0、累積期限ずれ≤1ms。外部受信機での実測も記録し、USB / 機器遅延は別列にする。未達は実装不合格としてbackendまたはschedulerを改善し、機能完成扱いにしない。OS設定と計測機器は結果に必ず添付する。
 

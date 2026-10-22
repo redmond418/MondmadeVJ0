@@ -115,6 +115,47 @@ namespace MondmadeVJ0.Tests
             yield return null;
         }
 
+        [Explicit("Requires the user to confirm APC mini mk2 Pad 1 lights green.")]
+        [UnityTest]
+        public IEnumerator PadOneLedCanBeSeenOnTheController()
+        {
+            var inputPort = FindPort(true);
+            var outputPort = FindPort(false);
+            if (inputPort < 0 || outputPort < 0)
+                Assert.Inconclusive("APC mini mk2 RtMidi input and output ports were not both available.");
+
+            var profile = MidiSurfaceProfile.CreateApcMiniMk2Profile();
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
+            var reference = new MidiControlReference(surface.InstanceId, "pad_0_0");
+            var runtimeObject = new GameObject("APC mini mk2 LED visual probe");
+            runtimeObject.SetActive(false);
+            var hub = runtimeObject.AddComponent<MidiHub>();
+            var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            SetField(hub, "surfaces", new[] { surface });
+            SetField(runtime, "modules", new MonoBehaviour[] { hub });
+            runtimeObject.SetActive(true);
+            yield return null;
+
+            var owner = hub.CreateLayerOwner(null);
+            try
+            {
+                Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
+                hub.SetLed(reference, owner, MidiLedLayer.State, new MidiLedStyle { color = Color.green, brightness = 1f, effect = MidiLedEffect.Solid });
+                hub.FlushFrame(runtime.Services);
+                Debug.Log("[APC_LED_READY] The upper-left Pad 1 should now be solid green for 60 seconds.");
+                yield return new WaitForSeconds(60f);
+            }
+            finally
+            {
+                hub.SetLed(reference, owner, MidiLedLayer.State, MidiLedStyle.Off);
+                hub.FlushFrame(runtime.Services);
+                Object.Destroy(runtimeObject);
+                Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
         private static int FindPort(bool input)
         {
             try

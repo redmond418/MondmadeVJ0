@@ -35,13 +35,16 @@ namespace MondmadeVJ0
         private string status = "Not initialized";
         private string workerError;
         private long sentPulses;
+        private long missedPulses;
         private long maximumLatenessMicroseconds;
         private long latenessSampleCount;
 
         public string ModuleName => nameof(MidiClockSender);
         public string Status => status;
         public long SentPulses => Interlocked.Read(ref sentPulses);
+        public long MissedPulses => Interlocked.Read(ref missedPulses);
         public double MaximumLatenessMilliseconds => Interlocked.Read(ref maximumLatenessMicroseconds) / 1000d;
+        public double MaximumDeadlineDriftMilliseconds => MaximumLatenessMilliseconds;
         public double P99LatenessMilliseconds => GetP99LatenessMilliseconds();
 
         public void Register(RuntimeServices runtimeServices) { services = runtimeServices; runtimeServices.Register(this); }
@@ -213,6 +216,13 @@ namespace MondmadeVJ0
                 lock (scheduleLock)
                 {
                     if (!scheduleRunning || generation != scheduleGeneration || index != nextPulseIndex) continue;
+                    var latestDueIndex = GetLatestDuePulseIndex(epoch, Stopwatch.GetTimestamp(), period, index);
+                    if (latestDueIndex > index)
+                    {
+                        Interlocked.Add(ref missedPulses, latestDueIndex - index);
+                        nextPulseIndex = latestDueIndex;
+                        continue;
+                    }
                     nextPulseIndex++;
                 }
                 var late = Stopwatch.GetTimestamp() - deadline;
@@ -228,6 +238,32 @@ namespace MondmadeVJ0
                     Thread.Sleep(10);
                 }
             }
+        }
+
+        internal static long GetLatestDuePulseIndex(long epoch, long now, double period, long minimumIndex)
+        {
+            if (!(period > 0d) || double.IsNaN(period) || double.IsInfinity(period)) return minimumIndex;
+
+            var elapsed = (double)(now - epoch);
+            var estimate = Math.Ceiling(elapsed / period);
+            if (estimate < minimumIndex) estimate = minimumIndex;
+            if (estimate > long.MaxValue - 1d) return long.MaxValue;
+            var firstNotEarlierIndex = (long)estimate;
+            var firstDeadline = epoch + (long)(firstNotEarlierIndex * period);
+
+            if (firstDeadline < now)
+            {
+                firstNotEarlierIndex++;
+                firstDeadline = epoch + (long)(firstNotEarlierIndex * period);
+            }
+            else if (firstNotEarlierIndex > minimumIndex)
+            {
+                var previousDeadline = epoch + (long)((firstNotEarlierIndex - 1L) * period);
+                if (previousDeadline >= now) firstNotEarlierIndex--;
+            }
+
+            var candidateDeadline = epoch + (long)(firstNotEarlierIndex * period);
+            return candidateDeadline <= now ? firstNotEarlierIndex : Math.Max(minimumIndex, firstNotEarlierIndex - 1L);
         }
 
         private double GetP99LatenessMilliseconds()
