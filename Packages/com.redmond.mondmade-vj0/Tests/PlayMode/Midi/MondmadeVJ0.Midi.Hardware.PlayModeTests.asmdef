@@ -1,7 +1,7 @@
 {
   "name": "MondmadeVJ0.Midi.Hardware.PlayModeTests",
   "rootNamespace": "MondmadeVJ0.Tests",
-  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Midi", "RtMidi.Runtime"],
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Midi", "MondmadeVJ0.Transport", "RtMidi.Runtime"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

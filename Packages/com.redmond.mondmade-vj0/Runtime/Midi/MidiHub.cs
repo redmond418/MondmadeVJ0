@@ -107,6 +107,7 @@ namespace MondmadeVJ0
         private readonly Dictionary<string, MidiSurfaceRuntime> surfaceRuntime = new Dictionary<string, MidiSurfaceRuntime>(StringComparer.Ordinal);
         private readonly Dictionary<string, Dictionary<string, LayerValue>> layers = new Dictionary<string, Dictionary<string, LayerValue>>(StringComparer.Ordinal);
         private readonly Dictionary<string, MidiLedPayload> sentPayloads = new Dictionary<string, MidiLedPayload>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> outputQueueKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly object callbackLock = new object();
         private Action<MidiControlChange>[] controlChangedCallbacks = Array.Empty<Action<MidiControlChange>>();
         private Action<MidiRawMessage>[] rawInputCallbacks = Array.Empty<Action<MidiRawMessage>>();
@@ -114,10 +115,22 @@ namespace MondmadeVJ0
         private bool initialized, panicLatched;
         private double nextScanTime;
         private RuntimeServices services;
+        private string outputQueueOwner;
 
         public string ModuleName => nameof(MidiHub);
         public long DroppedNormalMessages => Interlocked.Read(ref droppedNormal);
         public long DroppedClockMessages => Interlocked.Read(ref droppedClock);
+        public long DroppedOutputMessages
+        {
+            get
+            {
+                var total = 0L;
+                var ports = new HashSet<int>();
+                foreach (var runtime in surfaceRuntime.Values)
+                    if (runtime.Output != null && ports.Add(runtime.Output.PortOrdinal)) total += runtime.Output.DroppedMessages;
+                return total;
+            }
+        }
         public bool PanicLatched => panicLatched;
         public IReadOnlyList<MidiSurfaceInstance> Surfaces => surfaces;
         public event Action<MidiControlChange> ControlChanged
@@ -166,10 +179,12 @@ namespace MondmadeVJ0
         {
             services = runtimeServices;
             initialized = true;
+            outputQueueOwner = Guid.NewGuid().ToString("N");
             controls.Clear();
             surfaceRuntime.Clear();
             layers.Clear();
             sentPayloads.Clear();
+            outputQueueKeys.Clear();
             if (surfaces != null)
                 foreach (var instance in surfaces)
                 {
@@ -239,6 +254,15 @@ namespace MondmadeVJ0
                 var runtime = pair.Value;
                 var profile = runtime.Instance.Profile;
                 if (profile == null || runtime.Output == null) continue;
+                var connectionGeneration = runtime.Output.ConnectionGeneration;
+                if (connectionGeneration != runtime.OutputGeneration)
+                {
+                    runtime.OutputGeneration = connectionGeneration;
+                    runtime.ForceFullResync = true;
+                    RemoveSentPayloads(runtime);
+                }
+                if (!runtime.Output.IsOk) runtime.ForceFullResync = true;
+                var queuedAll = true;
                 foreach (var control in profile.Controls)
                 {
                     if (control == null || !control.hasLed) continue;
@@ -248,20 +272,22 @@ namespace MondmadeVJ0
                     if (!runtime.ForceFullResync && sentPayloads.TryGetValue(key, out var last) && last.Equals(payload)) continue;
                     try
                     {
-                        Span<byte> bytes = stackalloc byte[3] { payload.Status, payload.Number, payload.Value };
-                        runtime.Output.SendMessage(bytes);
-                        sentPayloads[key] = payload;
+                        var queueKey = GetOutputQueueKey(key);
+                        if (!runtime.Output.QueueLed(queueKey, payload.Status, payload.Number, payload.Value))
+                        {
+                            queuedAll = false;
+                            services?.Report("MIDI_OUTPUT_QUEUE", $"LED output queue rejected {surfaceId}/{control.id}.", nodeId: control.id);
+                        }
+                        else sentPayloads[key] = payload;
                     }
                     catch (Exception exception)
                     {
                         services?.Report("MIDI_OUTPUT", $"LED send failed for {surfaceId}/{control.id}.", nodeId: control.id, exception: exception);
-                        CloseOutput(runtime);
-                        RemoveSentPayloads(runtime);
                         runtime.ForceFullResync = true;
                         break;
                     }
                 }
-                if (runtime.Output != null) runtime.ForceFullResync = false;
+                if (runtime.Output.IsOk && queuedAll) runtime.ForceFullResync = false;
             }
         }
 
@@ -274,6 +300,8 @@ namespace MondmadeVJ0
             controls.Clear();
             layers.Clear();
             sentPayloads.Clear();
+            outputQueueKeys.Clear();
+            outputQueueOwner = null;
             lock (callbackLock)
             {
                 controlChangedCallbacks = Array.Empty<Action<MidiControlChange>>();
@@ -372,9 +400,20 @@ namespace MondmadeVJ0
             if (!initialized) return;
             foreach (var runtime in surfaceRuntime.Values)
             {
-                if (runtime.Output != null && !runtime.Output.IsOk) { CloseOutput(runtime); runtime.ForceFullResync = true; RemoveSentPayloads(runtime); }
                 if (runtime.RawInput != null && !runtime.RawInput.IsOk) { runtime.RawInput.Dispose(); runtime.RawInput = null; runtime.Status = "Disconnected"; }
                 if (runtime.Output == null && runtime.Instance.OutputPortOrdinal >= 0) TryOpenOutput(runtime);
+                if (runtime.Output != null)
+                {
+                    if (runtime.Output.TakeError() is string error)
+                        services?.Report("MIDI_OUTPUT", $"Shared MIDI output worker failed for {runtime.Instance.InstanceId}.", exception: new InvalidOperationException(error));
+                    if (runtime.Output.ConnectionGeneration != runtime.OutputGeneration)
+                    {
+                        runtime.OutputGeneration = runtime.Output.ConnectionGeneration;
+                        runtime.ForceFullResync = true;
+                        RemoveSentPayloads(runtime);
+                    }
+                    if (!runtime.Output.IsOk) runtime.ForceFullResync = true;
+                }
                 if (runtime.RawInput == null && runtime.Instance.InputBackend == MidiInputBackend.RtMidiRaw) TryOpenRawInput(runtime);
                 if (runtime.Instance.InputBackend != MidiInputBackend.Minis) continue;
                 var matches = InputSystem.devices.OfType<MidiDevice>().Where(device => ProductMatches(runtime.Instance.ProductName, DeviceProduct(device))).ToArray();
@@ -456,26 +495,19 @@ namespace MondmadeVJ0
 
         private void TryOpenOutput(MidiSurfaceRuntime runtime)
         {
-            RtMidi.MidiOut output = null;
-            try
+            var output = MidiOutputDispatcher.Acquire(runtime.Instance.OutputPortOrdinal, "MidiHub " + runtime.Instance.InstanceId, out var error);
+            if (output == null)
             {
-                runtime.Output?.Dispose();
-                runtime.Output = null;
-                output = RtMidi.MidiOut.Create();
-                if (runtime.Instance.OutputPortOrdinal < 0 || runtime.Instance.OutputPortOrdinal >= output.PortCount)
-                {
-                    runtime.Status = "Waiting for MIDI output port";
-                    output.Dispose();
-                    return;
-                }
-                output.OpenPort(runtime.Instance.OutputPortOrdinal, "Mondmade VJ0 MIDI Output");
-                runtime.Output = output;
-                output = null;
-                runtime.ForceFullResync = true;
-                RemoveSentPayloads(runtime);
-                runtime.Status = "Connected";
+                runtime.Status = "Waiting for MIDI output port";
+                if (!string.IsNullOrEmpty(error))
+                    services?.Report("MIDI_OUTPUT", $"Could not acquire MIDI output for {runtime.Instance.InstanceId}.", exception: new InvalidOperationException(error));
+                return;
             }
-            catch (Exception exception) { output?.Dispose(); runtime.Status = "Disconnected"; services?.Report("MIDI_OUTPUT", $"Could not open MIDI output for {runtime.Instance.InstanceId}.", exception: exception); }
+            runtime.Output = output;
+            runtime.OutputGeneration = output.ConnectionGeneration;
+            runtime.ForceFullResync = true;
+            RemoveSentPayloads(runtime);
+            runtime.Status = output.Status;
         }
 
         private void EnqueueRaw(string surfaceId, double nativeTimestamp, ReadOnlySpan<byte> data)
@@ -625,6 +657,16 @@ namespace MondmadeVJ0
                 if (definition != null) sentPayloads.Remove(prefix + definition.id);
         }
 
+        private string GetOutputQueueKey(string controlKey)
+        {
+            if (!outputQueueKeys.TryGetValue(controlKey, out var queueKey))
+            {
+                queueKey = outputQueueOwner + (char)0 + controlKey;
+                outputQueueKeys.Add(controlKey, queueKey);
+            }
+            return queueKey;
+        }
+
         private void ReleaseSurface(MidiSurfaceRuntime runtime, bool sendAllOff)
         {
             DetachDevice(runtime);
@@ -633,7 +675,12 @@ namespace MondmadeVJ0
                 foreach (var definition in runtime.Instance.Profile.Controls)
                 {
                     if (definition == null || !definition.hasLed) continue;
-                    try { var payload = MidiLedEncoder.Encode(runtime.Instance.Profile.DriverId, definition, MidiLedStyle.Off); Span<byte> bytes = stackalloc byte[3] { payload.Status, payload.Number, payload.Value }; runtime.Output.SendMessage(bytes); }
+                    try
+                    {
+                        var payload = MidiLedEncoder.Encode(runtime.Instance.Profile.DriverId, definition, MidiLedStyle.Off);
+                        var key = Key(runtime.Instance.InstanceId, definition.id);
+                        runtime.Output.QueueLed(GetOutputQueueKey(key), payload.Status, payload.Number, payload.Value);
+                    }
                     catch { }
                 }
             }
@@ -648,7 +695,7 @@ namespace MondmadeVJ0
         private sealed class ControlRuntime { public readonly MidiSurfaceControl Definition; public readonly string SurfaceId; public MidiControlState State; public ControlRuntime(MidiSurfaceControl d, string surface) { Definition=d; SurfaceId=surface; State=new MidiControlState(d.initialValue,0,false,0,d.groupIndex); } }
         private sealed class MidiSurfaceRuntime
         {
-            public readonly MidiSurfaceInstance Instance; public string Status = "Disconnected"; public readonly HashSet<MidiDevice> Devices = new HashSet<MidiDevice>(); public RtMidi.MidiIn RawInput; public RtMidi.MidiOut Output; public bool ForceFullResync;
+            public readonly MidiSurfaceInstance Instance; public string Status = "Disconnected"; public readonly HashSet<MidiDevice> Devices = new HashSet<MidiDevice>(); public RtMidi.MidiIn RawInput; public MidiOutputLease Output; public long OutputGeneration; public bool ForceFullResync;
             public Action<MidiNoteControl,float> NoteOn; public Action<MidiNoteControl> NoteOff; public Action<MidiNoteControl,float> PolyAftertouch; public Action<MidiValueControl,float> ControlChange; public Action<UnityEngine.InputSystem.Controls.AxisControl,float> PitchBend, Aftertouch;
             public MidiSurfaceRuntime(MidiSurfaceInstance instance) => Instance=instance;
         }

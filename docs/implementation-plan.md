@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 91件と通常PlayMode 7件が通過した。MIDI control typeごとの値処理、XY→Vector2 Source、MIDI Clockの期限遅延時pulse欠落計測、Bar起点を守るGrid処理と時間軸変更後の予約破棄を追加した。ローカルGit URLからのUPM導入後も70件通過し、APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
+更新日：2026-10-23（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)のすべてを完成させる作業一覧。D01〜D20の設計判断と全カタログ機能、Core / Integration Editor、Setup、Monitorを実装した。Stage ProjectでRuntime / Editor assemblyをコンパイルし、EditMode 96件と通常PlayMode 7件が通過した。MIDI ClockとLEDの送信経路を、優先queueと同一Port workerへ統合した。期限遅延・累積ずれ・欠落計測、LED coalescing、有限queueとp99 histogramのEditMode testを追加した。APC mini mk2のPad 1物理入力と緑色LED点灯を確認した。macOS universalのMono / IL2CPP、Windows x64 Mono Player buildも通過した。未確認の受け入れ項目を下表に残す。
 
 ## 実装作業
 
@@ -99,7 +99,7 @@
 | 対象 | 結果 |
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
-| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、時間Modifier、Quantize / Subdivisionの全Grid境界・Seek / Clock再取得・overload境界を含む91 testsが91/91通過 |
+| EditMode | Core契約、Transport、OSC Adapter、Editor Validation、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、共有MIDI出力workerの優先queue / LED coalescing / Clock metric、時間Modifier、Quantize / Subdivisionの全Grid境界・Seek / Clock再取得・overload境界を含む96 testsが96/96通過 |
 | A06 Route隔離 | Source.Buildで例外を投げるRouteだけがFaultedとなり、Route名付き診断を残し、同じRuntime上の正常Routeは初期値を出力してActiveを維持 |
 | A08 数値境界 | Negative Modulo / Lookup上下端 / 0除算 / NaN入力時の最終有限値保持を確認し、NaN設定をPlay前に報告 |
 | A03 単一評価 | StepとSeconds Envelopeを3 Outputへ接続し、各Trigger SourceのBuild 1回、全Outputで同一の状態遷移と値列を確認 |
@@ -108,8 +108,8 @@
 | A16 LED状態 | 外部Shared TriggerでToggleBoolを変えた時にState LEDが更新され、Interaction Flash終了後に最新State Layerへ戻ることをPlayModeで確認 |
 | A22 Editor Validation | Output未設定、Null target、重複Route ID、逆Clamp rangeをPlay前にRoute名付きで報告する試験を追加。Animator / VFX / Shader / MIDI等の参照・型検証を含む全原文条件の試験は未完 |
 | PlayMode | lifecycle、MIDI Surfaceの分離、Note On velocity=0 Release、3形式のRelative Encoder、Button / Velocity / Fader / Knob / Pitch Bend / Aftertouch、XY→Vector2、LED Layer復帰の7 testsが7/7通過。明示指定の実機試験は別枠 |
-| APC mini mk2 | Input / Outputを機器名で検出し、両portをOpen。実機の左上Pad 1からNote 56を受信し、物理入力probe 1/1通過。LEDのON（0x96, 56, 21）/OFF送信payloadを検証。Pad 1の緑点灯も目視確認 |
-| PlayMode合計 | 通常runは7/7通過。Explicit物理入力とLED表示試験はそれぞれ別途明示実行して1/1通過。追加のUSB再接続probeはテストを追加したが、通常runでSkippedし実機確認待ち |
+| APC mini mk2 | Input / Outputを機器名で検出。実機の左上Pad 1からNote 56を受信し、物理入力probe 1/1通過。LEDのON（0x96, 56, 21）/OFF送信payloadを検証。APC Pad 1 LED probeと、Clock 24 pulseとLED queueを共有workerで同時送信する結合probeをそれぞれ1/1通過。今回の緑点灯はユーザー再確認待ち |
+| PlayMode合計 | 通常runは7/7通過。Explicitは物理入力、LED表示、Clock / LED共有worker、USB再接続の4件。物理入力・LED表示とClock / LED共有workerは別途明示実行して各1/1通過。USB再接続は実機確認待ち |
 | macOS Player | Unity 6000.3.8f1、universal x86_64 + arm64でMono2xとIL2CPP build成功、各errors=0 / Unity集計warnings=2。IL2CPP linkerはbaselibの最低macOS版がlink targetより新しい旨を出力し、Cloud Diagnostics symbol uploadは認証情報がなく失敗 |
 | Windows Player | Windows Build Support (Mono)を導入し、Unity 6000.3.8f1からWindows x64 Mono build成功、errors=0。20 warningsはWindows非対応URP shader variantsのimport診断。Hubの同Editor向けmodule一覧にWindows IL2CPPはなく、IL2CPP buildは未実施 |
 | R3最小構成 | Unity標準moduleを明示し、Input System / URP / MIDI / OSC / Lasp / Cinemachine / VFX GraphなしでUPM local packageをimport。Core / Setup / Animator / Transport / Videoがcompileし、欠落した任意Integrationの参照エラーなし |

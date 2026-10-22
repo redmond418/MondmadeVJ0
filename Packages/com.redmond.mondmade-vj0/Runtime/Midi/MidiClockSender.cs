@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
-using RtMidi;
 using UnityEngine;
 
 namespace MondmadeVJ0
@@ -11,16 +10,14 @@ namespace MondmadeVJ0
     {
         [SerializeField, Min(-1)] private int outputPortOrdinal = -1;
         [SerializeField] private bool sendSongPosition = true;
-        private readonly object scheduleLock = new object();
-        private readonly object sendLock = new object();
-        private readonly long[] latenessSamples = new long[131072];
-        private static readonly byte[] ClockPulse = { 0xF8 };
         private static readonly byte[] StartMessage = { 0xFA };
         private static readonly byte[] ContinueMessage = { 0xFB };
         private static readonly byte[] StopMessage = { 0xFC };
+        private readonly object scheduleLock = new object();
+        private readonly MidiClockSendMetrics metrics = new MidiClockSendMetrics();
         private RuntimeServices services;
         private IMusicalTransport transport;
-        private MidiOut output;
+        private MidiOutputLease output;
         private Thread worker;
         private volatile bool stopping;
         private bool scheduleRunning;
@@ -29,23 +26,22 @@ namespace MondmadeVJ0
         private long nextPulseIndex;
         private double pulsePeriodTicks;
         private int scheduleGeneration;
+        private long scheduleOutputGeneration;
+        private long outputGeneration;
+        private int clockOwner;
         private double scheduledBpm;
         private double scheduledBeat;
         private double nextReconnectTime;
         private string status = "Not initialized";
-        private string workerError;
-        private long sentPulses;
-        private long missedPulses;
-        private long maximumLatenessMicroseconds;
-        private long latenessSampleCount;
 
         public string ModuleName => nameof(MidiClockSender);
         public string Status => status;
-        public long SentPulses => Interlocked.Read(ref sentPulses);
-        public long MissedPulses => Interlocked.Read(ref missedPulses);
-        public double MaximumLatenessMilliseconds => Interlocked.Read(ref maximumLatenessMicroseconds) / 1000d;
-        public double MaximumDeadlineDriftMilliseconds => MaximumLatenessMilliseconds;
-        public double P99LatenessMilliseconds => GetP99LatenessMilliseconds();
+        public long SentPulses => metrics.SentPulses;
+        public long MissedPulses => metrics.MissedPulses;
+        public long DroppedOutputMessages => output == null ? 0 : output.DroppedMessages;
+        public double MaximumLatenessMilliseconds => metrics.MaximumLatenessMilliseconds;
+        public double MaximumDeadlineDriftMilliseconds => metrics.MaximumDeadlineDriftMilliseconds;
+        public double P99LatenessMilliseconds => metrics.P99LatenessMilliseconds;
 
         public void Register(RuntimeServices runtimeServices) { services = runtimeServices; runtimeServices.Register(this); }
 
@@ -64,25 +60,31 @@ namespace MondmadeVJ0
         public void FlushFrame(RuntimeServices runtimeServices)
         {
             if (stopping) return;
-            if (workerError != null)
+            if (output != null && output.TakeError() is string error)
             {
-                var error = workerError;
-                workerError = null;
-                status = "Error";
-                services?.Report("MIDI_CLOCK_SEND", "MIDI Clock sender worker failed.", exception: new InvalidOperationException(error));
-                lock (sendLock)
-                {
-                    output?.Dispose();
-                    output = null;
-                }
+                status = "Disconnected";
+                services?.Report("MIDI_CLOCK_SEND", "Shared MIDI output worker failed.", exception: new InvalidOperationException(error));
             }
-            if ((output == null || !output.IsOk) && Time.realtimeSinceStartupAsDouble >= nextReconnectTime)
+            if (output == null && Time.realtimeSinceStartupAsDouble >= nextReconnectTime)
             {
                 nextReconnectTime = Time.realtimeSinceStartupAsDouble + 1d;
                 TryOpenOutput();
                 if (output != null) StartWorker();
             }
             if (output == null) return;
+
+            var currentOutputGeneration = output.ConnectionGeneration;
+            if (currentOutputGeneration != outputGeneration)
+            {
+                outputGeneration = currentOutputGeneration;
+                StopSchedule();
+            }
+            if (!output.IsOk)
+            {
+                StopSchedule();
+                status = output.Status;
+                return;
+            }
 
             if (!transport.IsRunning)
             {
@@ -120,35 +122,27 @@ namespace MondmadeVJ0
 
         private void TryOpenOutput()
         {
-            MidiOut candidate = null;
-            try
+            output = MidiOutputDispatcher.Acquire(outputPortOrdinal, ModuleName, out var error);
+            if (output == null)
             {
-                lock (sendLock)
-                {
-                    output?.Dispose();
-                    output = null;
-                    candidate = MidiOut.Create();
-                    if (outputPortOrdinal < 0 || outputPortOrdinal >= candidate.PortCount)
-                    {
-                        status = "Waiting for MIDI output port";
-                        candidate.Dispose();
-                        candidate = null;
-                        return;
-                    }
-                    candidate.OpenPort(outputPortOrdinal, "Mondmade VJ0 MIDI Clock");
-                    output = candidate;
-                    candidate = null;
-                    status = "Connected";
-                }
-                lock (scheduleLock) { scheduleRunning = false; scheduleGeneration++; }
+                status = "Waiting for MIDI output port";
+                if (!string.IsNullOrEmpty(error))
+                    services?.Report("MIDI_CLOCK_OUTPUT", "Could not acquire MIDI Clock output port.", exception: new InvalidOperationException(error));
+                return;
             }
-            catch (Exception exception)
+
+            clockOwner = GetInstanceID();
+            if (clockOwner == 0) clockOwner = 1;
+            if (!output.TryClaimClock(clockOwner))
             {
-                candidate?.Dispose();
+                output.Dispose();
                 output = null;
-                status = "Disconnected";
-                services?.Report("MIDI_CLOCK_OUTPUT", "Could not open MIDI Clock output port.", exception: exception);
+                status = "Clock output is already claimed";
+                services?.Report("MIDI_CLOCK_OUTPUT_CONFLICT", "Only one MIDI Clock sender can own a shared output port.");
+                return;
             }
+            outputGeneration = output.ConnectionGeneration;
+            status = output.Status;
         }
 
         private void StartWorker()
@@ -171,6 +165,7 @@ namespace MondmadeVJ0
                 nextPulseIndex = (long)Math.Floor(beat * 24d + 1e-8d) + 1L;
                 scheduledBpm = bpm;
                 scheduledBeat = beat;
+                scheduleOutputGeneration = output == null ? 0 : output.ConnectionGeneration;
                 scheduleRunning = true;
                 scheduleGeneration++;
             }
@@ -180,6 +175,7 @@ namespace MondmadeVJ0
         {
             lock (scheduleLock)
             {
+                if (!scheduleRunning) return;
                 scheduleRunning = false;
                 scheduleGeneration++;
             }
@@ -189,7 +185,7 @@ namespace MondmadeVJ0
         {
             while (!stopping)
             {
-                long epoch, index;
+                long epoch, index, outputGenerationAtSchedule;
                 double period;
                 int generation;
                 bool running;
@@ -200,8 +196,12 @@ namespace MondmadeVJ0
                     index = nextPulseIndex;
                     period = pulsePeriodTicks;
                     generation = scheduleGeneration;
+                    outputGenerationAtSchedule = scheduleOutputGeneration;
                 }
                 if (!running || period <= 0d) { Thread.Sleep(2); continue; }
+                var lease = output;
+                if (lease == null || !lease.IsOk || lease.ConnectionGeneration != outputGenerationAtSchedule)
+                { Thread.Sleep(2); continue; }
 
                 var deadline = epoch + (long)(index * period);
                 var remaining = deadline - Stopwatch.GetTimestamp();
@@ -219,24 +219,14 @@ namespace MondmadeVJ0
                     var latestDueIndex = GetLatestDuePulseIndex(epoch, Stopwatch.GetTimestamp(), period, index);
                     if (latestDueIndex > index)
                     {
-                        Interlocked.Add(ref missedPulses, latestDueIndex - index);
+                        metrics.RecordMissed(latestDueIndex - index);
                         nextPulseIndex = latestDueIndex;
                         continue;
                     }
                     nextPulseIndex++;
                 }
-                var late = Stopwatch.GetTimestamp() - deadline;
-                var lateMicroseconds = (long)Math.Max(0d, late * 1_000_000d / Stopwatch.Frequency);
-                UpdateMaximum(ref maximumLatenessMicroseconds, lateMicroseconds);
-                var sampleIndex = Interlocked.Increment(ref latenessSampleCount) - 1;
-                Interlocked.Exchange(ref latenessSamples[(int)(sampleIndex % latenessSamples.Length)], lateMicroseconds);
-                try { Send(ClockPulse); Interlocked.Increment(ref sentPulses); }
-                catch (Exception exception)
-                {
-                    workerError = exception.ToString();
-                    lock (scheduleLock) { scheduleRunning = false; scheduleGeneration++; }
-                    Thread.Sleep(10);
-                }
+                var periodTicks = Math.Max(1L, (long)period);
+                if (!lease.QueueClock(deadline, periodTicks, generation, metrics)) metrics.RecordMissed();
             }
         }
 
@@ -266,24 +256,6 @@ namespace MondmadeVJ0
             return candidateDeadline <= now ? firstNotEarlierIndex : Math.Max(minimumIndex, firstNotEarlierIndex - 1L);
         }
 
-        private double GetP99LatenessMilliseconds()
-        {
-            var total = Math.Min(Interlocked.Read(ref latenessSampleCount), latenessSamples.Length);
-            if (total <= 0) return 0d;
-            var samples = new long[(int)total];
-            var start = Math.Max(0L, Interlocked.Read(ref latenessSampleCount) - total);
-            for (var i = 0; i < samples.Length; i++) samples[i] = Interlocked.Read(ref latenessSamples[(int)((start + i) % latenessSamples.Length)]);
-            Array.Sort(samples);
-            var index = Math.Min(samples.Length - 1, (int)Math.Ceiling(samples.Length * 0.99d) - 1);
-            return samples[index] / 1000d;
-        }
-
-        private static void UpdateMaximum(ref long target, long value)
-        {
-            long current;
-            while (value > (current = Interlocked.Read(ref target)) && Interlocked.CompareExchange(ref target, value, current) != current) { }
-        }
-
         private void SendSongPosition(double beat)
         {
             var sixteenths = Mathf.Clamp((int)Math.Floor(Math.Max(0d, beat) * 4d), 0, 16383);
@@ -292,22 +264,22 @@ namespace MondmadeVJ0
 
         private void Send(byte[] message)
         {
-            lock (sendLock)
-            {
-                if (output == null || !output.IsOk) throw new InvalidOperationException("MIDI Clock output is disconnected.");
-                output.SendMessage(message);
-            }
+            if (output == null || !output.QueueControl(message))
+                services?.Report("MIDI_CLOCK_SEND_QUEUE", "Could not queue a MIDI Clock transport message.");
         }
 
         public void Shutdown(RuntimeServices runtimeServices)
         {
+            var shouldStop = scheduleRunning;
             stopping = true;
             StopSchedule();
             if (worker != null && worker != Thread.CurrentThread) worker.Join(2000);
             worker = null;
-            lock (sendLock)
+            if (shouldStop) Send(StopMessage);
+            if (output != null)
             {
-                output?.Dispose();
+                output.ReleaseClock(clockOwner);
+                output.Dispose();
                 output = null;
             }
             transport = null;

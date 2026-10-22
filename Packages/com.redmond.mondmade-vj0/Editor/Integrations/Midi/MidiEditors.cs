@@ -40,6 +40,7 @@ namespace MondmadeVJ0.Editor
                     if (surface != null) EditorGUILayout.LabelField(surface.ProductName, hub.GetSurfaceStatus(surface.InstanceId));
                 EditorGUILayout.LabelField("Dropped control messages", hub.DroppedNormalMessages.ToString());
                 EditorGUILayout.LabelField("Dropped clock messages", hub.DroppedClockMessages.ToString());
+                EditorGUILayout.LabelField("Dropped output messages", hub.DroppedOutputMessages.ToString());
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Panic: all LEDs off")) hub.PanicAllOff();
