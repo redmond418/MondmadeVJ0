@@ -260,6 +260,100 @@ namespace MondmadeVJ0.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator ValueAndIndexedOutputsPublishTheirMidiLedStyles()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "LED value outputs", new[]
+            {
+                LedControl("float", 10),
+                LedControl("color", 11),
+                LedControl("index0", 12),
+                LedControl("index1", 13),
+                LedControl("index2", 14)
+            });
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "LED value outputs", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(Color.red, 0f), new GradientColorKey(Color.blue, 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+            var floatRoute = new FloatRoute();
+            floatRoute.Configure("float LED", new ConstantFloatSource { Value = 0.25f });
+            var floatOutput = new MidiLedValueFloatOutput();
+            SetField(floatOutput, "control", new MidiControlReference(surface.InstanceId, "float"));
+            SetField(floatOutput, "gradient", gradient);
+            SetField(floatOutput, "brightness", 0.6f);
+            floatRoute.Outputs.Add(floatOutput);
+
+            var expectedColor = new Color(0.2f, 0.3f, 0.4f, 0.5f);
+            var colorRoute = new ColorRoute();
+            colorRoute.Configure("color LED", new ConstantColorSource { Value = expectedColor });
+            var colorOutput = new MidiLedColorOutput();
+            SetField(colorOutput, "control", new MidiControlReference(surface.InstanceId, "color"));
+            SetField(colorOutput, "brightness", 0.8f);
+            colorRoute.Outputs.Add(colorOutput);
+
+            var indexedRoute = new IntRoute();
+            indexedRoute.Configure("indexed LED", new ConstantIntSource { Value = 1 });
+            var indexedOutput = new MidiLedIndexedIntOutput();
+            SetField(indexedOutput, "controls", new[]
+            {
+                new MidiControlReference(surface.InstanceId, "index0"),
+                new MidiControlReference(surface.InstanceId, "index1"),
+                new MidiControlReference(surface.InstanceId, "index2")
+            });
+            SetField(indexedOutput, "offColor", Color.black);
+            SetField(indexedOutput, "onColor", Color.magenta);
+            indexedRoute.Outputs.Add(indexedOutput);
+
+            var harness = CreateRouteHarness(surface, floatRoute, colorRoute, indexedRoute);
+            try
+            {
+                Assert.That(floatRoute.Status, Is.EqualTo("Active"));
+                Assert.That(colorRoute.Status, Is.EqualTo("Active"));
+                Assert.That(indexedRoute.Status, Is.EqualTo("Active"));
+
+                var floatStyle = ResolveLedStyle(harness.Hub, surface.InstanceId + "\0float");
+                Assert.That(floatStyle.color, Is.EqualTo(gradient.Evaluate(0.25f)));
+                Assert.That(floatStyle.brightness, Is.EqualTo(0.6f));
+
+                var colorStyle = ResolveLedStyle(harness.Hub, surface.InstanceId + "\0color");
+                Assert.That(colorStyle.color, Is.EqualTo(expectedColor));
+                Assert.That(colorStyle.brightness, Is.EqualTo(0.8f));
+
+                AssertIndexedStyle(harness.Hub, surface.InstanceId, "index0", Color.black, 0f);
+                AssertIndexedStyle(harness.Hub, surface.InstanceId, "index1", Color.magenta, 1f);
+                AssertIndexedStyle(harness.Hub, surface.InstanceId, "index2", Color.black, 0f);
+            }
+            finally
+            {
+                DestroyHarness(harness);
+                Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
+        private static MidiSurfaceControl LedControl(string id, int number)
+            => new MidiSurfaceControl
+            {
+                id = id,
+                type = MidiControlType.Button,
+                inputAddressType = MidiAddressType.Note,
+                inputNumber = number,
+                hasLed = true,
+                outputAddressType = MidiAddressType.Note,
+                outputNumber = number
+            };
+
+        private static void AssertIndexedStyle(MidiHub hub, string surfaceId, string controlId, Color color, float brightness)
+        {
+            var style = ResolveLedStyle(hub, surfaceId + "\0" + controlId);
+            Assert.That(style.color, Is.EqualTo(color), controlId);
+            Assert.That(style.brightness, Is.EqualTo(brightness), controlId);
+        }
+
         private static MidiSurfaceControl Relative(string id, int number, MidiRelativeMode mode)
             => new MidiSurfaceControl { id = id, type = MidiControlType.RelativeEncoder, inputAddressType = MidiAddressType.ControlChange, channel = 0, inputNumber = number, relativeMode = mode, initialValue = 0.5f, minimum = 0f, maximum = 1f };
 

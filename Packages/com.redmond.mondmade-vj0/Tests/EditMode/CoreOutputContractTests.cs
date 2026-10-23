@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using MondmadeVJ0;
 using NUnit.Framework;
 using R3;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace MondmadeVJ0.Tests
 {
@@ -21,6 +23,8 @@ namespace MondmadeVJ0.Tests
 
     public sealed class CoreOutputContractTests
     {
+        private static readonly Regex DebugOutputMessage = new Regex(@"^\[MondmadeVJ0\] .+");
+
         private static readonly object[] ComponentMemberWrongTypeCases =
         {
             new object[] { typeof(ComponentMemberFloatOutput), "IntValue" },
@@ -217,6 +221,27 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void DebugOutputsLogEverySupportedValueTypeAndTrigger()
+        {
+            ExpectDebugLog();
+            new DebugFloatOutput().Write(0.75f);
+            ExpectDebugLog();
+            new DebugIntOutput().Write(42);
+            ExpectDebugLog();
+            new DebugBoolOutput().Write(true);
+            ExpectDebugLog();
+            new DebugVector2Output().Write(new Vector2(1f, 2f));
+            ExpectDebugLog();
+            new DebugVector3Output().Write(new Vector3(3f, 4f, 5f));
+            ExpectDebugLog();
+            new DebugVector4Output().Write(new Vector4(6f, 7f, 8f, 9f));
+            ExpectDebugLog();
+            new DebugColorOutput().Write(new Color(0.1f, 0.2f, 0.3f, 0.4f));
+            ExpectDebugLog();
+            new DebugTriggerOutput().Invoke();
+        }
+
+        [Test]
         public void RequiredTargetsAndGroupsRejectMissingConfiguration()
         {
             Assert.Throws<InvalidOperationException>(() => new GameObjectActiveBoolOutput().Initialize(null));
@@ -326,5 +351,7 @@ namespace MondmadeVJ0.Tests
             Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>(), output.GetType().Name);
             return (InvalidOperationException)exception.InnerException;
         }
+
+        private static void ExpectDebugLog() => LogAssert.Expect(LogType.Log, DebugOutputMessage);
     }
 }
