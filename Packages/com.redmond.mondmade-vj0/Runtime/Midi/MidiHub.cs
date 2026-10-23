@@ -445,6 +445,7 @@ namespace MondmadeVJ0
         private void ScanDevices()
         {
             if (!initialized) return;
+            var instances = surfaceRuntime.Values.Select(surface => surface.Instance).ToArray();
             foreach (var runtime in surfaceRuntime.Values)
             {
                 if (runtime.RawInput != null && !runtime.RawInput.IsOk) { runtime.RawInput.Dispose(); runtime.RawInput = null; runtime.Status = "Disconnected"; }
@@ -463,6 +464,15 @@ namespace MondmadeVJ0
                 }
                 if (runtime.RawInput == null && runtime.Instance.InputBackend == MidiInputBackend.RtMidiRaw) TryOpenRawInput(runtime);
                 if (runtime.Instance.InputBackend != MidiInputBackend.Minis) continue;
+                const string ambiguousStatus = "Ambiguous same-name MIDI product; use RtMidiRaw with explicit port ordinal";
+                if (HasAmbiguousMinisAssignment(runtime.Instance, instances))
+                {
+                    if (runtime.Devices.Count > 0) DetachDevice(runtime);
+                    if (!string.Equals(runtime.Status, ambiguousStatus, StringComparison.Ordinal))
+                        services?.Report("MIDI_SURFACE_AMBIGUOUS", $"Surface '{runtime.Instance.InstanceId}' cannot identify '{runtime.Instance.ProductName}' by name because another Surface overlaps it.");
+                    runtime.Status = ambiguousStatus;
+                    continue;
+                }
                 var matches = InputSystem.devices.OfType<MidiDevice>().Where(device => ProductMatches(runtime.Instance.ProductName, DeviceProduct(device))).ToArray();
                 foreach (var device in matches)
                 {
@@ -481,6 +491,25 @@ namespace MondmadeVJ0
             return marker >= 0 ? product.Substring(0, marker) : product;
         }
         private static bool ProductMatches(string requested, string actual) => string.IsNullOrEmpty(requested) || (!string.IsNullOrEmpty(actual) && actual.IndexOf(requested, StringComparison.OrdinalIgnoreCase) >= 0);
+
+        internal static bool HasAmbiguousMinisAssignment(MidiSurfaceInstance instance, IReadOnlyList<MidiSurfaceInstance> instances)
+        {
+            if (instance == null || instance.InputBackend != MidiInputBackend.Minis || instances == null) return false;
+            for (var i = 0; i < instances.Count; i++)
+            {
+                var other = instances[i];
+                if (other == null || ReferenceEquals(other, instance)) continue;
+                if (ProductNamesOverlap(instance.ProductName, other.ProductName)) return true;
+            }
+            return false;
+        }
+
+        private static bool ProductNamesOverlap(string first, string second)
+        {
+            if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second)) return true;
+            return first.IndexOf(second, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   second.IndexOf(first, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
         private void AttachDevice(MidiSurfaceRuntime runtime, MidiDevice device)
         {

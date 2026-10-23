@@ -10,6 +10,40 @@ namespace MondmadeVJ0.Tests
 {
     public sealed class MidiHubContractTests
     {
+        [Test]
+        public void MinisBackendRejectsOverlappingProductAssignmentsButRawOrdinalsRemainSelectable()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "APC mini mk2", new[]
+            {
+                new MidiSurfaceControl { id = "pad", type = MidiControlType.Button, inputAddressType = MidiAddressType.Note, inputNumber = 56 }
+            });
+            var firstMinis = new MidiSurfaceInstance();
+            firstMinis.Configure(profile, "APC mini mk2", 0, MidiInputBackend.Minis);
+            var secondMinis = new MidiSurfaceInstance();
+            secondMinis.Configure(profile, "APC mini mk2", 1, MidiInputBackend.Minis);
+            var firstRaw = new MidiSurfaceInstance();
+            firstRaw.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, 0, 0);
+            var secondRaw = new MidiSurfaceInstance();
+            secondRaw.Configure(profile, "APC mini mk2", 1, MidiInputBackend.RtMidiRaw, 2, 2);
+
+            Assert.That(HasAmbiguousMinisAssignment(firstMinis, new[] { firstMinis, secondMinis }), Is.True);
+            Assert.That(HasAmbiguousMinisAssignment(firstMinis, new[] { firstMinis, firstRaw }), Is.True);
+            Assert.That(HasAmbiguousMinisAssignment(firstRaw, new[] { firstRaw, secondRaw }), Is.False);
+
+            var unrelatedMinis = new MidiSurfaceInstance();
+            unrelatedMinis.Configure(profile, "Other controller", 0, MidiInputBackend.Minis);
+            Assert.That(HasAmbiguousMinisAssignment(firstMinis, new[] { firstMinis, unrelatedMinis }), Is.False);
+            UnityEngine.Object.Destroy(profile);
+        }
+
+        private static bool HasAmbiguousMinisAssignment(MidiSurfaceInstance instance, IReadOnlyList<MidiSurfaceInstance> instances)
+        {
+            var method = typeof(MidiHub).GetMethod("HasAmbiguousMinisAssignment", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, "MidiHub must expose its internal assignment decision to this contract test.");
+            return (bool)method.Invoke(null, new object[] { instance, instances });
+        }
+
         [UnityTest]
         public IEnumerator RawNoteOnZeroReleasesControlAndSurfaceInstancesStayIsolated()
         {

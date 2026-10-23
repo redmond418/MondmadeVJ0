@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Unity 6000.3.8f1 macOS arm64 Editorの隔離CheckoutでEditMode 169件・通常PlayMode 7件、APC Pad 1物理入力と緑色LED点灯、ClockとLEDの同一worker実機結合、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。D16ではMaterial / Volume cloneの共有lease、Transform / Generic / Shader書込競合、Video prepare待ち・timeout・非同期Faultを契約テストで検証した。D20ではLasp dBFS・FFT bin / Hz・Trigger状態とOSC UDP / 型・queue契約を検証した。切断・再接続probeは実機確認待ち。Windows IL2CPP module、10分MIDI Clock精度、公開Git URL導入、全Integration Playerの外部実行受け入れも継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Unity 6000.3.8f1 macOS arm64 Editorの隔離CheckoutでEditMode 169件・通常PlayMode 7件、APC Pad 1物理入力と緑色LED点灯、ClockとLEDの同一worker実機結合、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。現作業ツリーではEditMode 171/171、通常PlayMode 8/8も通過し、A20のBackground Music入力も8秒probeで確認した。D16ではMaterial / Volume cloneの共有lease、Transform / Generic / Shader書込競合、Video prepare待ち・timeout・非同期Faultを契約テストで検証した。D20ではLasp dBFS・FFT bin / Hz・Trigger状態とOSC UDP / 型・queue契約を検証した。切断・再接続probeは実機確認待ち。Windows IL2CPP module、10分MIDI Clock精度、公開Git URL導入、全Integration Playerの外部実行受け入れも継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
 
 ## 採用済みの判断
 
@@ -138,7 +138,7 @@ Input System ModuleがAction単位のleaseを参照カウントする。最初�
 
 RtMidiは`IgnoreTypes(sysex:false, time:false, sense:true)`で必要なメッセージを有効化する。callbackのSpanはその場で所有bufferへコピーし、Unity API / R3購読者にはcallbackから触らない。通常Queue容量8192、Clock専用8192、最大SysEx長64KiB、超過は新規分を棄却し件数を診断。Clock Queue overflowでは同期状態をAcquiringへ戻す。通常配送はフレーム4096件までとし残りを次フレームへ保持する。
 
-Portを1秒ごとに再列挙し、失敗時は1秒間隔で再接続する。Surface Instance GUID、機器名、同名機器の明示ordinalで識別し、曖昧な自動割当は行わない。永続的な実機serialを取得できない場合、差し直しで同名機器を物理的に識別できるとは保証せず、Monitorから再指定する。Note On velocity=0はRelease。
+Portを1秒ごとに再列挙し、失敗時は1秒間隔で再接続する。Surface Instance GUID、機器名、同名機器の明示ordinalで識別し、曖昧な自動割当は行わない。Minisが物理Portを識別できないまま同名ProductのSurfaceが重なる場合、RuntimeはMinisの自動attachを停止して診断を残し、RtMidiRawと明示ordinalの利用を促す。APC Surface追加UIは使用中ordinalを避けてControl Portを優先する。永続的な実機serialを取得できないため、接続順が変わった場合の物理対応は保証せず、Play開始前にInspectorでordinalを確認・再指定する。Note On velocity=0はRelease。
 
 対象はUnity 6000.3系以降のmacOS arm64とWindows x64のEditor / Standalone。PlayerはMonoとIL2CPPを検証対象とする。WebGL / mobile / Linuxは本仕様のサポート対象外。R3等の採用版は[導入仕様](packaging.md)に固定する。OS対応は設計上の対象であり、試験済みという意味ではない。
 
