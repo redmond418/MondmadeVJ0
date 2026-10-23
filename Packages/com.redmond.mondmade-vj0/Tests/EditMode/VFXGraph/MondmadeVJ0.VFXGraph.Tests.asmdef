@@ -1,0 +1,18 @@
+{
+  "name": "MondmadeVJ0.VFXGraph.Tests",
+  "rootNamespace": "MondmadeVJ0.Tests.VFXGraph",
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.VFXGraph", "Unity.VisualEffectGraph.Runtime"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": ["MONDMADE_HAS_VFX_GRAPH", "MONDMADE_HAS_TEST_FRAMEWORK"],
+  "versionDefines": [
+    { "name": "com.unity.visualeffectgraph", "expression": "[17.3.0,17.4.0)", "define": "MONDMADE_HAS_VFX_GRAPH" },
+    { "name": "com.unity.test-framework", "expression": "[1.1.0,2.0.0)", "define": "MONDMADE_HAS_TEST_FRAMEWORK" }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}
