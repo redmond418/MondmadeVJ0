@@ -1,8 +1,11 @@
 using System;
+using System.IO;
 using System.Reflection;
 using MondmadeVJ0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.VFX;
 
 namespace MondmadeVJ0.Tests.VFXGraph
@@ -25,12 +28,24 @@ namespace MondmadeVJ0.Tests.VFXGraph
         };
 
         private GameObject targetObject;
+        private string generatedAssetPath;
+        private RenderPipelineAsset previousRenderPipeline;
+        private RenderPipelineAsset temporaryRenderPipeline;
 
         [TearDown]
         public void TearDown()
         {
             if (targetObject != null) UnityEngine.Object.DestroyImmediate(targetObject);
             targetObject = null;
+            if (!string.IsNullOrEmpty(generatedAssetPath)) AssetDatabase.DeleteAsset(generatedAssetPath);
+            generatedAssetPath = null;
+            if (temporaryRenderPipeline != null)
+            {
+                GraphicsSettings.defaultRenderPipeline = previousRenderPipeline;
+                UnityEngine.Object.DestroyImmediate(temporaryRenderPipeline);
+                temporaryRenderPipeline = null;
+                previousRenderPipeline = null;
+            }
         }
 
         [TestCaseSource(nameof(ExposedValueOutputTypes))]
@@ -48,6 +63,59 @@ namespace MondmadeVJ0.Tests.VFXGraph
 
             var missingProperty = InitializeError(output);
             Assert.That(missingProperty.Message, Does.Contain("missing or is not"), outputType.Name);
+        }
+
+        [Test]
+        public void FloatOutputWritesToARealExposedVfxProperty()
+        {
+            UseTemporaryUniversalRenderPipelineWhenNeeded();
+
+            var package = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.visualeffectgraph");
+            Assert.That(package, Is.Not.Null, "VFX Graph package must be resolvable from the VisualEffect assembly.");
+
+            var samplePath = Path.Combine(package.resolvedPath, "Samples~", "VFXGraphAdditions", "VFX", "Flames.vfx");
+            Assert.That(File.Exists(samplePath), Is.True, "The VFX Graph Flames sample must be present in the installed package.");
+
+            generatedAssetPath = $"Assets/__MondmadeVJ0VFXOutputContract-{Guid.NewGuid():N}.vfx";
+            File.Copy(samplePath, generatedAssetPath);
+            AssetDatabase.ImportAsset(generatedAssetPath, ImportAssetOptions.ForceSynchronousImport);
+
+            var asset = AssetDatabase.LoadAssetAtPath<VisualEffectAsset>(generatedAssetPath);
+            Assert.That(asset, Is.Not.Null, "The installed VFX Graph sample must import as a VisualEffectAsset.");
+
+            targetObject = new GameObject("VFX Float Output Contract Target");
+            var effect = targetObject.AddComponent<VisualEffect>();
+            effect.visualEffectAsset = asset;
+            effect.Reinit();
+
+            const string propertyName = "Spawn Rate";
+            var propertyId = Shader.PropertyToID(propertyName);
+            Assert.That(effect.HasFloat(propertyId), Is.True, "The sample exposes Spawn Rate as a float.");
+
+            var output = new VFXFloatOutput();
+            SetField(output, "target", effect);
+            SetField(output, "propertyName", propertyName);
+            output.Initialize(null);
+            output.Write(27.5f);
+
+            Assert.That(effect.GetFloat(propertyId), Is.EqualTo(27.5f).Within(0.0001f));
+        }
+
+        private void UseTemporaryUniversalRenderPipelineWhenNeeded()
+        {
+            if (GraphicsSettings.currentRenderPipeline != null) return;
+
+            var pipelineType = Type.GetType("UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset, Unity.RenderPipelines.Universal.Runtime");
+            Assert.That(pipelineType, Is.Not.Null, "A supported render pipeline must be configured to compile a VFX Graph.");
+
+            var createMethod = pipelineType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+            Assert.That(createMethod, Is.Not.Null, "The installed URP package must expose its transient asset factory.");
+            temporaryRenderPipeline = (RenderPipelineAsset)createMethod.Invoke(null, new object[] { null });
+            Assert.That(temporaryRenderPipeline, Is.Not.Null);
+
+            previousRenderPipeline = GraphicsSettings.defaultRenderPipeline;
+            GraphicsSettings.defaultRenderPipeline = temporaryRenderPipeline;
+            Assert.That(GraphicsSettings.currentRenderPipeline, Is.SameAs(temporaryRenderPipeline), "The temporary URP must be active while importing the VFX sample.");
         }
 
         [Test]
