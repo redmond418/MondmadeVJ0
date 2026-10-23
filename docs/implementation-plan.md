@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-24（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)を実装・検証する作業一覧。D01〜D20の設計判断、機能カタログ、Core / Integration Editor、Setup、Monitorを実装した。Stage Projectとクリーンな消費側Projectで機能契約を検証し、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断も契約試験に含めた。A20では対話型EditorからBackground Music入力（2ch）を選んだ8秒の実入力probeがPassし、2,984 normalized samples、peak level 0.797を確認した（音声データは保存していない）。既存の部分依存消費側の記録はEditMode 135 passed / 2 optional skipped、通常PlayMode 7 passed / 6 Explicit skipped、QuickStart APC Profileアセット照合、macOS universal StandaloneOSX MonoおよびWindows x64 Mono Player build。現作業ツリーの全依存ProjectではEditMode 173/173、通常PlayMode 8/8が通過した。APC mini mk2実機Pad 1の緑点灯、Fader 1とTrack Button 1の型付き入力、USB切断・再接続時の状態保持とPanic LED同期も実機probeで確認した。A14規定のStage OSXEditor / Apple M1 / macOS 26.1.0実機負荷を120 / 174 / 240 BPM各600秒で完走したが、全体は未合格。fpsは59.996 / 59.994 / 59.991、Clock欠落は0 / 3 / 10、p99は各0.001ms、最大遅延は5.802 / 12.565 / 10.314ms、累積期限ずれは5.7989 / 12.5641 / 10.3135ms。60fps・1000 Route・LED 10Hz（約800 control states/s）は維持した。外部受信機実測、公開Git URL、Windows IL2CPPなど未確認の受入条件が残るため、A01〜A24の記録が揃うまで完成扱いにしない。
+更新日：2026-10-24（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)を実装・検証する作業一覧。D01〜D20の設計判断、機能カタログ、Core / Integration Editor、Setup、Monitorを実装した。Stage Projectとクリーンな消費側Projectで機能契約を検証し、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断も契約試験に含めた。A20では対話型EditorからBackground Music入力（2ch）を選んだ8秒の実入力probeがPassし、2,984 normalized samples、peak level 0.797を確認した（音声データは保存していない）。既存の部分依存消費側の記録はEditMode 135 passed / 2 optional skipped、通常PlayMode 7 passed / 6 Explicit skipped、QuickStart APC Profileアセット照合、macOS universal StandaloneOSX MonoおよびWindows x64 Mono Player build。現作業ツリーの全依存ProjectではEditMode 173/173、通常PlayMode 8/8が通過した。APC mini mk2実機Pad 1の緑点灯、Fader 1とTrack Button 1の型付き入力、USB切断・再接続時の状態保持とPanic LED同期も実機probeで確認した。現行実装commit `e436983` のA14規定負荷を10/24にStage OSXEditor / Apple M1 / macOS 26.1.0で各600秒完走したが未合格。120 / 174 / 240 BPMの順にfpsは59.945 / 59.940 / 59.931、Clock欠落は0 / 0 / 0、p99送信遅延は0.155 / 0.145 / 0.138ms、最大送信遅延は10.249 / 10.552 / 10.321ms、累積送信期限ずれは5.5708 / 10.5492 / 7.0446msだった。各相で約59.9fps・約59,900 Route writes/s・LED 10Hz（479,984 control states）を維持した。外部受信機実測、公開Git URL、Windows IL2CPPなど未確認の受入条件が残るため、A01〜A24の記録が揃うまで完成扱いにしない。
 
 ## 実装作業
 
@@ -150,6 +150,18 @@ A17切断検知の1秒ごとのMIDI port enumerationをHighest-priority送信wor
 ### A14 CoreMIDI仮想受信先probe
 
 2026-10-24、CoreMIDI `MIDISend`へMach host-time timestamp付きのMIDI Clockを直接送り、`kMIDIPropertyAdvanceScheduleTimeMuSec=0`の仮想destination callback時刻と各packet timestampを比較した。20秒ずつの120 / 174 / 240 BPMで予定数960 / 1,392 / 1,920 packetをすべて受信した。callback entryとtimestampとの差はp99絶対値1.911 / 0.074 / 0.077ms、最大絶対値16.345 / 0.113 / 4.514msだった。これはOS内virtual endpointのcallback配送を測るソフトウェアprobeで、APC mini mk2のUSB送信経路や外部受信機の実測ではない。OSのtimestamp schedulingを別経路で確認したが、受信callbackの最大値も10ms目標を超えた速度があるため、A14合格の証明には使わない。Probe source: `/private/tmp/midi_virtual_timing_probe.c`。
+
+### A14現行実装commitの規定10分負荷再試験
+
+2026-10-24、実装commit `e436983`（以降のcommitは文書のみの変更）で、Stage OSXEditor / Apple M1 / macOS 26.1.0 / APC mini mk2実機の規定負荷を実施した。各BPMを600秒ずつ測定し、1000 Route、全LEDを10Hz更新、Monitor capture無効、CoreMIDI timestamped backend（8ms schedule lead）を使用した。
+
+| BPM | fps / 最大frame間隔 | Route writes/s | LED更新 / states | Clock sent / expected / missed / dropped | p99 / 最大送信遅延 | 累積送信期限ずれ | GC 0/1/2 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 120 | 59.945 / 59.032ms | 59,945 | 10.000Hz / 479,984 | 28,801 / 28,800 / 0 / 0 | 0.155 / 10.249ms | 5.5708ms | 30 / 30 / 30 |
+| 174 | 59.940 / 66.693ms | 59,940 | 10.000Hz / 479,984 | 41,759 / 41,760 / 0 / 0 | 0.145 / 10.552ms | 10.5492ms | 30 / 30 / 30 |
+| 240 | 59.931 / 65.257ms | 59,931 | 10.000Hz / 479,984 | 57,600 / 57,600 / 0 / 0 | 0.138 / 10.321ms | 7.0446ms | 29 / 29 / 29 |
+
+Clock欠落・共有出力dropはなく、p99・Route・LED条件を満たした。一方、全速度で最大送信遅延10msと累積期限ずれ1msを超えたため、A14は未合格。CoreMIDI指標は`MIDISend` entryと「期限−schedule lead」の差で、外部receiverが受信した実時刻ではない。外部受信機での到着測定も別途未実施。Unity Test Runner XML: `/Users/redmond/Library/Application Support/DefaultCompany/MondmadeVJ0/TestResults.xml`。
 
 ## 動作例として揃えるRoute
 
