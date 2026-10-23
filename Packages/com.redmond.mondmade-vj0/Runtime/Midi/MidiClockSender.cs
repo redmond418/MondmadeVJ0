@@ -30,9 +30,9 @@ namespace MondmadeVJ0
         private long seekResyncCount;
         private long scheduleOutputGeneration;
         private long outputGeneration;
+        private long scheduledTimelineRevision;
         private int clockOwner;
         private double scheduledBpm;
-        private double scheduledBeat;
         private double nextReconnectTime;
         private string status = "Not initialized";
 
@@ -110,23 +110,25 @@ namespace MondmadeVJ0
             var bpm = transport.EffectiveBpm;
             if (!(bpm > 0d) || double.IsNaN(bpm) || double.IsInfinity(bpm)) return;
             var nowTicks = Stopwatch.GetTimestamp();
+            var timelineRevision = transport.TimelineRevision;
             var changedTempo = Math.Abs(bpm - scheduledBpm) > 1e-6d;
-            var expectedBeat = scheduleRunning ? scheduledBeat + (nowTicks - epochTicks) * scheduledBpm / (Stopwatch.Frequency * 60d) : beat;
+            var expectedBeat = scheduleRunning ? GetExpectedBeatAtTime(epochTicks, nowTicks, scheduledBpm) : beat;
             var seekThresholdBeat = GetSeekThresholdBeat(bpm, Time.unscaledDeltaTime);
-            var seeked = scheduleRunning && Math.Abs(beat - expectedBeat) > seekThresholdBeat;
+            var seeked = scheduleRunning && HasTimelineSeeked(
+                scheduledTimelineRevision, timelineRevision, beat, expectedBeat, seekThresholdBeat);
 
             if (!scheduleRunning)
             {
                 if (sendSongPosition && beat > 0d) SendSongPosition(beat);
                 Send(hasEverStarted || beat > 0d ? ContinueMessage : StartMessage);
                 hasEverStarted = true;
-                SetSchedule(beat, bpm, nowTicks);
+                SetSchedule(beat, bpm, nowTicks, timelineRevision);
             }
             else if (changedTempo || seeked)
             {
                 if (seeked) Interlocked.Increment(ref seekResyncCount);
                 if (seeked && sendSongPosition) SendSongPosition(beat);
-                SetSchedule(beat, bpm, nowTicks);
+                SetSchedule(beat, bpm, nowTicks, timelineRevision);
             }
             status = "Connected";
         }
@@ -167,7 +169,7 @@ namespace MondmadeVJ0
             worker.Start();
         }
 
-        private void SetSchedule(double beat, double bpm, long nowTicks)
+        private void SetSchedule(double beat, double bpm, long nowTicks, long timelineRevision)
         {
             var ticksPerBeat = Stopwatch.Frequency * 60d / bpm;
             lock (scheduleLock)
@@ -176,7 +178,7 @@ namespace MondmadeVJ0
                 pulsePeriodTicks = ticksPerBeat / 24d;
                 nextPulseIndex = (long)Math.Floor(beat * 24d + 1e-8d) + 1L;
                 scheduledBpm = bpm;
-                scheduledBeat = beat;
+                scheduledTimelineRevision = timelineRevision;
                 scheduleOutputGeneration = output == null ? 0 : output.ConnectionGeneration;
                 scheduleRunning = true;
                 scheduleGeneration++;
@@ -287,6 +289,13 @@ namespace MondmadeVJ0
             var frameBeatSpan = Math.Max(0d, frameDeltaSeconds) * Math.Max(0d, bpm) / 60d;
             return Math.Max(0.1d, frameBeatSpan * 2d);
         }
+
+        internal static double GetExpectedBeatAtTime(long epochTicks, long nowTicks, double bpm)
+            => (nowTicks - epochTicks) * bpm / (Stopwatch.Frequency * 60d);
+
+        internal static bool HasTimelineSeeked(long scheduledRevision, long currentRevision,
+            double beat, double expectedBeat, double thresholdBeat)
+            => scheduledRevision != currentRevision || Math.Abs(beat - expectedBeat) > thresholdBeat;
 
         internal static bool IsClockPulseTooLateToQueue(long deadlineTicks, long nowTicks, double periodTicks)
             => periodTicks > 0d && nowTicks - deadlineTicks >= periodTicks;

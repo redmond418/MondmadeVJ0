@@ -53,6 +53,33 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void ExpectedBeatUsesTheAbsoluteEpochWhenScheduleStartsAfterBeatZero()
+        {
+            const double bpm = 120d;
+            const double startingBeat = 3.25d;
+            var startTicks = 1_000_000L;
+            var ticksPerBeat = Stopwatch.Frequency * 60d / bpm;
+            var epochTicks = startTicks - (long)(startingBeat * ticksPerBeat);
+            var halfBeatLaterTicks = startTicks + (long)(ticksPerBeat / 2d);
+
+            Assert.That(MidiClockSender.GetExpectedBeatAtTime(epochTicks, startTicks, bpm),
+                Is.EqualTo(startingBeat).Within(1e-6d));
+            Assert.That(MidiClockSender.GetExpectedBeatAtTime(epochTicks, halfBeatLaterTicks, bpm),
+                Is.EqualTo(startingBeat + 0.5d).Within(1e-6d));
+        }
+
+        [Test]
+        public void SeekDetectionUsesTimelineRevisionForSmallDiscontinuities()
+        {
+            Assert.That(MidiClockSender.HasTimelineSeeked(7, 7, 4.01d, 4d, 0.1d), Is.False,
+                "Small continuous transport corrections remain below the configured seek threshold.");
+            Assert.That(MidiClockSender.HasTimelineSeeked(7, 8, 4.01d, 4d, 0.1d), Is.True,
+                "An explicit timeline discontinuity must resynchronize even when its beat offset is small.");
+            Assert.That(MidiClockSender.HasTimelineSeeked(7, 7, 4.2d, 4d, 0.1d), Is.True,
+                "A large beat divergence remains a fallback seek signal.");
+        }
+
+        [Test]
         public void SharedOutputQueuePrioritizesClockAndCoalescesLedPayloads()
         {
             var queue = new MidiOutputWorkQueue();
