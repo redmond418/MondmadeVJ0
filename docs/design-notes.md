@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Unity 6000.3.8f1 macOS arm64 Editorの隔離CheckoutでEditMode 169件・通常PlayMode 7件、APC Pad 1物理入力と緑色LED点灯、ClockとLEDの同一worker実機結合、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。現作業ツリーではEditMode 171/171、通常PlayMode 8/8も通過し、A20のBackground Music入力も8秒probeで確認した。D16ではMaterial / Volume cloneの共有lease、Transform / Generic / Shader書込競合、Video prepare待ち・timeout・非同期Faultを契約テストで検証した。D20ではLasp dBFS・FFT bin / Hz・Trigger状態とOSC UDP / 型・queue契約を検証した。切断・再接続probeは実機確認待ち。Windows IL2CPP module、10分MIDI Clock精度、公開Git URL導入、全Integration Playerの外部実行受け入れも継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-23（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Unity 6000.3.8f1 macOS arm64 Editorの隔離CheckoutでEditMode 169件・通常PlayMode 7件、APC Pad 1物理入力と緑色LED点灯、ClockとLEDの同一worker実機結合、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。現作業ツリーではEditMode 171/171、通常PlayMode 8/8も通過し、A20のBackground Music入力も8秒probeで確認した。D16ではMaterial / Volume cloneの共有lease、Transform / Generic / Shader書込競合、Video prepare待ち・timeout・非同期Faultを契約テストで検証した。D20ではLasp dBFS・FFT bin / Hz・Trigger状態とOSC UDP / 型・queue契約を検証した。A17 USB切断・再接続probeは実機1/1 Passed。Windows IL2CPP module、10分MIDI Clock精度、公開Git URL導入、全Integration Playerの外部実行受け入れも継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
 
 ## 採用済みの判断
 
@@ -54,7 +54,7 @@ Bind失敗はそのScopeを逆順でrollbackする。Disposeは複数回呼べ�
 
 **MIDIコントローラー切断では、Route・Signal・物理Controlの最後の値を保持する。** BoolのHoldもReleaseを捏造せず保持する。接続状態だけDisconnectedへ変える。まだ受信していないControlはProfileの既定値（数値0、bool false）、OSCはSource設定のInitial Valueを使う。Velocityの初期値も0。すべて購読時に1回通知する。
 
-再接続で0やfalseを送らず、最新LED DesiredをFull Resyncする。実機から次のValueを受信した時点で通常どおり反映する。実機が再接続時に送る本物のReleaseは受け入れる。物理Note On / Offを受けた場合は値が保持値と同じでもPress / Release Triggerは発行する。MIDI入力でないPhase / Audio / Envelopeは各自のClockに従い動作を継続する。OSCも受信途絶では保持する。
+再接続で0やfalseを送らず、最新LED DesiredをFull Resyncする。実機から次のValueを受信した時点で通常どおり反映する。RtMidiが物理切断後もCoreMIDI handleをIsOkとして保持する環境があるため、共有Output workerは設定済みordinalとport名を1秒ごとに再列挙し、消失または不一致を検知したら切断世代を進めてhandleを閉じる。再接続後は同じordinal/nameを開き直し、MidiHubがDesiredをFull Resyncする。A17実機probeでPad押下・Fader=0.7・Toggle=true・Hold=trueの保持、再接続時のPanic中に80 LED全OFF送信、Panic解除後のPad 1緑状態再送を確認した。実機が再接続時に送る本物のReleaseは受け入れる。物理Note On / Offを受けた場合は値が保持値と同じでもPress / Release Triggerは発行する。MIDI入力でないPhase / Audio / Envelopeは各自のClockに従い動作を継続する。OSCも受信途絶では保持する。
 
 ## D05：Compositeの初期値・競合
 

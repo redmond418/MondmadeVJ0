@@ -333,12 +333,30 @@ namespace MondmadeVJ0.Tests
             surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
             var padReference = new MidiControlReference(surface.InstanceId, "pad_0_0");
             var faderReference = new MidiControlReference(surface.InstanceId, "fader_1");
+            var trackReference = new MidiControlReference(surface.InstanceId, "track_1");
             var runtimeObject = new GameObject("APC mini mk2 reconnect probe");
             runtimeObject.SetActive(false);
             var hub = runtimeObject.AddComponent<MidiHub>();
             var runtime = runtimeObject.AddComponent<MondmadeVJ0Runtime>();
+            var routeHost = runtimeObject.AddComponent<RouteHost>();
+            var toggleTrigger = new MidiButtonTriggerSource();
+            SetField(toggleTrigger, "control", trackReference);
+            var toggle = new ToggleBoolSource();
+            SetField(toggle, "trigger", toggleTrigger);
+            var toggleRoute = new BoolRoute();
+            toggleRoute.Configure("A17 Toggle state", toggle);
+            var holdSource = new MidiButtonBoolSource();
+            SetField(holdSource, "control", trackReference);
+            var holdRoute = new BoolRoute();
+            holdRoute.Configure("A17 Hold state", holdSource);
+            var faderSource = new MidiAbsoluteFloatSource();
+            SetField(faderSource, "control", faderReference);
+            var faderRoute = new FloatRoute();
+            faderRoute.Configure("A17 Fader state", faderSource);
+            SetField(routeHost, "routes", new List<IRoute> { toggleRoute, holdRoute, faderRoute });
             SetField(hub, "surfaces", new[] { surface });
             SetField(runtime, "modules", new MonoBehaviour[] { hub });
+            SetField(runtime, "routeHosts", new[] { routeHost });
             var padPressed = false;
             var padReleased = false;
             System.Action<MidiControlChange> capture = change =>
@@ -356,16 +374,20 @@ namespace MondmadeVJ0.Tests
                 yield return null;
                 Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
                 Debug.Log("[APC_RECONNECT_PAD_READY] Tap and release upper-left Pad 1 once to confirm physical input.");
-                var waitUntil = Time.realtimeSinceStartup + 45f;
+                var waitUntil = Time.realtimeSinceStartup + 120f;
                 while ((!padPressed || !padReleased) && Time.realtimeSinceStartup < waitUntil) yield return null;
                 Assert.That(padPressed && padReleased, Is.True, "Pad 1 press and release must be received before the disconnect probe.");
 
                 InjectControl(hub, surface.InstanceId, MidiAddressType.Note, 0, 56, 100f / 127f);
                 InjectControl(hub, surface.InstanceId, MidiAddressType.ControlChange, 0, 0x30, 0.7f);
+                InjectControl(hub, surface.InstanceId, MidiAddressType.Note, 0, 0x64, 100f / 127f);
                 var retainedPad = hub.GetState(padReference);
                 var retainedFader = hub.GetState(faderReference);
                 Assert.That(retainedPad.Pressed, Is.True);
                 Assert.That(retainedFader.Value, Is.EqualTo(0.7f).Within(0.0001f));
+                Assert.That(toggleRoute.CurrentValue, Is.True, "A17 must hold Toggle=true after a real MIDI button event.");
+                Assert.That(holdRoute.CurrentValue, Is.True, "A17 must hold the pressed Button value until a real Release arrives.");
+                Assert.That(faderRoute.CurrentValue, Is.EqualTo(0.7f).Within(0.0001f));
 
                 hub.SetLed(padReference, owner, MidiLedLayer.State, new MidiLedStyle { color = Color.green, brightness = 1f, effect = MidiLedEffect.Solid });
                 hub.FlushFrame(runtime.Services);
@@ -377,8 +399,8 @@ namespace MondmadeVJ0.Tests
                 while (!IsOutputIdle(outputBeforeDisconnect) && Time.realtimeSinceStartup < ledDeadline) yield return null;
                 Assert.That(IsOutputIdle(outputBeforeDisconnect), Is.True, "Latest desired LED feedback must reach the device before unplugging.");
 
-                Debug.Log("[APC_RECONNECT_UNPLUG_READY] Unplug the APC mini mk2 USB cable now; the probe waits up to 45 seconds.");
-                waitUntil = Time.realtimeSinceStartup + 45f;
+                Debug.Log("[APC_RECONNECT_UNPLUG_READY] Unplug the APC mini mk2 USB cable now; the probe waits up to 120 seconds.");
+                waitUntil = Time.realtimeSinceStartup + 120f;
                 var disconnected = false;
                 while (Time.realtimeSinceStartup < waitUntil)
                 {
@@ -388,11 +410,14 @@ namespace MondmadeVJ0.Tests
                 Assert.That(disconnected, Is.True, "Both APC mini mk2 MIDI ports must disappear after unplugging.");
                 Assert.That(hub.GetState(padReference).Pressed, Is.EqualTo(retainedPad.Pressed), "The last Pad state must survive USB disconnection.");
                 Assert.That(hub.GetState(faderReference).Value, Is.EqualTo(retainedFader.Value).Within(0.0001f), "The last Fader value must survive USB disconnection.");
+                Assert.That(toggleRoute.CurrentValue, Is.True, "Toggle=true must survive USB disconnection.");
+                Assert.That(holdRoute.CurrentValue, Is.True, "Hold=true must survive USB disconnection without an invented Release.");
+                Assert.That(faderRoute.CurrentValue, Is.EqualTo(0.7f).Within(0.0001f));
 
                 hub.PanicAllOff();
                 hub.FlushFrame(runtime.Services);
                 Debug.Log("[APC_RECONNECT_PLUG_READY] Panic is latched while disconnected. Reconnect the APC mini mk2 USB cable now.");
-                waitUntil = Time.realtimeSinceStartup + 45f;
+                waitUntil = Time.realtimeSinceStartup + 120f;
                 var reconnectedAndSynced = false;
                 while (Time.realtimeSinceStartup < waitUntil)
                 {
@@ -406,10 +431,20 @@ namespace MondmadeVJ0.Tests
                     }
                 }
 
-                Assert.That(reconnectedAndSynced, Is.True, "Reconnect must reopen the Output port and resync all LEDs to Panic OFF.");
+                var diagnosticOutput = GetRawOutput(hub, surface.InstanceId);
+                var diagnosticSent = GetSentPayloads(hub);
+                var padPayloadKey = surface.InstanceId + "\0pad_0_0";
+                var padPayloadValue = diagnosticSent.Contains(padPayloadKey) ? GetPayloadValue(diagnosticSent, padPayloadKey).ToString() : "missing";
+                Assert.That(reconnectedAndSynced, Is.True,
+                    $"Reconnect must reopen the Output port and resync all LEDs to Panic OFF. inputPorts=[{DescribePorts(true)}], outputPorts=[{DescribePorts(false)}], " +
+                    $"outputStatus={GetOutputStatus(diagnosticOutput)}, generation={GetConnectionGeneration(diagnosticOutput)}, generationBeforeDisconnect={generationBeforeDisconnect}, " +
+                    $"outputOk={IsOutputOk(diagnosticOutput)}, outputIdle={IsOutputIdle(diagnosticOutput)}, sentPayloadCount={diagnosticSent.Count}, pad0PayloadValue={padPayloadValue}.");
                 Assert.That(hub.PanicLatched, Is.True);
                 Assert.That(hub.GetState(padReference).Pressed, Is.EqualTo(retainedPad.Pressed));
                 Assert.That(hub.GetState(faderReference).Value, Is.EqualTo(retainedFader.Value).Within(0.0001f));
+                Assert.That(toggleRoute.CurrentValue, Is.True);
+                Assert.That(holdRoute.CurrentValue, Is.True);
+                Assert.That(faderRoute.CurrentValue, Is.EqualTo(0.7f).Within(0.0001f));
 
                 hub.ResumeOutputs();
                 hub.FlushFrame(runtime.Services);
@@ -450,6 +485,26 @@ namespace MondmadeVJ0.Tests
             return -1;
         }
 
+        private static string DescribePorts(bool input)
+        {
+            var names = new List<string>();
+            try
+            {
+                if (input)
+                {
+                    using (var device = MidiIn.Create())
+                        for (var index = 0; index < device.PortCount; index++) names.Add(index + ":" + device.GetPortName(index));
+                }
+                else
+                {
+                    using (var device = MidiOut.Create())
+                        for (var index = 0; index < device.PortCount; index++) names.Add(index + ":" + device.GetPortName(index));
+                }
+            }
+            catch (System.Exception exception) { return "<error: " + exception.Message + ">"; }
+            return string.Join(" | ", names);
+        }
+
         private static object GetRawOutput(MidiHub hub, string surfaceId)
         {
             var surfaces = (IDictionary)typeof(MidiHub).GetField("surfaceRuntime", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hub);
@@ -468,6 +523,9 @@ namespace MondmadeVJ0.Tests
 
         private static bool IsOutputIdle(object output)
             => output != null && (bool)output.GetType().GetProperty("IsIdle").GetValue(output);
+
+        private static string GetOutputStatus(object output)
+            => output == null ? "null" : (string)output.GetType().GetProperty("Status").GetValue(output);
 
         private static object GetLeaseEndpoint(object lease)
             => lease.GetType().GetField("port", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(lease);

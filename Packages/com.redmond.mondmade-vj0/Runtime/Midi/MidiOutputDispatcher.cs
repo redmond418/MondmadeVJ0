@@ -197,6 +197,7 @@ namespace MondmadeVJ0
     {
         private const int ClockSpinWaitLeadMilliseconds = 3;
         private const int ClockLedGuardMilliseconds = 8;
+        private const int PortPresenceCheckIntervalMilliseconds = 1000;
         private readonly object queueLock = new object();
         private readonly object clockSendLock = new object();
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
@@ -400,6 +401,7 @@ namespace MondmadeVJ0
         private void WorkerLoopCore()
         {
             var nextOpenAttempt = 0L;
+            var nextPortPresenceCheck = 0L;
             while (true)
             {
                 if (stopping && PendingMessageCount == 0) break;
@@ -419,6 +421,21 @@ namespace MondmadeVJ0
                     var wait = (int)Math.Max(1d, Math.Min(100d, (nextOpenAttempt - now) * 1000d / Stopwatch.Frequency));
                     wake.WaitOne(wait);
                     continue;
+                }
+
+                var portPresenceCheckTicks = Stopwatch.GetTimestamp();
+                if (portPresenceCheckTicks >= nextPortPresenceCheck)
+                {
+                    nextPortPresenceCheck = portPresenceCheckTicks + Stopwatch.Frequency * PortPresenceCheckIntervalMilliseconds / 1000L;
+                    if (!IsConfiguredPortPresent())
+                    {
+                        // RtMidi can keep an opened CoreMIDI handle "ok" after its physical endpoint disappears.
+                        // Verify enumeration separately so hot-unplug advances the connection generation and
+                        // causes MidiHub to send its full desired LED state after the endpoint returns.
+                        MarkDisconnected(null, null);
+                        nextOpenAttempt = portPresenceCheckTicks;
+                        continue;
+                    }
                 }
 
                 MidiOutputPacket packet;
@@ -512,6 +529,19 @@ namespace MondmadeVJ0
             CloseOutput();
             Volatile.Write(ref connected, 0);
             Volatile.Write(ref status, "Closed");
+        }
+
+        private bool IsConfiguredPortPresent()
+        {
+            RtMidi.MidiOut probe = null;
+            try
+            {
+                probe = RtMidi.MidiOut.Create();
+                return Ordinal < probe.PortCount &&
+                       string.Equals(probe.GetPortName(Ordinal), expectedPortName, StringComparison.Ordinal);
+            }
+            catch { return false; }
+            finally { probe?.Dispose(); }
         }
 
         private bool WaitForClockDeadline(MidiOutputPacket packet)
