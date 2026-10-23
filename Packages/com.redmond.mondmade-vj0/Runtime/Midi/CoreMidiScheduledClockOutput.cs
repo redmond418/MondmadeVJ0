@@ -28,6 +28,8 @@ namespace MondmadeVJ0
         private readonly uint destination;
         private readonly uint timebaseNumerator;
         private readonly uint timebaseDenominator;
+        private readonly IntPtr packetListBuffer;
+        private readonly IntPtr packetDataBuffer;
         private readonly Queue<long> pendingDeadlines = new Queue<long>(2);
         private bool disposed;
 
@@ -36,7 +38,8 @@ namespace MondmadeVJ0
         public string DestinationName { get; }
 
         private CoreMidiScheduledClockOutput(uint client, uint port, uint destination, string destinationName,
-            uint timebaseNumerator, uint timebaseDenominator, double scheduleLeadMilliseconds)
+            uint timebaseNumerator, uint timebaseDenominator, double scheduleLeadMilliseconds,
+            IntPtr packetListBuffer, IntPtr packetDataBuffer)
         {
             this.client = client;
             this.port = port;
@@ -45,6 +48,8 @@ namespace MondmadeVJ0
             this.timebaseNumerator = timebaseNumerator;
             this.timebaseDenominator = timebaseDenominator;
             ScheduleLeadMilliseconds = scheduleLeadMilliseconds;
+            this.packetListBuffer = packetListBuffer;
+            this.packetDataBuffer = packetDataBuffer;
         }
 
         public static CoreMidiScheduledClockOutput TryCreate(int ordinal, string expectedPortName, out string error)
@@ -53,6 +58,8 @@ namespace MondmadeVJ0
             uint destination = 0;
             uint client = 0;
             uint port = 0;
+            IntPtr packetListBuffer = IntPtr.Zero;
+            IntPtr packetDataBuffer = IntPtr.Zero;
             string destinationName = null;
             try
             {
@@ -89,11 +96,18 @@ namespace MondmadeVJ0
                 if (scheduleLeadMilliseconds > MaximumScheduleLeadMilliseconds)
                     throw new InvalidOperationException($"CoreMIDI destination requires {scheduleLeadMilliseconds:F3} ms advance scheduling; the 8 ms single-pulse window cannot safely support it.");
 
+                // Clock packets are sent only by the shared output worker. Keep its packet
+                // storage alive for the connection to avoid native allocator jitter per pulse.
+                packetListBuffer = Marshal.AllocHGlobal(PacketListBufferSize);
+                packetDataBuffer = Marshal.AllocHGlobal(MaximumMidiMessageLength);
                 return new CoreMidiScheduledClockOutput(client, port, destination, destinationName,
-                    timebase.Numerator, timebase.Denominator, scheduleLeadMilliseconds);
+                    timebase.Numerator, timebase.Denominator, scheduleLeadMilliseconds,
+                    packetListBuffer, packetDataBuffer);
             }
             catch (Exception exception)
             {
+                if (packetDataBuffer != IntPtr.Zero) Marshal.FreeHGlobal(packetDataBuffer);
+                if (packetListBuffer != IntPtr.Zero) Marshal.FreeHGlobal(packetListBuffer);
                 if (port != 0) { try { MidiPortDispose(port); } catch { } }
                 if (client != 0) { try { MidiClientDispose(client); } catch { } }
                 error = exception.Message;
@@ -111,29 +125,19 @@ namespace MondmadeVJ0
             DiscardElapsedPackets(nowTicks);
             var hostTimestamp = ConvertDeadlineToHostTime(deadlineStopwatchTicks, nowTicks,
                 MachAbsoluteTime(), timebaseNumerator, timebaseDenominator, Stopwatch.Frequency);
-            var list = Marshal.AllocHGlobal(PacketListBufferSize);
-            var data = Marshal.AllocHGlobal(message.Length);
-            try
-            {
-                Marshal.Copy(message, 0, data, message.Length);
-                var firstPacket = MidiPacketListInit(list);
-                if (firstPacket == IntPtr.Zero)
-                    throw new InvalidOperationException("MIDIPacketListInit returned null.");
+            Marshal.Copy(message, 0, packetDataBuffer, message.Length);
+            var firstPacket = MidiPacketListInit(packetListBuffer);
+            if (firstPacket == IntPtr.Zero)
+                throw new InvalidOperationException("MIDIPacketListInit returned null.");
 
-                var lastPacket = MidiPacketListAdd(list, PacketListBufferSize, firstPacket,
-                    hostTimestamp, (ushort)message.Length, data);
-                if (lastPacket == IntPtr.Zero)
-                    throw new InvalidOperationException("MIDIPacketListAdd could not append the MIDI Clock packet.");
+            var lastPacket = MidiPacketListAdd(packetListBuffer, PacketListBufferSize, firstPacket,
+                hostTimestamp, (ushort)message.Length, packetDataBuffer);
+            if (lastPacket == IntPtr.Zero)
+                throw new InvalidOperationException("MIDIPacketListAdd could not append the MIDI Clock packet.");
 
-                var status = MidiSend(port, destination, list);
-                if (status != 0) throw new InvalidOperationException($"MIDISend failed with OSStatus {status}.");
-                pendingDeadlines.Enqueue(deadlineStopwatchTicks);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(data);
-                Marshal.FreeHGlobal(list);
-            }
+            var status = MidiSend(port, destination, packetListBuffer);
+            if (status != 0) throw new InvalidOperationException($"MIDISend failed with OSStatus {status}.");
+            pendingDeadlines.Enqueue(deadlineStopwatchTicks);
         }
 
         public void WaitForPendingPackets()
@@ -171,6 +175,8 @@ namespace MondmadeVJ0
             catch { }
             try { MidiClientDispose(client); }
             catch { }
+            Marshal.FreeHGlobal(packetDataBuffer);
+            Marshal.FreeHGlobal(packetListBuffer);
         }
 
         internal static ulong ConvertDeadlineToHostTime(long deadlineTicks, long nowTicks, ulong nowHostTime,

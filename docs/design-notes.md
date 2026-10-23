@@ -122,6 +122,8 @@ Stop / Seek / tempo変更時はschedule世代を進めてqueue内・worker待機
 
 RtMidi即時backendのClock送信呼出し遅延は、workerが`SendMessage`を呼ぶ直前に取得したStopwatch時刻とpulseの絶対期限との差で、最大値とp99を計る。CoreMIDI timestamp backendでは、`MIDISend`呼出しを`deadline - scheduleLead`の予定時刻と比較してsubmission lateness / driftを記録し、実際のtarget時刻での出力は外部receiver測定に別記する。submission metricから物理出力精度を推定しない。p99は1µs幅のhistogramから保守的に丸め、Monitorからの読取は最大1秒ごとに更新する。欠落数にはschedulerが1周期以上遅れて捨てたpulse、queueの上限・順序で拒否したpulse、workerの期限待機中に次pulse周期以上古くなったpulseを含める。累積期限ずれは同じscheduler世代の最初のClock呼出しを基準に、実際の経過時間と理想期限間隔との差の最大絶対値とする。BPM変更・Seek・再接続後は別世代として基準を置き直す。これはハードリアルタイム保証ではない。
 
+CoreMIDI Clock送信のnative `MIDIPacketList`とpacket data領域を接続中に一度だけ確保し、共有output workerから再利用する変更を加えた。APC mini mk2・OSXEditor / Apple M1の61秒×3速度・全LED / 1000 Route smokeはPassed、欠落 / drop 0、FPS 59.994 / 59.979 / 59.984だったが、submission p99は1.202 / 1.216 / 1.196ms、最大遅延4.196 / 3.060 / 4.909ms、累積submission drift 3.1108 / 2.5123 / 4.9079msとなった。8ms予約条件を変えておらず、過去の短縮測定より一貫した精度改善は見られない。10分条件と外部receiver測定は未実施のためA14は未合格。XML: `/private/tmp/MondmadeVJ0-stage/codemidi-buffer-a14-smoke.xml`。
+
 採用する合格目標は、BPM 120 / 174 / 240・各10分、60fps、1000 Route、LED全灯更新10HzのmacOS arm64 / Windows x64環境で、送信呼出し時刻の誤差p99≤2ms、最大≤10ms、欠落0、累積期限ずれ≤1ms。外部受信機での実測も記録し、USB / 機器遅延は別列にする。未達は実装不合格としてbackendまたはschedulerを改善し、機能完成扱いにしない。OS設定と計測機器は結果に必ず添付する。
 
 Tapは直近8間隔のMedian、最初のTapは履歴開始のみ、2秒未入力で破棄。許容BPMは30〜300。3間隔以上の履歴がある場合、Medianとの差が20%超の入力は外れ値として履歴へ入れず、新しい連続2間隔が互いに20%以内ならテンポ変更とみなして履歴を切り替える。TapによるBPM更新は位相を保持する。
