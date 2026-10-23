@@ -52,6 +52,7 @@ namespace MondmadeVJ0.Tests
                     var world = CreateWorld(inputPort, outputPort, bpm);
                     try
                     {
+                        world.Runtime.Services.MonitorCaptureEnabled = false;
                         yield return null;
                         var hubLease = GetHubOutput(world.Hub, world.Surface.InstanceId);
                         var clockLease = typeof(MidiClockSender).GetField("output", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(world.Clock);
@@ -86,6 +87,9 @@ namespace MondmadeVJ0.Tests
                         var maximumFrameInterval = 0d;
                         var previousFrame = phaseStart;
                         var routeWritesAtStart = WriteCounterFloatOutput.Writes;
+                        var gen0CollectionsAtStart = GC.CollectionCount(0);
+                        var gen1CollectionsAtStart = GC.CollectionCount(1);
+                        var gen2CollectionsAtStart = GC.CollectionCount(2);
 
                         while (Time.realtimeSinceStartupAsDouble < phaseEnd)
                         {
@@ -140,6 +144,9 @@ namespace MondmadeVJ0.Tests
                         var sentLedMessages = GetSentLedMessages(hubLease) - sentLedMessagesAtStart;
                         var sentLedControls = GetSentLedControls(hubLease) - sentLedControlsAtStart;
                         var maximumLedSendDuration = GetMaximumLedSendDuration(hubLease);
+                        var gen0Collections = GC.CollectionCount(0) - gen0CollectionsAtStart;
+                        var gen1Collections = GC.CollectionCount(1) - gen1CollectionsAtStart;
+                        var gen2Collections = GC.CollectionCount(2) - gen2CollectionsAtStart;
                         var p99 = world.Clock.P99LatenessMilliseconds;
                         var maxLateness = world.Clock.MaximumLatenessMilliseconds;
                         var cumulativeDrift = world.Clock.MaximumDeadlineDriftMilliseconds;
@@ -147,7 +154,7 @@ namespace MondmadeVJ0.Tests
                         var minimumLedControls = ledStressEnabled ? (long)Math.Floor(ledUpdates * world.LedControls.Length * 0.98d) : 0L;
 
                         var mode = fullAcceptanceRun ? "full" : ledStressEnabled ? "smoke" : "clock-only-smoke";
-                        var result = $"A14_RESULT,mode={mode},bpm={bpm:F0},duration_s={measuredElapsed:F3},fps={frameRate:F3},max_frame_ms={maximumFrameInterval * 1000d:F3},routes={world.Host.Routes.Count},route_writes_per_s={routeWriteRate:F0},led_hz={ledUpdates / measuredElapsed:F3},led_messages={sentLedMessages},led_controls={sentLedControls},led_controls_per_s={sentLedControls / measuredElapsed:F0},led_send_max_ms={maximumLedSendDuration:F4},clock_backend={world.Clock.OutputBackend},clock_schedule_lead_ms={world.Clock.OutputScheduleLeadMilliseconds:F3},clock_metric_basis={world.Clock.OutputTimingMetricBasis},clock_backend_diagnostic={world.Clock.OutputBackendDiagnostic},clock_sent={sentPulses},clock_expected≈{expectedPulses},clock_missed={missedPulses},clock_seek_resyncs={seekResyncs},output_dropped={droppedOutputMessages},p99_ms={p99:F4},max_lateness_ms={maxLateness:F4},cumulative_drift_ms={cumulativeDrift:F4},platform={Application.platform},os={SystemInfo.operatingSystem},cpu={SystemInfo.processorType},unity={Application.unityVersion},device=APC mini mk2";
+                        var result = $"A14_RESULT,mode={mode},monitor_capture={world.Runtime.Services.MonitorCaptureEnabled},bpm={bpm:F0},duration_s={measuredElapsed:F3},fps={frameRate:F3},max_frame_ms={maximumFrameInterval * 1000d:F3},routes={world.Host.Routes.Count},route_writes_per_s={routeWriteRate:F0},led_hz={ledUpdates / measuredElapsed:F3},led_messages={sentLedMessages},led_controls={sentLedControls},led_controls_per_s={sentLedControls / measuredElapsed:F0},led_send_max_ms={maximumLedSendDuration:F4},gc_collections={gen0Collections}/{gen1Collections}/{gen2Collections},clock_backend={world.Clock.OutputBackend},clock_schedule_lead_ms={world.Clock.OutputScheduleLeadMilliseconds:F3},clock_metric_basis={world.Clock.OutputTimingMetricBasis},clock_backend_diagnostic={world.Clock.OutputBackendDiagnostic},clock_sent={sentPulses},clock_expected≈{expectedPulses},clock_missed={missedPulses},clock_seek_resyncs={seekResyncs},output_dropped={droppedOutputMessages},p99_ms={p99:F4},max_lateness_ms={maxLateness:F4},cumulative_drift_ms={cumulativeDrift:F4},platform={Application.platform},os={SystemInfo.operatingSystem},cpu={SystemInfo.processorType},unity={Application.unityVersion},device=APC mini mk2";
                         Debug.Log(result);
                         TestContext.WriteLine(result);
 

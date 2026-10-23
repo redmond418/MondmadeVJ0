@@ -28,6 +28,7 @@ namespace MondmadeVJ0
         private readonly uint destination;
         private readonly uint timebaseNumerator;
         private readonly uint timebaseDenominator;
+        private readonly IntPtr offlineProperty;
         private readonly IntPtr packetListBuffer;
         private readonly IntPtr packetDataBuffer;
         private readonly Queue<long> pendingDeadlines = new Queue<long>(2);
@@ -39,7 +40,7 @@ namespace MondmadeVJ0
 
         private CoreMidiScheduledClockOutput(uint client, uint port, uint destination, string destinationName,
             uint timebaseNumerator, uint timebaseDenominator, double scheduleLeadMilliseconds,
-            IntPtr packetListBuffer, IntPtr packetDataBuffer)
+            IntPtr offlineProperty, IntPtr packetListBuffer, IntPtr packetDataBuffer)
         {
             this.client = client;
             this.port = port;
@@ -48,6 +49,7 @@ namespace MondmadeVJ0
             this.timebaseNumerator = timebaseNumerator;
             this.timebaseDenominator = timebaseDenominator;
             ScheduleLeadMilliseconds = scheduleLeadMilliseconds;
+            this.offlineProperty = offlineProperty;
             this.packetListBuffer = packetListBuffer;
             this.packetDataBuffer = packetDataBuffer;
         }
@@ -58,6 +60,7 @@ namespace MondmadeVJ0
             uint destination = 0;
             uint client = 0;
             uint port = 0;
+            IntPtr offlineProperty = IntPtr.Zero;
             IntPtr packetListBuffer = IntPtr.Zero;
             IntPtr packetDataBuffer = IntPtr.Zero;
             string destinationName = null;
@@ -96,16 +99,19 @@ namespace MondmadeVJ0
                 if (scheduleLeadMilliseconds > MaximumScheduleLeadMilliseconds)
                     throw new InvalidOperationException($"CoreMIDI destination requires {scheduleLeadMilliseconds:F3} ms advance scheduling; the 8 ms single-pulse window cannot safely support it.");
 
+                offlineProperty = CreateCfString("offline");
+
                 // Clock packets are sent only by the shared output worker. Keep its packet
                 // storage alive for the connection to avoid native allocator jitter per pulse.
                 packetListBuffer = Marshal.AllocHGlobal(PacketListBufferSize);
                 packetDataBuffer = Marshal.AllocHGlobal(MaximumMidiMessageLength);
                 return new CoreMidiScheduledClockOutput(client, port, destination, destinationName,
-                    timebase.Numerator, timebase.Denominator, scheduleLeadMilliseconds,
+                    timebase.Numerator, timebase.Denominator, scheduleLeadMilliseconds, offlineProperty,
                     packetListBuffer, packetDataBuffer);
             }
             catch (Exception exception)
             {
+                if (offlineProperty != IntPtr.Zero) CfRelease(offlineProperty);
                 if (packetDataBuffer != IntPtr.Zero) Marshal.FreeHGlobal(packetDataBuffer);
                 if (packetListBuffer != IntPtr.Zero) Marshal.FreeHGlobal(packetListBuffer);
                 if (port != 0) { try { MidiPortDispose(port); } catch { } }
@@ -143,6 +149,20 @@ namespace MondmadeVJ0
             return sendCallTicks;
         }
 
+        public bool TryGetDestinationOnline(out bool online)
+        {
+            online = false;
+            if (disposed || offlineProperty == IntPtr.Zero) return false;
+            try
+            {
+                if (MidiObjectGetIntegerProperty(destination, offlineProperty, out var offline) != 0)
+                    return false;
+                online = offline == 0;
+                return true;
+            }
+            catch { return false; }
+        }
+
         public void WaitForPendingPackets()
         {
             if (disposed) return;
@@ -178,6 +198,7 @@ namespace MondmadeVJ0
             catch { }
             try { MidiClientDispose(client); }
             catch { }
+            CfRelease(offlineProperty);
             Marshal.FreeHGlobal(packetDataBuffer);
             Marshal.FreeHGlobal(packetListBuffer);
         }

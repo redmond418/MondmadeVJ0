@@ -151,11 +151,14 @@ namespace MondmadeVJ0.Tests
             var deadline = Stopwatch.Frequency / 10;
             Assert.That(queue.EnqueueClock(deadline, Stopwatch.Frequency / 2, 1, new MidiClockSendMetrics()), Is.True);
 
-            Assert.That(queue.GetClockPollWaitMilliseconds(0, Stopwatch.Frequency * 5d / 1000d), Is.EqualTo(94),
-                "The worker wakes one millisecond before the five millisecond spin window rather than polling continuously.");
+            Assert.That(queue.GetClockPollWaitMilliseconds(0, Stopwatch.Frequency * 5d / 1000d), Is.EqualTo(91),
+                "The worker wakes one millisecond before the final three millisecond spin window rather than polling continuously.");
             Assert.That(queue.GetClockPollWaitMilliseconds(deadline - Stopwatch.Frequency * 5L / 1000L,
+                Stopwatch.Frequency * 5d / 1000d), Is.EqualTo(0),
+                "The worker is already in the final spin window at the scheduled send deadline.");
+            Assert.That(queue.GetClockPollWaitMilliseconds(deadline - Stopwatch.Frequency * 10L / 1000L,
                 Stopwatch.Frequency * 5d / 1000d), Is.EqualTo(1),
-                "The worker uses a one millisecond wait at the edge of the spin window.");
+                "The worker sleeps outside the final spin window.");
         }
 
         [Test]

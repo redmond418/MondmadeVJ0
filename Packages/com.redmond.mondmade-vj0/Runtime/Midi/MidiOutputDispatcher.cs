@@ -456,7 +456,8 @@ namespace MondmadeVJ0
                 if (!hasPacket)
                 {
                     if (stopping) break;
-                    wake.WaitOne(waitMilliseconds);
+                    if (waitMilliseconds == 0) Thread.SpinWait(32);
+                    else wake.WaitOne(waitMilliseconds);
                     continue;
                 }
 
@@ -533,6 +534,11 @@ namespace MondmadeVJ0
 
         private bool IsConfiguredPortPresent()
         {
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+            var scheduled = scheduledClockOutput;
+            if (scheduled != null && scheduled.TryGetDestinationOnline(out var destinationOnline))
+                return destinationOnline;
+#endif
             RtMidi.MidiOut probe = null;
             try
             {
@@ -864,10 +870,11 @@ namespace MondmadeVJ0
         public int GetClockPollWaitMilliseconds(long nowTicks, double clockSpinLeadTicks)
         {
             if (clocks.Count == 0) return 100;
-            var untilSpinWindowTicks = clocks.Peek().DeadlineTicks - nowTicks - clockSpinLeadTicks;
-            if (untilSpinWindowTicks <= Stopwatch.Frequency / 1000d) return 1;
+            var spinWindowTicks = Stopwatch.Frequency * 3d / 1000d;
+            var untilSpinWindowTicks = clocks.Peek().DeadlineTicks - nowTicks - clockSpinLeadTicks - spinWindowTicks;
+            if (untilSpinWindowTicks <= 0d) return 0;
 
-            // Wake just before the final spin window so the output worker does not poll at 1 kHz for the full lookahead.
+            // Enter the final three-millisecond spin window just before CoreMIDI's submission deadline.
             var milliseconds = (int)(untilSpinWindowTicks * 1000d / Stopwatch.Frequency);
             return Math.Max(1, milliseconds - 1);
         }

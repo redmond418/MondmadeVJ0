@@ -142,6 +142,11 @@ A17切断検知の1秒ごとのMIDI port enumerationをHighest-priority送信wor
 2026-10-23、Clock scheduleは開始時の拍位置から絶対beat-zero epochを作る一方、期待拍の算出でも開始拍を再加算していた問題を修正した。開始拍が0以外の場合に一定の位相差を作り、不要な再同期を起こすため、期待拍を絶対epochから算出する。さらに`IMusicalTransport.TimelineRevision`の変化をseekとして検知し、拍差が閾値未満の明示的なseekも再同期する。回帰テストを追加し、MIDI Clock関連EditMode 35/35、全EditMode 173/173、通常PlayMode 8/8が通過した。
 
 修正後にAPC mini mk2実機・Apple M1 / macOS 26.1.0の全LED / 1000 Routeを使った61秒×3速度smokeを実施した。120 / 174 / 240 BPMの順にFPS 59.812 / 59.875 / 59.860、LED 9.999 / 9.998 / 9.999Hz、Clock missed / dropped 0 / 0、p99 submission lateness 1.265 / 1.265 / 1.250ms、最大lateness 11.232 / 15.022 / 11.536ms、累積submission drift 8.5552 / 14.4638 / 10.1650msだった。240 BPMでseek resync 2回。最大latenessは10ms基準、累積ずれは1ms基準を超え、smokeは不合格。600秒×3速度の正式負荷は修正後に未実施で、外部受信機の到着時刻も未計測のためA14は未合格。Unity Test Runner XML: `/Users/redmond/Library/Application Support/DefaultCompany/MondmadeVJ0/TestResults.xml`。
+
+### A14追加比較：3msの送信スピン窓
+
+2026-10-24、CoreMIDIの8ms先行予約に対し、共有出力workerが期限直前の3msをspin待機する方式を20秒×3速度で再計測した。1000 Route・APC mini mk2全LEDを10Hzで更新し、Monitor captureを無効化したOSXEditor / Apple M1 / macOS 26.1.0のsmokeはUnity Test Runner上でPassedだが、smokeでは累積ずれ上限を判定しない。120 / 174 / 240 BPMの順にFPS 59.935 / 59.921 / 59.935、LED 9.998 / 9.995 / 9.997Hz、各15,984 LED control states、Clock missed / output drop 0 / 0、p99 submission lateness 0.013 / 0.012 / 0.111ms、最大lateness 4.059 / 1.210 / 7.964ms、累積submission drift 3.5227 / 1.2057 / 7.9616ms。p99・最大・欠落はこの短縮試験で目標内だが、3速度とも累積ずれ1msを超過し、10分×3速度でも外部受信機測定でもないためA14未合格。GC collectionsは各相1 / 1 / 1。RuntimeにはLED control composite keyのフレームごとの再生成をなくす変更を含めた。CoreMIDI `offline` propertyによる切断検出は利用可能時に使い、取得不能時はRtMidi port enumerationへfallbackする。現作業ツリーのEditMode 173/173、通常PlayMode 8/8も通過した。測定後に通常PlayModeを実行したため、標準`TestResults.xml`は後続結果で上書きされた。
+
 ## 動作例として揃えるRoute
 
 - APC Fader → Remap → Smooth → VFX Float

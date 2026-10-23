@@ -197,7 +197,9 @@ namespace MondmadeVJ0
                         if (definition == null || string.IsNullOrWhiteSpace(definition.id)) continue;
                         var key = Key(instance.InstanceId, definition.id);
                         if (controls.ContainsKey(key)) { services.Report("MIDI_CONTROL_ID", $"Duplicate logical control ID '{definition.id}'."); continue; }
-                        controls.Add(key, new ControlRuntime(definition, instance.InstanceId));
+                        var controlRuntime = new ControlRuntime(definition, instance.InstanceId, key);
+                        controls.Add(key, controlRuntime);
+                        runtime.ControlsById.Add(definition.id, controlRuntime);
                     }
                     if (instance.OutputPortOrdinal >= 0) TryOpenOutput(runtime);
                     if (instance.InputBackend == MidiInputBackend.RtMidiRaw) TryOpenRawInput(runtime);
@@ -268,7 +270,8 @@ namespace MondmadeVJ0
                 foreach (var control in profile.Controls)
                 {
                     if (control == null || !control.hasLed) continue;
-                    var key = Key(surfaceId, control.id);
+                    if (!runtime.ControlsById.TryGetValue(control.id, out var controlRuntime)) continue;
+                    var key = controlRuntime.Key;
                     var style = panicLatched ? MidiLedStyle.Off : ResolveLayer(key);
                     var payload = MidiLedEncoder.Encode(profile.DriverId, control, style);
                     if (!runtime.ForceFullResync && sentPayloads.TryGetValue(key, out var last) && last.Equals(payload)) continue;
@@ -782,10 +785,10 @@ namespace MondmadeVJ0
         private static string Key(string surface, string control) => (surface ?? string.Empty) + "\0" + (control ?? string.Empty);
         private static bool Same(MidiControlReference a, MidiControlReference b) => string.Equals(a.SurfaceInstanceId, b.SurfaceInstanceId, StringComparison.Ordinal) && string.Equals(a.ControlId, b.ControlId, StringComparison.Ordinal);
 
-        private sealed class ControlRuntime { public readonly MidiSurfaceControl Definition; public readonly string SurfaceId; public MidiControlState State; public ControlRuntime(MidiSurfaceControl d, string surface) { Definition=d; SurfaceId=surface; State=new MidiControlState(d.initialValue,0,false,0,d.groupIndex); } }
+        private sealed class ControlRuntime { public readonly MidiSurfaceControl Definition; public readonly string SurfaceId; public readonly string Key; public MidiControlState State; public ControlRuntime(MidiSurfaceControl d, string surface, string key) { Definition=d; SurfaceId=surface; Key=key; State=new MidiControlState(d.initialValue,0,false,0,d.groupIndex); } }
         private sealed class MidiSurfaceRuntime
         {
-            public readonly MidiSurfaceInstance Instance; public string Status = "Disconnected"; public readonly HashSet<MidiDevice> Devices = new HashSet<MidiDevice>(); public RtMidi.MidiIn RawInput; public MidiOutputLease Output; public long OutputGeneration; public bool ForceFullResync;
+            public readonly MidiSurfaceInstance Instance; public readonly Dictionary<string, ControlRuntime> ControlsById = new Dictionary<string, ControlRuntime>(StringComparer.Ordinal); public string Status = "Disconnected"; public readonly HashSet<MidiDevice> Devices = new HashSet<MidiDevice>(); public RtMidi.MidiIn RawInput; public MidiOutputLease Output; public long OutputGeneration; public bool ForceFullResync;
             public readonly List<ApcPadLedUpdate> PendingApcPadUpdates = new List<ApcPadLedUpdate>(64);
             public readonly List<PendingApcPadState> PendingApcPadStates = new List<PendingApcPadState>(64);
             public Action<MidiNoteControl,float> NoteOn; public Action<MidiNoteControl> NoteOff; public Action<MidiNoteControl,float> PolyAftertouch; public Action<MidiValueControl,float> ControlChange; public Action<UnityEngine.InputSystem.Controls.AxisControl,float> PitchBend, Aftertouch;

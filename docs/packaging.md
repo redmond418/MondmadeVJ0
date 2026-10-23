@@ -5,6 +5,8 @@
 2026-10-24、現行commit `0d7999491060b8c8a40acd9386528e7b4b1f30ce` を指定した`git+file` UPM consumerでEditMode 149 passed / 2 optional skipped、PlayMode 8 passed / 6 Explicit skippedを確認した。macOS StandaloneOSX universal Mono PlayerとWindows x64 Mono Playerのcross-buildも成功し、Unity CLI error / warningは0件。XML: `/private/tmp/MondmadeVJ0-giturl-0d79994/current-commit-editmode.xml` / `/private/tmp/MondmadeVJ0-giturl-0d79994/current-commit-playmode.xml`。
 2026-10-23の後続A14 smokeではCoreMIDI計測点を`MIDISend`直前へ修正した。各61秒・120 / 174 / 240 BPMの累積submission driftは3.9339 / 2.9742 / 5.1804msで、依然1ms基準を超えた。旧計測点による値と外部receiver測定の区別は[実装・検証計画](implementation-plan.md)に記録する。
 
+2026-10-24、3msの送信spin窓を使った20秒×3速度smokeはClock missed / drop 0、p99 0.013 / 0.012 / 0.111ms、最大4.059 / 1.210 / 7.964ms、累積ずれ3.5227 / 1.2057 / 7.9616msだった。短縮smokeの結果はPassだが累積ずれ1msを超え、A14の10分条件も外部receiver実測も満たしていないため未合格。詳細は[実装・検証計画](implementation-plan.md)に記録する。
+
 ## 配置
 
 ```text
