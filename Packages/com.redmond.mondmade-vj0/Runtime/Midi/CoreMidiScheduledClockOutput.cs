@@ -115,7 +115,7 @@ namespace MondmadeVJ0
             }
         }
 
-        public void SendAt(byte[] message, long deadlineStopwatchTicks)
+        public long SendAt(byte[] message, long deadlineStopwatchTicks)
         {
             if (disposed) throw new ObjectDisposedException(nameof(CoreMidiScheduledClockOutput));
             if (message == null || message.Length == 0 || message.Length > MaximumMidiMessageLength)
@@ -135,9 +135,12 @@ namespace MondmadeVJ0
             if (lastPacket == IntPtr.Zero)
                 throw new InvalidOperationException("MIDIPacketListAdd could not append the MIDI Clock packet.");
 
+            // Measure at the native call boundary, after packet construction and timestamp conversion.
+            var sendCallTicks = Stopwatch.GetTimestamp();
             var status = MidiSend(port, destination, packetListBuffer);
             if (status != 0) throw new InvalidOperationException($"MIDISend failed with OSStatus {status}.");
             pendingDeadlines.Enqueue(deadlineStopwatchTicks);
+            return sendCallTicks;
         }
 
         public void WaitForPendingPackets()

@@ -464,9 +464,8 @@ namespace MondmadeVJ0
                                         continue;
                                     }
 
-                                    var invocationTicks = Stopwatch.GetTimestamp();
-                                    scheduled.SendAt(packet.Message, packet.DeadlineTicks);
-                                    packet.ClockMetrics?.RecordScheduled(packet.DeadlineTicks, invocationTicks,
+                                    var sendCallTicks = scheduled.SendAt(packet.Message, packet.DeadlineTicks);
+                                    packet.ClockMetrics?.RecordScheduled(packet.DeadlineTicks, sendCallTicks,
                                         packet.Generation, scheduled.ScheduleLeadTicks);
                                 }
                                 continue;

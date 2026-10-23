@@ -125,6 +125,10 @@
 
 上記は検証した環境に限る。Acceptance A01〜A24をすべて通過した記録が揃うまでは全体完了としない。
 
+### A14計測点補正
+
+CoreMIDIのsubmission計測を`MIDISend`直前へ移した。修正後のOSXEditor / Apple M1 / macOS 26.1.0 / APC mini mk2実機による61秒×3速度・全LED / 1000 Route smokeは、120 / 174 / 240 BPMの順にfps 59.973 / 59.982 / 59.986、Clock missed / dropped 0 / 0 / 0、p99 1.112 / 1.126 / 0.843ms、最大submission lateness 3.936 / 3.037 / 5.182ms、累積submission drift 3.9339 / 2.9742 / 5.1804msだった。LED 9.998 / 10.000 / 9.998Hz、各48,784 control statesを送信。短縮smokeは成功したが累積ずれは全速度で1msを超え、10分条件でもないためA14は未合格。新計測点でのXML: `/private/tmp/MondmadeVJ0-stage/a14-metric-correction-smoke.xml`。従来の10分probeで記録したfps / LED / missed pulse値は有効だが、p99・最大・累積値は`MIDISend` entryではなく呼出し前のworker時刻で算出していたため、新しい送信呼出し受入記録として扱わない。
+
 ### A14追加比較：CoreMIDI送信バッファ再利用
 
 Clock送信ごとのnative allocationをなくし、`MIDIPacketList`とpacket data領域を接続中に共有workerから再利用する。Stage OSXEditor / Apple M1 / macOS 26.1.0のAPC mini mk2実機で、全LED・1000 Route・各61秒の120 / 174 / 240 BPM smokeを実施した。XMLはPassed、FPS 59.994 / 59.979 / 59.984、Clock missed / dropped 0 / 0、submission p99 1.202 / 1.216 / 1.196ms、最大遅延4.196 / 3.060 / 4.909ms、累積submission drift 3.1108 / 2.5123 / 4.9079ms。関連MIDI EditMode 33/33、全EditMode 169/169も通過。過去測定に対する一貫した精度改善は見られず、A14の10分条件・1ms drift・外部receiverのtarget時刻測定も未達のため、完了とは扱わない。XML: `/private/tmp/MondmadeVJ0-stage/codemidi-buffer-a14-smoke.xml` / `/private/tmp/MondmadeVJ0-stage/post-coremidi-buffer-editmode.xml`。
