@@ -16,6 +16,12 @@ namespace MondmadeVJ0.Tests.Rendering
         public ClampedFloatParameter amount = new ClampedFloatParameter(0.25f, 0f, 1f);
         public ClampedFloatParameter secondary = new ClampedFloatParameter(0.5f, 0f, 1f);
         public ClampedFloatParameter followed = new ClampedFloatParameter(0.2f, 0f, 1f);
+        public IntParameter integer = new IntParameter(3);
+        public BoolParameter toggle = new BoolParameter(false);
+        public ColorParameter color = new ColorParameter(Color.black);
+        public Vector2Parameter vector2 = new Vector2Parameter(Vector2.zero);
+        public Vector3Parameter vector3 = new Vector3Parameter(Vector3.zero);
+        public Vector4Parameter vector4 = new Vector4Parameter(Vector4.zero);
     }
 
     public sealed class RenderingOutputResourceTests
@@ -220,6 +226,56 @@ namespace MondmadeVJ0.Tests.Rendering
         }
 
         [Test]
+        public void VolumeOutputsWriteEverySupportedValueType()
+        {
+            var sharedProfile = Own(ScriptableObject.CreateInstance<VolumeProfile>());
+            sharedProfile.Add<RenderingOutputTestComponent>(overrides: true);
+            var volumeObject = Own(new GameObject("Typed Volume Output Target"));
+            var volume = volumeObject.AddComponent<Volume>();
+            volume.sharedProfile = sharedProfile;
+            var scope = NewScope();
+
+            var integer = new VolumeIntOutput();
+            var boolean = new VolumeBoolOutput();
+            var color = new VolumeColorOutput();
+            var vector2 = new VolumeVector2Output();
+            var vector3 = new VolumeVectorOutput();
+            var vector4 = new VolumeVector4Output();
+            ConfigureVolumeOutput(integer, volume, nameof(RenderingOutputTestComponent.integer), VolumeOverrideMode.Always);
+            ConfigureVolumeOutput(boolean, volume, nameof(RenderingOutputTestComponent.toggle), VolumeOverrideMode.Always);
+            ConfigureVolumeOutput(color, volume, nameof(RenderingOutputTestComponent.color), VolumeOverrideMode.Always);
+            ConfigureVolumeOutput(vector2, volume, nameof(RenderingOutputTestComponent.vector2), VolumeOverrideMode.Always);
+            ConfigureVolumeOutput(vector3, volume, nameof(RenderingOutputTestComponent.vector3), VolumeOverrideMode.Always);
+            ConfigureVolumeOutput(vector4, volume, nameof(RenderingOutputTestComponent.vector4), VolumeOverrideMode.Always);
+
+            integer.Initialize(Context(scope));
+            boolean.Initialize(Context(scope));
+            color.Initialize(Context(scope));
+            vector2.Initialize(Context(scope));
+            vector3.Initialize(Context(scope));
+            vector4.Initialize(Context(scope));
+
+            var expectedColor = new Color(0.1f, 0.2f, 0.3f, 0.4f);
+            var expectedVector2 = new Vector2(1f, 2f);
+            var expectedVector3 = new Vector3(3f, 4f, 5f);
+            var expectedVector4 = new Vector4(6f, 7f, 8f, 9f);
+            integer.Write(17);
+            boolean.Write(true);
+            color.Write(expectedColor);
+            vector2.Write(expectedVector2);
+            vector3.Write(expectedVector3);
+            vector4.Write(expectedVector4);
+
+            var component = volume.profile.components.OfType<RenderingOutputTestComponent>().Single();
+            Assert.That(component.integer.value, Is.EqualTo(17));
+            Assert.That(component.toggle.value, Is.True);
+            Assert.That(component.color.value, Is.EqualTo(expectedColor));
+            Assert.That(component.vector2.value, Is.EqualTo(expectedVector2));
+            Assert.That(component.vector3.value, Is.EqualTo(expectedVector3));
+            Assert.That(component.vector4.value, Is.EqualTo(expectedVector4));
+        }
+
+        [Test]
         public void ValidationReportsWritersTargetingTheSameRendererSlotAndProperty()
         {
             var shader = Shader.Find("Standard");
@@ -346,7 +402,7 @@ namespace MondmadeVJ0.Tests.Rendering
             SetField(output, "materialIndex", 0);
         }
 
-        private static void ConfigureVolumeOutput(VolumeFloatOutput output, Volume volume, string parameterName, VolumeOverrideMode mode)
+        private static void ConfigureVolumeOutput(object output, Volume volume, string parameterName, VolumeOverrideMode mode)
         {
             SetField(output, "target", volume);
             SetField(output, "componentTypeName", typeof(RenderingOutputTestComponent).AssemblyQualifiedName);
