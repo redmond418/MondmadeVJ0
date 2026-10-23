@@ -16,6 +16,12 @@ namespace MondmadeVJ0
         {
             if (!hub.ValidateReference(reference)) throw new InvalidOperationException($"{node.GetType().Name} references an unknown MIDI control '{reference}'.");
         }
+        public static void RequireLedReference(MidiHub hub, MidiControlReference reference, RouteNode node)
+        {
+            RequireReference(hub, reference, node);
+            if (!hub.TryGetControlDefinition(reference, out var definition) || !definition.hasLed)
+                throw new InvalidOperationException($"{node.GetType().Name} references MIDI control '{reference}' without an LED.");
+        }
     }
 
     [Serializable]
@@ -159,7 +165,7 @@ namespace MondmadeVJ0
         public void Initialize(RouteContext context)
         {
             Hub = MidiNodeHelpers.RequireHub(context);
-            MidiNodeHelpers.RequireReference(Hub, control, this);
+            MidiNodeHelpers.RequireLedReference(Hub, control, this);
             Owner = Hub.CreateLayerOwner(context.Host);
             var owner = Owner;
             context.Scope.Add(() => Hub?.RemoveLayerOwner(owner));
@@ -204,7 +210,7 @@ namespace MondmadeVJ0
         {
             if (controls == null || controls.Length == 0) throw new InvalidOperationException("MidiLedIndexedIntOutput requires a control list.");
             hub = MidiNodeHelpers.RequireHub(context);
-            foreach (var reference in controls) MidiNodeHelpers.RequireReference(hub, reference, this);
+            foreach (var reference in controls) MidiNodeHelpers.RequireLedReference(hub, reference, this);
             owner = hub.CreateLayerOwner(context.Host);
             var token = owner;
             context.Scope.Add(() => hub?.RemoveLayerOwner(token));
@@ -234,7 +240,7 @@ namespace MondmadeVJ0
         {
             context = routeContext;
             hub = MidiNodeHelpers.RequireHub(context);
-            MidiNodeHelpers.RequireReference(hub, control, this);
+            MidiNodeHelpers.RequireLedReference(hub, control, this);
             if (durationSeconds < 0f || float.IsNaN(durationSeconds) || float.IsInfinity(durationSeconds)) throw new InvalidOperationException("LED flash duration must be finite and non-negative.");
             clock = context.FrameClock ?? throw new InvalidOperationException("LED flash requires FrameClock.");
             owner = hub.CreateLayerOwner(context.Host);

@@ -396,9 +396,14 @@ namespace MondmadeVJ0
         public void SetLed(MidiControlReference reference, string owner, MidiLedLayer layer, MidiLedStyle style)
         {
             var key = Key(reference.SurfaceInstanceId, reference.ControlId);
-            if (!controls.TryGetValue(key, out var control) || !control.Definition.hasLed)
+            if (!controls.TryGetValue(key, out var control))
             {
                 services?.Report("MIDI_LED_CONTROL", $"LED control '{reference}' is not defined in its profile.", nodeId: reference.ControlId);
+                return;
+            }
+            if (!control.Definition.hasLed)
+            {
+                services?.Report("MIDI_LED_CONTROL", $"MIDI control '{reference}' does not have an LED.", nodeId: reference.ControlId);
                 return;
             }
             if (!layers.TryGetValue(key, out var values)) layers.Add(key, values = new Dictionary<string, LayerValue>(StringComparer.Ordinal));

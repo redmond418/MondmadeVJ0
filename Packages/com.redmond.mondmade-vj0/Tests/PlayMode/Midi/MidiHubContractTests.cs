@@ -1,15 +1,26 @@
+using System;
 using System.Buffers;
-using System.Reflection;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using Object = UnityEngine.Object;
 using UnityEngine.TestTools;
 
 namespace MondmadeVJ0.Tests
 {
     public sealed class MidiHubContractTests
     {
+        private static readonly Type[] MidiLedOutputTypes =
+        {
+            typeof(MidiLedBoolOutput),
+            typeof(MidiLedValueFloatOutput),
+            typeof(MidiLedColorOutput),
+            typeof(MidiLedIndexedIntOutput),
+            typeof(MidiLedTriggerFlashOutput)
+        };
+
         [Test]
         public void MinisBackendRejectsOverlappingProductAssignmentsButRawOrdinalsRemainSelectable()
         {
@@ -335,6 +346,39 @@ namespace MondmadeVJ0.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator MidiLedOutputsRejectUnknownAndNonLedControlReferences()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "Non-LED control", new[]
+            {
+                new MidiSurfaceControl { id = "not-led", type = MidiControlType.Button, inputAddressType = MidiAddressType.Note, inputNumber = 10, hasLed = false }
+            });
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "Non-LED control", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var harness = CreateHarness(surface);
+            try
+            {
+                var context = CreateRouteContext(harness.Runtime);
+                foreach (var outputType in MidiLedOutputTypes)
+                {
+                    var missing = CreateMidiLedOutput(outputType, surface.InstanceId, "missing");
+                    var missingError = InitializeError(missing, context);
+                    Assert.That(missingError.Message, Does.Contain("unknown MIDI control"), outputType.Name);
+
+                    var nonLed = CreateMidiLedOutput(outputType, surface.InstanceId, "not-led");
+                    var nonLedError = InitializeError(nonLed, context);
+                    Assert.That(nonLedError.Message, Does.Contain("without an LED"), outputType.Name);
+                }
+            }
+            finally
+            {
+                DestroyHarness(harness);
+                Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
         private static MidiSurfaceControl LedControl(string id, int number)
             => new MidiSurfaceControl
             {
@@ -346,6 +390,34 @@ namespace MondmadeVJ0.Tests
                 outputAddressType = MidiAddressType.Note,
                 outputNumber = number
             };
+
+        private static object CreateMidiLedOutput(Type outputType, string surfaceId, string controlId)
+        {
+            var output = System.Activator.CreateInstance(outputType);
+            var reference = new MidiControlReference(surfaceId, controlId);
+            if (output is MidiLedIndexedIntOutput)
+                SetField(output, "controls", new[] { reference });
+            else
+                SetField(output, "control", reference);
+            return output;
+        }
+
+        private static InvalidOperationException InitializeError(object output, RouteContext context)
+        {
+            var initialize = output.GetType().GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(initialize, Is.Not.Null, output.GetType().Name);
+            var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() => initialize.Invoke(output, new object[] { context }));
+            Assert.That(exception.InnerException, Is.TypeOf<System.InvalidOperationException>(), output.GetType().Name);
+            return (System.InvalidOperationException)exception.InnerException;
+        }
+
+        private static RouteContext CreateRouteContext(MondmadeVJ0Runtime runtime)
+        {
+            var constructor = typeof(RouteContext).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic,
+                null, new[] { typeof(MondmadeVJ0Runtime), typeof(RouteHost), typeof(RuntimeStateStore), typeof(BindingScope), typeof(string) }, null);
+            Assert.That(constructor, Is.Not.Null);
+            return (RouteContext)constructor.Invoke(new object[] { runtime, null, new RuntimeStateStore(), new BindingScope(), "midi-led-invalid-target-test" });
+        }
 
         private static void AssertIndexedStyle(MidiHub hub, string surfaceId, string controlId, Color color, float brightness)
         {
