@@ -29,11 +29,12 @@ Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意�
 ## 開発環境と検証
 
 - Unity 6000.3.8f1、macOS arm64 Editor
-- EditMode 127/127、通常PlayMode 7/7を通過（PlayModeのExplicit 5件は実機操作待ち）
-- macOS universal Mono / IL2CPP Player、Windows x64 Mono Playerのbuildを確認
-- APC mini mk2でPad 1入力と緑色LED表示を確認
+- 全依存ProjectのEditMode 173/173、通常PlayMode 8/8を通過
+- 現行実装のmacOS universal Mono / IL2CPP Player buildを確認
+- APC mini mk2でPad / Fader / Track Buttonの入力、緑色LED、USB再接続後の状態保持を確認
+- Background Music入力の短時間probeを確認
 
-MIDI Clockの10分×3速度、USB切断・再接続、Windows IL2CPP、部分依存構成のPlayer buildなどは未確認です。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を正とします。
+MIDI ClockのA14規定負荷、外部受信機の到着時刻、Windows IL2CPP / Windows上の実行、現行成果の公開HTTPS UPM導入は未完了です。Windows x64 Monoは過去の版でbuildできましたが、現行commitのbuild試行ではEXEが生成されていません。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を正とします。
 
 ## 設計上の前提
 
