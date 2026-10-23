@@ -147,6 +147,10 @@ A17切断検知の1秒ごとのMIDI port enumerationをHighest-priority送信wor
 
 2026-10-24、CoreMIDIの8ms先行予約に対し、共有出力workerが期限直前の3msをspin待機する方式を20秒×3速度で再計測した。1000 Route・APC mini mk2全LEDを10Hzで更新し、Monitor captureを無効化したOSXEditor / Apple M1 / macOS 26.1.0のsmokeはUnity Test Runner上でPassedだが、smokeでは累積ずれ上限を判定しない。120 / 174 / 240 BPMの順にFPS 59.935 / 59.921 / 59.935、LED 9.998 / 9.995 / 9.997Hz、各15,984 LED control states、Clock missed / output drop 0 / 0、p99 submission lateness 0.013 / 0.012 / 0.111ms、最大lateness 4.059 / 1.210 / 7.964ms、累積submission drift 3.5227 / 1.2057 / 7.9616ms。p99・最大・欠落はこの短縮試験で目標内だが、3速度とも累積ずれ1msを超過し、10分×3速度でも外部受信機測定でもないためA14未合格。GC collectionsは各相1 / 1 / 1。RuntimeにはLED control composite keyのフレームごとの再生成をなくす変更を含めた。CoreMIDI `offline` propertyによる切断検出は利用可能時に使い、取得不能時はRtMidi port enumerationへfallbackする。現作業ツリーのEditMode 173/173、通常PlayMode 8/8も通過した。測定後に通常PlayModeを実行したため、標準`TestResults.xml`は後続結果で上書きされた。
 
+### A14 CoreMIDI仮想受信先probe
+
+2026-10-24、CoreMIDI `MIDISend`へMach host-time timestamp付きのMIDI Clockを直接送り、`kMIDIPropertyAdvanceScheduleTimeMuSec=0`の仮想destination callback時刻と各packet timestampを比較した。20秒ずつの120 / 174 / 240 BPMで予定数960 / 1,392 / 1,920 packetをすべて受信した。callback entryとtimestampとの差はp99絶対値1.911 / 0.074 / 0.077ms、最大絶対値16.345 / 0.113 / 4.514msだった。これはOS内virtual endpointのcallback配送を測るソフトウェアprobeで、APC mini mk2のUSB送信経路や外部受信機の実測ではない。OSのtimestamp schedulingを別経路で確認したが、受信callbackの最大値も10ms目標を超えた速度があるため、A14合格の証明には使わない。Probe source: `/private/tmp/midi_virtual_timing_probe.c`。
+
 ## 動作例として揃えるRoute
 
 - APC Fader → Remap → Smooth → VFX Float
