@@ -133,6 +133,10 @@ CoreMIDIのsubmission計測を`MIDISend`直前へ移した。修正後のOSXEdit
 
 Clock送信ごとのnative allocationをなくし、`MIDIPacketList`とpacket data領域を接続中に共有workerから再利用する。Stage OSXEditor / Apple M1 / macOS 26.1.0のAPC mini mk2実機で、全LED・1000 Route・各61秒の120 / 174 / 240 BPM smokeを実施した。XMLはPassed、FPS 59.994 / 59.979 / 59.984、Clock missed / dropped 0 / 0、submission p99 1.202 / 1.216 / 1.196ms、最大遅延4.196 / 3.060 / 4.909ms、累積submission drift 3.1108 / 2.5123 / 4.9079ms。関連MIDI EditMode 33/33、全EditMode 169/169も通過。過去測定に対する一貫した精度改善は見られず、A14の10分条件・1ms drift・外部receiverのtarget時刻測定も未達のため、完了とは扱わない。XML: `/private/tmp/MondmadeVJ0-stage/codemidi-buffer-a14-smoke.xml` / `/private/tmp/MondmadeVJ0-stage/post-coremidi-buffer-editmode.xml`。
 
+### A14追加比較：Port presence monitor分離
+
+A17切断検知の1秒ごとのMIDI port enumerationをHighest-priority送信workerからBelowNormalのmonitor threadへ移す案を試した。Unity 6000.3.8f1 OSXEditor / Apple M1 / macOS 26.1.0 / APC mini mk2実機、全LED・1000 Route、各61秒のsmokeでは、120 / 174 / 240 BPMの順にfps 59.572 / 59.912 / 59.884、Clock missed / output dropped 0 / 0、p99 lateness 8.898 / 1.115 / 0.605ms、最大lateness 19.558 / 12.916 / 11.378ms、累積submission drift 14.1362 / 12.8197 / 5.7785msだった。120 BPMはClock 2,950送信・約2,928期待、seek resync 84回となり、p99と最大遅延も基準超過。174 / 240 BPMも最大10ms超過。smokeは失敗し、10分×3速度のA14条件も満たさないため、monitor thread分離の変更は採用せず元の実装へ戻した。これはA14精度の改善を示さず、外部受信機での実際の到着時刻も未計測。測定値: Unity Editor PlayMode test log `A14_RESULT`、保存先 `/Users/redmond/Library/Application Support/DefaultCompany/MondmadeVJ0/TestResults.xml`。
+
 ## 動作例として揃えるRoute
 
 - APC Fader → Remap → Smooth → VFX Float
