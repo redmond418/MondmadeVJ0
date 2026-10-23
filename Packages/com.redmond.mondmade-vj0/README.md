@@ -26,4 +26,4 @@ MIDI ClockのA14は未合格です。CoreMIDI timestamped backendの8ms先行予
 
 APC mini mk2の左上Pad 1からNote 56を受信し、Pad 1の緑点灯を確認しました。Fader / Track Buttonは90秒の実機probeを7回行いましたが、全回Raw MIDI 0件で型付き入力は未確認です。APC mini mk2は接続状態を維持しており、USB切断・再接続は未試験です。
 
-CoreMIDI backendを含むPackage SHA `066590edf7353b158865311324cf6c194ca74779` を指定したローカル`git+file` UPM URLからの導入では、部分依存ProjectでEditMode 145 passed / 2 optional skippedを確認しました。公開HTTPS UPM URLからの導入は、現行commitのpushとrelease tagが未実施のため未検証です。Windows IL2CPP / 実機MIDI、実Audio device capture、外部受信機測定も未確認です。受入項目の詳細と個別測定値は[実装・検証計画](../../docs/implementation-plan.md)を参照してください。
+CoreMIDI backendを含むPackage SHA `066590edf7353b158865311324cf6c194ca74779` を指定したローカル`git+file` UPM URLからの導入では、部分依存ProjectでEditMode 145 passed / 2 optional skippedとmacOS universal Mono Player build（0 errors / 0 warnings）を確認しました。公開HTTPS UPM URLからの導入は、現行commitのpushとrelease tagが未実施のため未検証です。Windows IL2CPP / 実機MIDI、実Audio device capture、外部受信機測定も未確認です。受入項目の詳細と個別測定値は[実装・検証計画](../../docs/implementation-plan.md)を参照してください。
