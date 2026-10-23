@@ -85,7 +85,7 @@
 | A14 | MIDI Clock送信 | D11のBPM・10分負荷条件で送信誤差p99≤2ms・最大≤10ms・欠落0・累積期限ずれ≤1msを検証。外部受信機の実測と送信呼出しの結果を分けて記録 |
 | A15 | MIDI入力 | 各Control Type、Note On velocity=0相当のRelease、Relative Encoder各形式、同名Portの選択とSurface割当を検証する。2台同時の実機確認は二台目を所有しないため対象外 |
 | A16 | LED状態 | Toggle / IndexをMIDI以外から変更しても映像とLEDが一致。Interaction Flash終了で下位State Layerへ戻る |
-| A17 | LED送信・切断保持 | 静止状態では再送なし。同フレームの更新がControl単位で集約。APC mini mk2実機probe 1/1 Passed。実機Pad 1入力後、USB切断中もPad押下・Fader=0.7・Toggle=true・Hold=trueを保持し、再接続でOutput generationが進み、Panic中に80 LED全OFFをFull Resync、Panic解除後にPad 1 Desired値21（緑）を再送することを確認 |
+| A17 | LED送信・切断保持 | 静止状態では再送なし。同フレームの更新がControl単位で集約。APC mini mk2実機probe 1/1 Passed。2026-10-23に再確認（47.68秒、1/1 Passed）し、実機Pad 1入力後、USB切断中もPad押下・Fader=0.7・Toggle=true・Hold=trueを保持し、再接続でOutput generationが進み、Panic中に80 LED全OFFをFull Resync、Panic解除後にPad 1 Desired値21（緑）を再送することを確認 |
 | A18 | Input System | 2 Routeが同じActionを使い、一方をDisableしても他方を維持。既存PlayerInputとの所有権も確認 |
 | A19 | Unity Output | カタログ全Outputを対応型・不正型・対象欠落で検証。MPBの他Property共存、Material / Volume clone leaseと復元、Volume Override状態、Renderer / Transform / Volume書込競合、Video Value / Trigger保留・prepare失敗・10秒timeoutを確認 |
 | A20 | OSC / Audio | 型・チャンネル対応、受信thread、Queue、Hz指定、値の単位、Hysteresis / Cooldownを検証。無入力時の現在値も確認 |
