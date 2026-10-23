@@ -105,7 +105,7 @@ Keijiroのscoped registryが不足していればProject Settingsの設定項目
 3. 左上のPad 1を押すと立方体の表示とPad LEDが切り替わる。Fader 1で球の幅、Transport Phaseで球の高さが変化する。
 4. OSC外部同期は`/mondmade/transport`の4個のfloat（BPM、whole beat、fractional beat、running）を、SceneのOSC Transport Sync Adapterへ送る。
 
-Scene内のPort ordinalは開発時のAPC列挙結果を初期値にする。別の機器順序または別PCでは、利用側のRtMidi一覧に合わせて更新する。
+Scene内のPort ordinalは開発時のAPC列挙結果を初期値にする。「Add APC mini mk2 Surface」は既存Surfaceで使用中のordinalを避け、`Control` portを優先する（`Notes` portは選ばない）。同名の実機を複数使う場合は、利用側のRtMidi一覧と接続順に合わせて割当を確認する。実機2台での割当は未検証。
 
 ## 開発・更新・リリース
 

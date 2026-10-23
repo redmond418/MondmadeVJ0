@@ -37,7 +37,7 @@ namespace MondmadeVJ0.Editor
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Runtime", EditorStyles.boldLabel);
                 foreach (var surface in hub.Surfaces)
-                    if (surface != null) EditorGUILayout.LabelField(surface.ProductName, hub.GetSurfaceStatus(surface.InstanceId));
+                    if (surface != null) EditorGUILayout.LabelField($"{surface.ProductName} #{surface.DeviceOrdinal + 1}", hub.GetSurfaceStatus(surface.InstanceId));
                 EditorGUILayout.LabelField("Dropped control messages", hub.DroppedNormalMessages.ToString());
                 EditorGUILayout.LabelField("Dropped clock messages", hub.DroppedClockMessages.ToString());
                 EditorGUILayout.LabelField("Dropped output messages", hub.DroppedOutputMessages.ToString());
@@ -92,17 +92,38 @@ namespace MondmadeVJ0.Editor
                 AssetDatabase.SaveAssets();
             }
 
-            var input = FindPort(inputPorts, "apc mini mk2");
-            var output = FindPort(outputPorts, "apc mini mk2");
             serializedObject.Update();
             var array = serializedObject.FindProperty("surfaces");
+            var usedInputs = new HashSet<int>();
+            var usedOutputs = new HashSet<int>();
+            var deviceOrdinal = 0;
+            for (var i = 0; i < array.arraySize; i++)
+            {
+                var existing = array.GetArrayElementAtIndex(i);
+                var existingProfile = existing.FindPropertyRelative("profile").objectReferenceValue as MidiSurfaceProfile;
+                var existingProduct = existing.FindPropertyRelative("productName").stringValue;
+                if (string.IsNullOrEmpty(existingProduct)) existingProduct = existingProfile == null ? string.Empty : existingProfile.ProductName;
+                if (existingProduct.IndexOf(profile.ProductName, StringComparison.OrdinalIgnoreCase) < 0) continue;
+
+                deviceOrdinal++;
+                if ((MidiInputBackend)existing.FindPropertyRelative("inputBackend").enumValueIndex == MidiInputBackend.RtMidiRaw)
+                {
+                    var inputPort = existing.FindPropertyRelative("rawInputPortOrdinal").intValue;
+                    if (inputPort >= 0) usedInputs.Add(inputPort);
+                }
+                var outputPort = existing.FindPropertyRelative("outputPortOrdinal").intValue;
+                if (outputPort >= 0) usedOutputs.Add(outputPort);
+            }
+
+            var input = FindAvailablePort(inputPorts, "apc mini mk2", "control", usedInputs);
+            var output = FindAvailablePort(outputPorts, "apc mini mk2", "control", usedOutputs);
             var index = array.arraySize;
             array.InsertArrayElementAtIndex(index);
             var surface = array.GetArrayElementAtIndex(index);
             surface.FindPropertyRelative("instanceId").stringValue = Guid.NewGuid().ToString("N");
             surface.FindPropertyRelative("profile").objectReferenceValue = profile;
             surface.FindPropertyRelative("productName").stringValue = profile.ProductName;
-            surface.FindPropertyRelative("deviceOrdinal").intValue = 0;
+            surface.FindPropertyRelative("deviceOrdinal").intValue = deviceOrdinal;
             surface.FindPropertyRelative("inputBackend").enumValueIndex = (int)MidiInputBackend.RtMidiRaw;
             surface.FindPropertyRelative("rawInputPortOrdinal").intValue = input;
             surface.FindPropertyRelative("outputPortOrdinal").intValue = output;
@@ -110,10 +131,18 @@ namespace MondmadeVJ0.Editor
             EditorUtility.SetDirty(target);
         }
 
-        private static int FindPort(string[] ports, string fragment)
+        private static int FindAvailablePort(string[] ports, string productFragment, string preferredPortRole, ISet<int> usedOrdinals)
         {
-            for (var i = 0; i < ports.Length; i++) if (ports[i].IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0) return i;
-            return -1;
+            var fallback = -1;
+            for (var i = 0; ports != null && i < ports.Length; i++)
+            {
+                var name = ports[i] ?? string.Empty;
+                if (usedOrdinals != null && usedOrdinals.Contains(i)) continue;
+                if (name.IndexOf(productFragment, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (name.IndexOf(preferredPortRole, StringComparison.OrdinalIgnoreCase) >= 0) return i;
+                if (name.IndexOf("notes", StringComparison.OrdinalIgnoreCase) < 0 && fallback < 0) fallback = i;
+            }
+            return fallback;
         }
 
         internal static void EnsureDevMidiFolder()
