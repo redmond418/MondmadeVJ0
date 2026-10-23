@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -40,6 +41,7 @@ namespace MondmadeVJ0.Tests
             hub?.Shutdown(services);
             if (hubObject != null) UnityEngine.Object.DestroyImmediate(hubObject);
             if (runtimeObject != null) UnityEngine.Object.DestroyImmediate(runtimeObject);
+            outputSnapshots = null;
         }
 
         [Test]
@@ -212,6 +214,99 @@ namespace MondmadeVJ0.Tests
             }
         }
 
+        [Test, Timeout(10000)]
+        public void EveryOscOutputNodeEmitsItsDocumentedTypeShapeOverUdp()
+        {
+            var listenPort = FindAvailableUdpPort();
+            var outputPort = FindAvailableUdpPort();
+            while (outputPort == listenPort) outputPort = FindAvailableUdpPort();
+            SetField(hub, "listenPort", listenPort);
+            SetField(hub, "destinationAddress", "127.0.0.1");
+            SetField(hub, "destinationPort", outputPort);
+            using var outputServer = new OscServer(outputPort);
+            outputSnapshots = new ConcurrentDictionary<string, OscOutputSnapshot>(StringComparer.Ordinal);
+            OscMessageDispatcher.MessageCallback outputCallback = (address, data) =>
+            {
+                var count = data.GetElementCount();
+                var tags = new char[count];
+                var floats = new float[count];
+                var ints = new int[count];
+                for (var i = 0; i < count; i++)
+                {
+                    tags[i] = data.GetElementTypeTag(i);
+                    if (tags[i] == 'f') floats[i] = data.GetElementAsFloat(i);
+                    else if (tags[i] == 'i') ints[i] = data.GetElementAsInt(i);
+                }
+                outputSnapshots[address] = new OscOutputSnapshot(new string(tags), floats, ints);
+            };
+            outputServer.MessageDispatcher.AddCallback(string.Empty, outputCallback);
+            try
+            {
+                hub.Initialize(services);
+                SendOutput(new OscFloatOutput(), "/out/float", 0.75f);
+                SendOutput(new OscIntOutput(), "/out/int", -7);
+                SendOutput(new OscBoolOutput(), "/out/bool", true);
+                SendOutput(new OscVector2Output(), "/out/vector2", new Vector2(1f, 2f));
+                SendOutput(new OscVector3Output(), "/out/vector3", new Vector3(3f, 4f, 5f));
+                SendOutput(new OscVector4Output(), "/out/vector4", new Vector4(6f, 7f, 8f, 9f));
+                SendOutput(new OscColorOutput(), "/out/color", new Color(0.1f, 0.2f, 0.3f, 0.4f));
+                var trigger = new OscTriggerOutput();
+                SetSerializedField(trigger, "address", "/out/trigger");
+                trigger.Initialize(context);
+                trigger.Invoke();
+
+                Assert.That(SpinWait.SpinUntil(() => outputSnapshots.Count == 8, 2000), Is.True, "Each typed OSC output must reach the UDP receiver.");
+                AssertSnapshot("/out/float", "f", 0.75f);
+                AssertIntSnapshot("/out/int", "i", -7);
+                AssertIntSnapshot("/out/bool", "i", 1);
+                AssertSnapshot("/out/vector2", "ff", 1f, 2f);
+                AssertSnapshot("/out/vector3", "fff", 3f, 4f, 5f);
+                AssertSnapshot("/out/vector4", "ffff", 6f, 7f, 8f, 9f);
+                AssertSnapshot("/out/color", "ffff", 0.1f, 0.2f, 0.3f, 0.4f);
+                Assert.That(outputSnapshots["/out/trigger"].TypeTags, Is.Empty);
+                Assert.That(hub.SentCount, Is.EqualTo(8));
+            }
+            finally
+            {
+                outputServer.MessageDispatcher.RemoveCallback(string.Empty, outputCallback);
+                hub.Shutdown(services);
+            }
+        }
+
+        private void SendOutput<T>(IValueOutput<T> output, string address, T value)
+        {
+            SetSerializedField(output, "address", address);
+            output.Initialize(context);
+            output.Write(value);
+        }
+
+        private void AssertSnapshot(string address, string expectedTags, params float[] expectedValues)
+        {
+            Assert.That(outputSnapshots.ContainsKey(address), Is.True, "Expected OSC packet at " + address);
+            var snapshot = outputSnapshots[address];
+            Assert.That(snapshot.TypeTags, Is.EqualTo(expectedTags));
+            Assert.That(snapshot.FloatValues, Is.EqualTo(expectedValues));
+        }
+
+        private void AssertIntSnapshot(string address, string expectedTags, int expectedValue)
+        {
+            Assert.That(outputSnapshots.ContainsKey(address), Is.True, "Expected OSC packet at " + address);
+            var snapshot = outputSnapshots[address];
+            Assert.That(snapshot.TypeTags, Is.EqualTo(expectedTags));
+            Assert.That(snapshot.IntValues, Is.EqualTo(new[] { expectedValue }));
+        }
+
+        private ConcurrentDictionary<string, OscOutputSnapshot> outputSnapshots;
+
+        private sealed class OscOutputSnapshot
+        {
+            public readonly string TypeTags;
+            public readonly float[] FloatValues;
+            public readonly int[] IntValues;
+            public OscOutputSnapshot(string typeTags, float[] floatValues, int[] intValues)
+            { TypeTags = typeTags; FloatValues = floatValues; IntValues = intValues; }
+        }
+
         private static OscPacket FloatPacket(string address, float value)
             => new OscPacket(address, 1, 'f', '\0', '\0', '\0', value, 0f, 0f, 0f, 0, 0, 0, 0);
 
@@ -232,6 +327,18 @@ namespace MondmadeVJ0.Tests
             var field = target.GetType().GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Expected serialized field '{name}'.");
             field.SetValue(target, value);
+        }
+
+        private static void SetSerializedField<T>(object target, string name, T value)
+        {
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                var field = type.GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly);
+                if (field == null) continue;
+                field.SetValue(target, value);
+                return;
+            }
+            Assert.Fail($"Expected serialized field '{name}' on {target.GetType().Name}.");
         }
     }
 }
