@@ -10,7 +10,7 @@ namespace MondmadeVJ0.Tests
 {
     public sealed class ApcMiniMk2HardwareTests
     {
-        [Explicit("Requires a person to press APC mini mk2 Pad 1 while the test is waiting.")]
+        [Explicit("Requires a person to press and release APC mini mk2 Pad 1 while the test is waiting.")]
         [UnityTest]
         public IEnumerator ReceivesPhysicalPadOneThroughRtMidi()
         {
@@ -33,30 +33,48 @@ namespace MondmadeVJ0.Tests
             MidiRawMessage observed = default;
             void Capture(MidiRawMessage message)
             {
-                observed = message;
+                if (message.AddressType != MidiAddressType.Note || message.Number != 56) return;
+                if (!received) observed = message;
                 received = true;
+            }
+            var pressed = false;
+            var released = false;
+            var velocity = 0f;
+            void CaptureControl(MidiControlChange change)
+            {
+                if (change.Reference.SurfaceInstanceId != surface.InstanceId || change.Reference.ControlId != "pad_0_0") return;
+                if (change.PressedDown)
+                {
+                    pressed = true;
+                    velocity = change.State.Velocity;
+                }
+                if (change.Released) released = true;
             }
 
             hub.RawInputObserved += Capture;
+            hub.ControlChanged += CaptureControl;
             runtimeObject.SetActive(true);
             yield return null;
 
             try
             {
                 Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
-                Debug.Log("[APC_PROBE_READY] Press the upper-left APC mini mk2 Pad 1 once now.");
+                Assert.That(profile.Find("pad_0_0").type, Is.EqualTo(MidiControlType.VelocityButton));
+                Debug.Log("[APC_PROBE_READY] Press and release the upper-left APC mini mk2 Pad 1 once now.");
                 var deadline = Time.realtimeSinceStartup + 60f;
-                while (!received && Time.realtimeSinceStartup < deadline)
+                while ((!received || !pressed || !released) && Time.realtimeSinceStartup < deadline)
                     yield return null;
 
-                Assert.That(received, Is.True, "Press the APC mini mk2 upper-left Pad 1 while this test is waiting.");
+                Assert.That(received && pressed && released, Is.True, "Press and release the APC mini mk2 upper-left Pad 1 while this test is waiting.");
                 Assert.That(observed.SurfaceInstanceId, Is.EqualTo(surface.InstanceId));
                 Assert.That(observed.AddressType, Is.EqualTo(MidiAddressType.Note));
                 Assert.That(observed.Number, Is.EqualTo(56), "The upper-left Pad 1 sends note 56.");
+                Assert.That(velocity, Is.InRange(1f / 127f, 1f), "The pressed pad must publish its normalized velocity.");
             }
             finally
             {
                 hub.RawInputObserved -= Capture;
+                hub.ControlChanged -= CaptureControl;
                 Object.Destroy(runtimeObject);
                 Object.Destroy(profile);
             }

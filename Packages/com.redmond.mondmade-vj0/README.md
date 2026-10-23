@@ -24,6 +24,6 @@ Unity 6000.3.8f1の最新全依存Stage ProjectではEditMode 169/169が通過�
 
 MIDI ClockのA14は未合格です。CoreMIDI timestamped backendの8ms先行予約では61秒×3速度smokeのClock欠落 / output dropは0でしたが、submission driftは3.219 / 4.011 / 4.304msで1ms基準を超えました。外部受信機での期限出力実測は未実施です。stage-onlyの10 / 12ms比較も一貫して1ms以下にならず、20msはClock欠落・frame cadence悪化を生じたため、実装は8ms設定のままです。以前の10分×3速度RtMidi実測も欠落・最大遅延・累積ずれの条件で不合格です。
 
-APC mini mk2の左上Pad 1からNote 56を受信し、Pad 1の緑点灯を確認しました。実機probe #13（15.210秒）が通過し、Fader 1の型付き入力、Track Button 1の押下・解放を確認しました。probe #12ではFader CC 48の0〜1往復も記録しています。APC mini mk2は接続状態を維持しており、USB切断・再接続は未試験です。
+APC mini mk2の左上Pad 1からNote 56を受信し、VelocityButtonの押下・Releaseと正規化velocityを確認しました。型付きPad probe #14は9.214秒、Fader / Track Button probe #13は15.210秒で通過し、Fader 1の型付き入力とTrack Button 1の押下・解放も確認しました。probe #12ではFader CC 48の0〜1往復を記録しています。APC mini mk2は接続状態を維持しており、USB切断・再接続は未試験です。
 
 CoreMIDI backendを含むPackage SHA `066590edf7353b158865311324cf6c194ca74779` を指定したローカル`git+file` UPM URLからの導入では、部分依存ProjectでEditMode 145 passed / 2 optional skipped、PlayMode 7 passed / 6 Explicit skippedとmacOS universal Mono Player build（0 errors / 0 warnings）を確認しました。公開HTTPS UPM URLからの導入は、現行commitのpushとrelease tagが未実施のため未検証です。Windows IL2CPP / 実機MIDI、実Audio device capture、外部受信機測定も未確認です。受入項目の詳細と個別測定値は[実装・検証計画](../../docs/implementation-plan.md)を参照してください。
