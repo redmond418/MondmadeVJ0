@@ -76,7 +76,7 @@ Core Editorは利用可能なIntegrationだけを型登録から列挙する。�
 
 OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
 
-任意依存なし構成はR3 / Unsafe / NuGetForUnity / Unity標準moduleだけでlocal package import・compileを確認し、macOS universal IL2CPPとWindows x64 Mono Player buildも成功した。Input System＋MIDI＋OSC部分構成は過去の完全SHA `git+file` UPM URLでimport・compileとPlayer buildを確認済み。最新全依存Stage ProjectはEditMode 169/169、通常PlayMode 7 passed / 6 Explicit skipped、macOS universal Mono / IL2CPP Player build成功。Windows x64 Mono cross-buildも成功（Unity Cloud Diagnostics symbol-upload warning 2件）。過去の完全SHA `f238b0a20e0c9b3430f74f2f1c41ed6667ca4257` UPM URL検証は当時の内容を対象とする。現行成果のHTTPS UPM導入はcommit未push・release tag未作成のため未検証。Windows IL2CPPは対象OS上でのbuildが必要で、このmacOS hostでは確認できない。
+任意依存なし構成はR3 / Unsafe / NuGetForUnity / Unity標準moduleだけでlocal package import・compileを確認し、macOS universal IL2CPPとWindows x64 Mono Player buildも成功した。Input System＋MIDI＋OSC部分構成は過去の完全SHA `git+file` UPM URLでimport・compileとPlayer buildを確認済み。最新全依存Stage ProjectはEditMode 169/169、通常PlayMode 7 passed / 6 Explicit skipped、macOS universal Mono / IL2CPP Player build成功。Windows x64 Mono cross-buildも成功（Unity Cloud Diagnostics symbol-upload warning 2件）。過去の完全SHA `f238b0a20e0c9b3430f74f2f1c41ed6667ca4257` UPM URL検証は当時の内容を対象とする。CoreMIDI backendを含むPackage SHA `066590edf7353b158865311324cf6c194ca74779` の`git+file` UPM URLでは部分依存Projectへ導入し、EditMode 145 passed / 2 optional skippedを確認した。現行成果のHTTPS UPM導入はcommit未push・release tag未作成のため未検証。Windows IL2CPPは対象OS上でのbuildが必要で、このmacOS hostでは確認できない。
 
 ## 導入手順
 
