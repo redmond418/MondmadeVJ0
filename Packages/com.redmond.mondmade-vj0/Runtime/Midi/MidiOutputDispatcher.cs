@@ -167,6 +167,9 @@ namespace MondmadeVJ0
         public long SentLedControls => port == null ? 0 : port.SentLedControls;
         public double MaximumLedSendDurationMilliseconds => port == null ? 0d : port.MaximumLedSendDurationMilliseconds;
         public int PortOrdinal => port == null ? -1 : port.Ordinal;
+        public string ClockOutputBackend => port == null ? "Unavailable" : port.ClockOutputBackend;
+        public double ClockScheduleLeadMilliseconds => port == null ? 0d : port.ClockScheduleLeadMilliseconds;
+        public string ClockOutputDiagnostic => port?.ClockOutputDiagnostic ?? string.Empty;
         public long DroppedMessages => port == null ? 0 : port.DroppedMessages;
         public int PendingMessageCount => port == null ? 0 : port.PendingMessageCount;
         public bool IsIdle => port == null || port.IsIdle;
@@ -213,6 +216,11 @@ namespace MondmadeVJ0
         private int clockScheduleGeneration;
         private long connectionGeneration;
         private int inFlight;
+        private string clockOutputBackend = "RtMidi immediate";
+        private string clockOutputDiagnostic = string.Empty;
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+        private volatile CoreMidiScheduledClockOutput scheduledClockOutput;
+#endif
 
         public int Ordinal { get; }
         public bool IsConnected => Volatile.Read(ref connected) != 0;
@@ -222,6 +230,19 @@ namespace MondmadeVJ0
         public long SentLedControls => Interlocked.Read(ref sentLedControls);
         public double MaximumLedSendDurationMilliseconds
             => Interlocked.Read(ref maximumLedSendDurationTicks) * 1000d / Stopwatch.Frequency;
+        public string ClockOutputBackend => Volatile.Read(ref clockOutputBackend);
+        public double ClockScheduleLeadMilliseconds
+        {
+            get
+            {
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                var scheduled = scheduledClockOutput;
+                if (scheduled != null) return scheduled.ScheduleLeadMilliseconds;
+#endif
+                return 0d;
+            }
+        }
+        public string ClockOutputDiagnostic => Volatile.Read(ref clockOutputDiagnostic);
         public long DroppedMessages { get { lock (queueLock) return queue.DroppedMessages; } }
         public int PendingMessageCount { get { lock (queueLock) return queue.Count + Volatile.Read(ref inFlight); } }
         public bool IsIdle => PendingMessageCount == 0;
@@ -263,6 +284,13 @@ namespace MondmadeVJ0
                     Volatile.Write(ref clockScheduleGeneration, generation);
                     queue.SetClockGeneration(generation);
                 }
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                try { scheduledClockOutput?.WaitForPendingPackets(); }
+                catch (Exception exception)
+                {
+                    Volatile.Write(ref clockOutputDiagnostic, "Could not wait for scheduled CoreMIDI Clock messages: " + exception.Message);
+                }
+#endif
             }
             wake.Set();
             return true;
@@ -281,6 +309,13 @@ namespace MondmadeVJ0
                         queue.SetClockGeneration(0);
                     }
                 }
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                try { scheduledClockOutput?.WaitForPendingPackets(); }
+                catch (Exception exception)
+                {
+                    Volatile.Write(ref clockOutputDiagnostic, "Could not wait for scheduled CoreMIDI Clock messages: " + exception.Message);
+                }
+#endif
             }
             wake.Set();
         }
@@ -393,6 +428,10 @@ namespace MondmadeVJ0
                 {
                     var nowTicks = Stopwatch.GetTimestamp();
                     var clockSpinLeadTicks = Stopwatch.Frequency * ClockSpinWaitLeadMilliseconds / 1000d;
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                    var scheduled = scheduledClockOutput;
+                    if (scheduled != null) clockSpinLeadTicks = scheduled.ScheduleLeadTicks;
+#endif
                     var clockLedGuardTicks = Stopwatch.Frequency * ClockLedGuardMilliseconds / 1000d;
                     hasPacket = queue.TryDequeue(nowTicks, clockSpinLeadTicks, out packet, clockLedGuardTicks);
                     waitMilliseconds = queue.GetClockPollWaitMilliseconds(nowTicks, clockSpinLeadTicks);
@@ -411,6 +450,28 @@ namespace MondmadeVJ0
                     {
                         if (packet.Kind == MidiOutputPacketKind.Clock)
                         {
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                            var scheduled = scheduledClockOutput;
+                            if (scheduled != null)
+                            {
+                                lock (clockSendLock)
+                                {
+                                    var now = Stopwatch.GetTimestamp();
+                                    if (packet.Generation != Volatile.Read(ref clockScheduleGeneration) ||
+                                        now - packet.DeadlineTicks >= packet.PeriodTicks)
+                                    {
+                                        packet.ClockMetrics?.RecordMissed();
+                                        continue;
+                                    }
+
+                                    var invocationTicks = Stopwatch.GetTimestamp();
+                                    scheduled.SendAt(packet.Message, packet.DeadlineTicks);
+                                    packet.ClockMetrics?.RecordScheduled(packet.DeadlineTicks, invocationTicks,
+                                        packet.Generation, scheduled.ScheduleLeadTicks);
+                                }
+                                continue;
+                            }
+#endif
                             if (!WaitForClockDeadline(packet)) continue;
 
                             lock (clockSendLock)
@@ -481,6 +542,9 @@ namespace MondmadeVJ0
         private void TryOpenOutput()
         {
             RtMidi.MidiOut candidate = null;
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+            CoreMidiScheduledClockOutput scheduledCandidate = null;
+#endif
             try
             {
                 candidate = RtMidi.MidiOut.Create();
@@ -498,8 +562,17 @@ namespace MondmadeVJ0
                     return;
                 }
                 candidate.OpenPort(Ordinal, "Mondmade VJ0 " + clientName);
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                scheduledCandidate = CoreMidiScheduledClockOutput.TryCreate(Ordinal, expectedPortName, out var scheduledError);
+                Volatile.Write(ref clockOutputDiagnostic, scheduledCandidate == null ? scheduledError ?? string.Empty : string.Empty);
+#endif
                 output = candidate;
                 candidate = null;
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                scheduledClockOutput = scheduledCandidate;
+                scheduledCandidate = null;
+                Volatile.Write(ref clockOutputBackend, scheduledClockOutput == null ? "RtMidi immediate" : "CoreMIDI timestamped");
+#endif
                 lock (queueLock) queue.DiscardRealtime();
                 Interlocked.Increment(ref connectionGeneration);
                 Volatile.Write(ref connected, 1);
@@ -508,6 +581,9 @@ namespace MondmadeVJ0
             catch (Exception exception)
             {
                 candidate?.Dispose();
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                scheduledCandidate?.Dispose();
+#endif
                 lock (queueLock) lastError = exception.Message;
                 Volatile.Write(ref status, "Disconnected");
             }
@@ -533,10 +609,20 @@ namespace MondmadeVJ0
 
         private void CloseOutput()
         {
-            var current = output;
-            output = null;
-            try { current?.Dispose(); }
-            catch { }
+            lock (clockSendLock)
+            {
+                var current = output;
+                output = null;
+                try { current?.Dispose(); }
+                catch { }
+#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+                var scheduled = scheduledClockOutput;
+                scheduledClockOutput = null;
+                Volatile.Write(ref clockOutputBackend, "RtMidi immediate");
+                try { scheduled?.Dispose(); }
+                catch { }
+#endif
+            }
         }
 
         private static void UpdateMaximum(ref long target, long value)
@@ -901,9 +987,15 @@ namespace MondmadeVJ0
         }
 
         public void RecordSent(long deadline, long actual, int generation)
+            => RecordSubmission(deadline, actual, generation);
+
+        public void RecordScheduled(long outputDeadline, long actualSubmission, int generation, long scheduleLeadTicks)
+            => RecordSubmission(outputDeadline - Math.Max(0L, scheduleLeadTicks), actualSubmission, generation);
+
+        private void RecordSubmission(long submissionDeadline, long actualSubmission, int generation)
         {
             Interlocked.Increment(ref sentPulses);
-            var late = Math.Max(0L, actual - deadline);
+            var late = Math.Max(0L, actualSubmission - submissionDeadline);
             var latenessMicroseconds = (long)Math.Ceiling(late * 1_000_000d / Stopwatch.Frequency);
             UpdateMaximum(ref maximumLatenessMicroseconds, latenessMicroseconds);
                 var sampleIndex = Interlocked.Read(ref sampleCount);
@@ -921,11 +1013,11 @@ namespace MondmadeVJ0
             if (baselineGeneration != generation)
             {
                 baselineGeneration = generation;
-                baselineDeadline = deadline;
-                baselineActual = actual;
+                baselineDeadline = submissionDeadline;
+                baselineActual = actualSubmission;
                 return;
             }
-            var drift = Math.Abs((actual - baselineActual) - (deadline - baselineDeadline));
+            var drift = Math.Abs((actualSubmission - baselineActual) - (submissionDeadline - baselineDeadline));
             UpdateMaximum(ref maximumDeadlineDriftTicks, drift);
         }
 

@@ -289,6 +289,65 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void ClockMetricsMeasureScheduledSubmissionAgainstItsBackendLeadTime()
+        {
+            var metrics = new MidiClockSendMetrics();
+            var lead = Stopwatch.Frequency / 125L;
+            var oneMillisecond = Stopwatch.Frequency / 1000L;
+            metrics.RecordScheduled(100 * Stopwatch.Frequency, 100 * Stopwatch.Frequency - lead + oneMillisecond, 1, lead);
+            metrics.RecordScheduled(101 * Stopwatch.Frequency, 101 * Stopwatch.Frequency - lead + oneMillisecond, 1, lead);
+            metrics.RecordScheduled(102 * Stopwatch.Frequency, 102 * Stopwatch.Frequency - lead + 3 * oneMillisecond, 1, lead);
+
+            Assert.That(metrics.MaximumDeadlineDriftMilliseconds, Is.EqualTo(2d).Within(0.001d));
+            Assert.That(metrics.MaximumLatenessMilliseconds, Is.EqualTo(3d).Within(0.001d));
+            Assert.That(metrics.SentPulses, Is.EqualTo(3));
+
+        }
+
+#if UNITY_EDITOR_OSX
+        [TestCase("APC mini mk2 Control", "Control", true)]
+        [TestCase("MIDI Device:Control", "Control", true)]
+        [TestCase("Control", "APC mini mk2 Control", true)]
+        [TestCase("APC mini mk2 Control", "Notes", false)]
+        [TestCase("APC mini mk2Control", "Control", false)]
+        [TestCase("APC mini mk2 Control 2", "Control", false)]
+        public void CoreMidiNameResolutionRequiresAnExactOrSeparatedSuffixMatch(string rtMidiName, string coreMidiName, bool expected)
+        {
+            Assert.That(CoreMidiScheduledClockOutput.ArePortNamesCompatible(rtMidiName, coreMidiName), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void CoreMidiDestinationResolutionPrefersAnExactUniqueNameAndRejectsAmbiguousMatches()
+        {
+            Assert.That(CoreMidiScheduledClockOutput.ResolveUniqueDestinationIndex(
+                "APC mini mk2 Control", new[] { "Control", "APC mini mk2 Control" }), Is.EqualTo(1));
+            Assert.That(CoreMidiScheduledClockOutput.ResolveUniqueDestinationIndex(
+                "APC mini mk2 Control", new[] { "Control" }), Is.EqualTo(0));
+            Assert.That(CoreMidiScheduledClockOutput.ResolveUniqueDestinationIndex(
+                "Control", new[] { "APC mini mk2 Control", "MIDI Device:Control" }), Is.EqualTo(-1));
+            Assert.That(CoreMidiScheduledClockOutput.ResolveUniqueDestinationIndex(
+                "APC mini mk2 Control", new[] { "APC mini mk2 Control", "APC mini mk2 Control" }), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void CoreMidiTimestampConversionMapsStopwatchDeltaIntoMachHostTicks()
+        {
+            var timestamp = CoreMidiScheduledClockOutput.ConvertDeadlineToHostTime(
+                deadlineTicks: 1010, nowTicks: 1000, nowHostTime: 500, timebaseNumerator: 1,
+                timebaseDenominator: 1, stopwatchFrequency: 1000);
+
+            Assert.That(timestamp, Is.EqualTo(10_000_500UL), "Ten milliseconds become ten million nanoseconds when the test timebase is 1 ns per host tick.");
+        }
+
+        [Test]
+        public void CoreMidiTimestampConversionUsesImmediateTimestampForExpiredOrInvalidTargets()
+        {
+            Assert.That(CoreMidiScheduledClockOutput.ConvertDeadlineToHostTime(1000, 1000, 500, 1, 1, 1000), Is.Zero);
+            Assert.That(CoreMidiScheduledClockOutput.ConvertDeadlineToHostTime(1010, 1000, 500, 0, 1, 1000), Is.Zero);
+        }
+#endif
+
+        [Test]
         public void SharedOutputQueueIsBoundedAndReportsRejectedNewMessages()
         {
             var queue = new MidiOutputWorkQueue();

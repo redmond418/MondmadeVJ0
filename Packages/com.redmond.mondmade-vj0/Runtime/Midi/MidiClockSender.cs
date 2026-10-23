@@ -45,6 +45,12 @@ namespace MondmadeVJ0
         public double MaximumLatenessMilliseconds => metrics.MaximumLatenessMilliseconds;
         public double MaximumDeadlineDriftMilliseconds => metrics.MaximumDeadlineDriftMilliseconds;
         public double P99LatenessMilliseconds => metrics.P99LatenessMilliseconds;
+        public string OutputBackend => output?.ClockOutputBackend ?? "Unavailable";
+        public double OutputScheduleLeadMilliseconds => output?.ClockScheduleLeadMilliseconds ?? 0d;
+        public string OutputBackendDiagnostic => output?.ClockOutputDiagnostic ?? string.Empty;
+        public string OutputTimingMetricBasis => OutputBackend == "CoreMIDI timestamped"
+            ? "MIDISend call vs target deadline minus schedule lead; receiver timing requires external measurement"
+            : "SendMessage call vs target deadline";
 
         public void Register(RuntimeServices runtimeServices) { services = runtimeServices; runtimeServices.Register(this); }
 
