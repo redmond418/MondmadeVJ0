@@ -276,6 +276,113 @@ namespace MondmadeVJ0.Tests.Rendering
         }
 
         [Test]
+        public void RendererOutputsWriteEverySupportedValueTypeAndClampTextureIndex()
+        {
+            var shader = Shader.Find("Hidden/MondmadeVJ0/OutputContractProperties");
+            Assert.That(shader, Is.Not.Null, "The rendering output test shader must be imported.");
+            var material = Own(new Material(shader));
+            var rendererObject = Own(new GameObject("Typed Renderer Output Target"));
+            var renderer = rendererObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            var firstTexture = Own(new Texture2D(2, 2));
+            var secondTexture = Own(new Texture2D(2, 2));
+
+            var floatOutput = new RendererFloatOutput();
+            var intOutput = new RendererIntOutput();
+            var vectorOutput = new RendererVectorOutput();
+            var colorOutput = new RendererColorOutput();
+            var textureOutput = new RendererTextureOutput();
+            var textureIndexOutput = new RendererTextureIndexOutput();
+            ConfigureRendererOutput(floatOutput, renderer, "_ContractFloat");
+            ConfigureRendererOutput(intOutput, renderer, "_ContractInt");
+            ConfigureRendererOutput(vectorOutput, renderer, "_ContractVector");
+            ConfigureRendererOutput(colorOutput, renderer, "_ContractColor");
+            ConfigureRendererOutput(textureOutput, renderer, "_ContractTexture");
+            ConfigureRendererOutput(textureIndexOutput, renderer, "_ContractTexture");
+            SetField(textureIndexOutput, "textures", new Texture[] { firstTexture, secondTexture });
+
+            floatOutput.Initialize(null);
+            intOutput.Initialize(null);
+            vectorOutput.Initialize(null);
+            colorOutput.Initialize(null);
+            textureOutput.Initialize(null);
+            textureIndexOutput.Initialize(null);
+
+            var expectedVector = new Vector4(1f, 2f, 3f, 4f);
+            var expectedColor = new Color(0.1f, 0.2f, 0.3f, 0.4f);
+            floatOutput.Write(0.75f);
+            intOutput.Write(17);
+            vectorOutput.Write(expectedVector);
+            colorOutput.Write(expectedColor);
+            textureOutput.Write(firstTexture);
+            textureIndexOutput.Write(99);
+
+            var propertyBlock = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(propertyBlock, 0);
+            Assert.That(propertyBlock.GetFloat("_ContractFloat"), Is.EqualTo(0.75f).Within(0.001f));
+            Assert.That(propertyBlock.GetInteger("_ContractInt"), Is.EqualTo(17));
+            Assert.That(propertyBlock.GetVector("_ContractVector"), Is.EqualTo(expectedVector));
+            var actualColor = propertyBlock.GetColor("_ContractColor");
+            Assert.That(actualColor.r, Is.EqualTo(expectedColor.r).Within(0.001f));
+            Assert.That(actualColor.g, Is.EqualTo(expectedColor.g).Within(0.001f));
+            Assert.That(actualColor.b, Is.EqualTo(expectedColor.b).Within(0.001f));
+            Assert.That(actualColor.a, Is.EqualTo(expectedColor.a).Within(0.001f));
+            Assert.That(propertyBlock.GetTexture("_ContractTexture"), Is.SameAs(secondTexture));
+        }
+
+        [Test]
+        public void MaterialOutputsWriteEverySupportedValueTypeAndReleaseTheirSharedLease()
+        {
+            var shader = Shader.Find("Hidden/MondmadeVJ0/OutputContractProperties");
+            Assert.That(shader, Is.Not.Null, "The rendering output test shader must be imported.");
+            var sharedMaterial = Own(new Material(shader));
+            var rendererObject = Own(new GameObject("Typed Material Output Target"));
+            var renderer = rendererObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = sharedMaterial;
+            var texture = Own(new Texture2D(2, 2));
+            var scope = NewScope();
+
+            var floatOutput = new MaterialFloatOutput();
+            var intOutput = new MaterialIntOutput();
+            var vectorOutput = new MaterialVectorOutput();
+            var colorOutput = new MaterialColorOutput();
+            var textureOutput = new MaterialTextureOutput();
+            ConfigureMaterialOutput(floatOutput, renderer, "_ContractFloat");
+            ConfigureMaterialOutput(intOutput, renderer, "_ContractInt");
+            ConfigureMaterialOutput(vectorOutput, renderer, "_ContractVector");
+            ConfigureMaterialOutput(colorOutput, renderer, "_ContractColor");
+            ConfigureMaterialOutput(textureOutput, renderer, "_ContractTexture");
+            floatOutput.Initialize(Context(scope));
+            intOutput.Initialize(Context(scope));
+            vectorOutput.Initialize(Context(scope));
+            colorOutput.Initialize(Context(scope));
+            textureOutput.Initialize(Context(scope));
+
+            var expectedVector = new Vector4(5f, 6f, 7f, 8f);
+            var expectedColor = new Color(0.4f, 0.3f, 0.2f, 0.1f);
+            floatOutput.Write(0.5f);
+            intOutput.Write(23);
+            vectorOutput.Write(expectedVector);
+            colorOutput.Write(expectedColor);
+            textureOutput.Write(texture);
+
+            var runtimeMaterial = renderer.sharedMaterial;
+            Assert.That(runtimeMaterial, Is.Not.SameAs(sharedMaterial));
+            Assert.That(runtimeMaterial.GetFloat("_ContractFloat"), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(runtimeMaterial.GetInteger("_ContractInt"), Is.EqualTo(23));
+            Assert.That(runtimeMaterial.GetVector("_ContractVector"), Is.EqualTo(expectedVector));
+            var actualColor = runtimeMaterial.GetColor("_ContractColor");
+            Assert.That(actualColor.r, Is.EqualTo(expectedColor.r).Within(0.001f));
+            Assert.That(actualColor.g, Is.EqualTo(expectedColor.g).Within(0.001f));
+            Assert.That(actualColor.b, Is.EqualTo(expectedColor.b).Within(0.001f));
+            Assert.That(actualColor.a, Is.EqualTo(expectedColor.a).Within(0.001f));
+            Assert.That(runtimeMaterial.GetTexture("_ContractTexture"), Is.SameAs(texture));
+
+            scope.Dispose();
+            Assert.That(renderer.sharedMaterial, Is.SameAs(sharedMaterial));
+        }
+
+        [Test]
         public void ValidationReportsWritersTargetingTheSameRendererSlotAndProperty()
         {
             var shader = Shader.Find("Standard");
@@ -395,9 +502,16 @@ namespace MondmadeVJ0.Tests.Rendering
             return value;
         }
 
-        private static void ConfigureMaterialOutput(MaterialFloatOutput output, Renderer renderer, string propertyName)
+        private static void ConfigureMaterialOutput(object output, Renderer renderer, string propertyName)
         {
             SetField(output, "renderer", renderer);
+            SetField(output, "propertyName", propertyName);
+            SetField(output, "materialIndex", 0);
+        }
+
+        private static void ConfigureRendererOutput(object output, Renderer renderer, string propertyName)
+        {
+            SetField(output, "target", renderer);
             SetField(output, "propertyName", propertyName);
             SetField(output, "materialIndex", 0);
         }

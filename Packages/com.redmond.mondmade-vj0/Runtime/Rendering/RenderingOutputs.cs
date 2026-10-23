@@ -72,7 +72,7 @@ namespace MondmadeVJ0
     }
 
     [Serializable] public sealed class RendererFloatOutput : RendererPropertyOutput<float> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Float; protected override void Set(MaterialPropertyBlock block,int id,float value)=>block.SetFloat(id,value); }
-    [Serializable] public sealed class RendererIntOutput : RendererPropertyOutput<int> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Int; protected override void Set(MaterialPropertyBlock block,int id,int value)=>block.SetInt(id,value); }
+    [Serializable] public sealed class RendererIntOutput : RendererPropertyOutput<int> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Int; protected override void Set(MaterialPropertyBlock block,int id,int value)=>block.SetInteger(id,value); }
     [Serializable] public sealed class RendererVectorOutput : RendererPropertyOutput<Vector4> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Vector; protected override void Set(MaterialPropertyBlock block,int id,Vector4 value)=>block.SetVector(id,value); }
     [Serializable] public sealed class RendererColorOutput : RendererPropertyOutput<Color> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Color; protected override void Set(MaterialPropertyBlock block,int id,Color value)=>block.SetColor(id,value); }
     [Serializable] public sealed class RendererTextureOutput : RendererPropertyOutput<Texture> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Texture; protected override void Set(MaterialPropertyBlock block,int id,Texture value)=>block.SetTexture(id,value); }
@@ -143,7 +143,7 @@ namespace MondmadeVJ0
     }
 
     [Serializable] public sealed class MaterialFloatOutput : MaterialPropertyOutput<float> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Float; protected override void Set(int id,float value)=>outputMaterial.SetFloat(id,value); }
-    [Serializable] public sealed class MaterialIntOutput : MaterialPropertyOutput<int> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Int; protected override void Set(int id,int value)=>outputMaterial.SetInt(id,value); }
+    [Serializable] public sealed class MaterialIntOutput : MaterialPropertyOutput<int> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Int; protected override void Set(int id,int value)=>outputMaterial.SetInteger(id,value); }
     [Serializable] public sealed class MaterialVectorOutput : MaterialPropertyOutput<Vector4> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Vector; protected override void Set(int id,Vector4 value)=>outputMaterial.SetVector(id,value); }
     [Serializable] public sealed class MaterialColorOutput : MaterialPropertyOutput<Color> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Color; protected override void Set(int id,Color value)=>outputMaterial.SetColor(id,value); }
     [Serializable] public sealed class MaterialTextureOutput : MaterialPropertyOutput<Texture> { protected override ShaderPropertyType PropertyType => ShaderPropertyType.Texture; protected override void Set(int id,Texture value)=>outputMaterial.SetTexture(id,value); }
