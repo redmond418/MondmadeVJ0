@@ -140,6 +140,8 @@ Portを1秒ごとに再列挙し、失敗時は1秒間隔で再接続する。Su
 
 ProfileはInput / Feedback address、Controlの型、範囲、座標、Driver IDを持ち、Driverはメッセージdecode / encode・Capabilityを担当する。Relative EncoderはTwosComplement / BinaryOffset / SignMagnitudeをProfileで明示し、deltaを加算して設定範囲へClampする。形式の自動推測はしない。
 
+APC mini mk2 QuickStart ProfileのControl mappingは[メーカーのCommunications Protocol](https://cdn.inmusicbrands.com/akai/attachments/APC%20mini%20mk2%20-%20Communication%20Protocol%20-%20v1.0.pdf)に合わせる。Port 0のPadはSession Viewのchannel `0x00`〜`0x0F`またはDrum Modeのchannel `0x09`でNote `0x00`〜`0x3F`を送るため、ProfileはPad channelを限定しない。Track Button 1〜8はchannel 0のNote `0x64`〜`0x6B`、Fader 1〜9はchannel 0のCC `0x30`〜`0x38`。Note ModeはPort 1を使うため、別ProfileまたはPort指定が必要になる。
+
 XY Controlは同じSurface上で個別のControl IDを持つX / Y軸として定義し、`MidiXYVector2Source`が2つをVector2へ合成する。各Controlの初期値もRouteの初期Vectorへ反映する。MIDI Source / TriggerのControl Reference PickerはnodeごとのControl Type制約で候補を絞り、既存の不一致IDを黙って置き換えない。
 
 Paletteはメーカー対応表のsRGB色をlinear RGBへ変換し、二乗距離最小、同距離は小さいPalette番号を採用する。Brightnessは対応段階への最近傍（同距離は暗い方）。MonoはOffまたはbrightness=0で消灯、それ以外は点灯。APC RGB PadのSolidはpalette RGBをbrightnessで減衰し、AKAI Bulk LED SysExへ変換して送る。Blink / Pulse非対応時はSolidへ縮退し、InspectorへCapability警告を表示する。
