@@ -4,6 +4,7 @@
 
 2026-10-24、現行commit `0d7999491060b8c8a40acd9386528e7b4b1f30ce` を指定した`git+file` UPM consumerでEditMode 149 passed / 2 optional skipped、PlayMode 8 passed / 6 Explicit skippedを確認した。macOS StandaloneOSX universal Mono PlayerとWindows x64 Mono Playerのcross-buildも成功し、Unity CLI error / warningは0件。XML: `/private/tmp/MondmadeVJ0-giturl-0d79994/current-commit-editmode.xml` / `/private/tmp/MondmadeVJ0-giturl-0d79994/current-commit-playmode.xml`。
 2026-10-24、commit `e436983` のfull dependency projectからStandaloneOSX universal Mono Player buildが成功した。Unity 6000.3.8f1、0 errors、Unity Services symbol upload 403 warning 1件、出力binaryはx86_64 + arm64。出力先: `/private/tmp/MondmadeVJ0-e436983.app`。
+同commitのStandaloneOSX universal IL2CPP Player buildも成功した。0 errors、Unity Services symbol upload 403 warning 1件、binaryはx86_64 + arm64。出力先: `/private/tmp/MondmadeVJ0-e436983-il2cpp-cleanup.app`。
 同commitのStandaloneWindows64 Mono buildも試したが、Unity PipelineのSucceeded表示に反してPostprocess built playerでunsupported target errorsが2件あり、EXEは生成されなかった。Windows buildは未確認として扱う。active build targetはStandaloneOSXへ戻した。
 2026-10-23の後続A14 smokeではCoreMIDI計測点を`MIDISend`直前へ修正した。各61秒・120 / 174 / 240 BPMの累積submission driftは3.9339 / 2.9742 / 5.1804msで、依然1ms基準を超えた。旧計測点による値と外部receiver測定の区別は[実装・検証計画](implementation-plan.md)に記録する。
 
