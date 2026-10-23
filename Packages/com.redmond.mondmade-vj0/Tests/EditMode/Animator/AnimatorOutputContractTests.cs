@@ -10,6 +10,14 @@ namespace MondmadeVJ0.Tests.Animator
 {
     public sealed class AnimatorOutputContractTests
     {
+        private static readonly object[] ParameterWrongTypeCases =
+        {
+            new object[] { typeof(AnimatorFloatOutput), "mode" },
+            new object[] { typeof(AnimatorIntOutput), "speed" },
+            new object[] { typeof(AnimatorBoolOutput), "fire" },
+            new object[] { typeof(AnimatorTriggerOutput), "enabled" },
+        };
+
         private GameObject targetObject;
         private UnityEngine.Animator animator;
         private AnimatorController controller;
@@ -76,6 +84,26 @@ namespace MondmadeVJ0.Tests.Animator
             Assert.Throws<InvalidOperationException>(() => wrongType.Initialize(null));
         }
 
+        [TestCaseSource(nameof(ParameterWrongTypeCases))]
+        public void AnimatorParameterOutputsRejectMissingTargetsAndWrongParameterTypes(Type outputType, string wrongParameter)
+        {
+            var output = Activator.CreateInstance(outputType);
+            var missingTarget = InitializeError(output);
+            Assert.That(missingTarget.Message, Does.Contain("not assigned"), outputType.Name);
+
+            SetField(output, "target", animator);
+            SetField(output, "parameterName", wrongParameter);
+            var wrongType = InitializeError(output);
+            Assert.That(wrongType.Message, Does.Contain("missing").Or.Contain("is not"), outputType.Name);
+        }
+
+        [Test]
+        public void AnimatorLayerAndStateOutputsRejectMissingTargets()
+        {
+            Assert.Throws<InvalidOperationException>(() => new AnimatorLayerWeightFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AnimatorStateTriggerOutput().Initialize(null));
+        }
+
         [Test]
         public void TriggerOutputTransitionsToConfiguredState()
         {
@@ -134,6 +162,15 @@ namespace MondmadeVJ0.Tests.Animator
                 return;
             }
             throw new MissingFieldException(target.GetType().FullName, name);
+        }
+
+        private static InvalidOperationException InitializeError(object output)
+        {
+            var initialize = output.GetType().GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(initialize, Is.Not.Null, output.GetType().Name + " must expose Initialize(RouteContext).");
+            var exception = Assert.Throws<TargetInvocationException>(() => initialize.Invoke(output, new object[] { null }));
+            Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>(), output.GetType().Name);
+            return (InvalidOperationException)exception.InnerException;
         }
     }
 }

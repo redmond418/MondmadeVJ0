@@ -95,6 +95,10 @@ namespace MondmadeVJ0.Tests.Cinemachine
             var missing = new CinemachineCameraIndexOutput();
             SetField(missing, "cameras", new CinemachineCamera[] { null });
             Assert.Throws<InvalidOperationException>(() => missing.Initialize(null));
+
+            Assert.Throws<InvalidOperationException>(() => new CinemachineFovFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new CinemachineDutchFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new CinemachinePriorityIntOutput().Initialize(null));
         }
 
         private CinemachineCamera AddCamera(int index) => targetObjects[index].AddComponent<CinemachineCamera>();

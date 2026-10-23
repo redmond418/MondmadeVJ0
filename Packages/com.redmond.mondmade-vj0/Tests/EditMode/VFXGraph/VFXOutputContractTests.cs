@@ -68,6 +68,43 @@ namespace MondmadeVJ0.Tests.VFXGraph
         [Test]
         public void FloatOutputWritesToARealExposedVfxProperty()
         {
+            var effect = LoadSampleVfxEffect("VFX Float Output Contract Target");
+
+            const string propertyName = "Spawn Rate";
+            var propertyId = Shader.PropertyToID(propertyName);
+            Assert.That(effect.HasFloat(propertyId), Is.True, "The sample exposes Spawn Rate as a float.");
+
+            var output = new VFXFloatOutput();
+            SetField(output, "target", effect);
+            SetField(output, "propertyName", propertyName);
+            output.Initialize(null);
+            output.Write(27.5f);
+
+            Assert.That(effect.GetFloat(propertyId), Is.EqualTo(27.5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ExposedValueOutputsRejectAnExistingPropertyOfTheWrongType()
+        {
+            var effect = LoadSampleVfxEffect("VFX Wrong Type Output Contract Target");
+            var floatPropertyId = Shader.PropertyToID("Spawn Rate");
+            var boolPropertyId = Shader.PropertyToID("Use Flipbook");
+            Assert.That(effect.HasFloat(floatPropertyId), Is.True);
+            Assert.That(effect.HasBool(boolPropertyId), Is.True);
+
+            foreach (var outputType in ExposedValueOutputTypes)
+            {
+                var output = Activator.CreateInstance(outputType);
+                SetField(output, "target", effect);
+                SetField(output, "propertyName", outputType == typeof(VFXFloatOutput) ? "Use Flipbook" : "Spawn Rate");
+
+                var wrongType = InitializeError(output);
+                Assert.That(wrongType.Message, Does.Contain("missing or is not"), outputType.Name);
+            }
+        }
+
+        private VisualEffect LoadSampleVfxEffect(string objectName)
+        {
             UseTemporaryUniversalRenderPipelineWhenNeeded();
 
             var package = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.visualeffectgraph");
@@ -83,22 +120,11 @@ namespace MondmadeVJ0.Tests.VFXGraph
             var asset = AssetDatabase.LoadAssetAtPath<VisualEffectAsset>(generatedAssetPath);
             Assert.That(asset, Is.Not.Null, "The installed VFX Graph sample must import as a VisualEffectAsset.");
 
-            targetObject = new GameObject("VFX Float Output Contract Target");
+            targetObject = new GameObject(objectName);
             var effect = targetObject.AddComponent<VisualEffect>();
             effect.visualEffectAsset = asset;
             effect.Reinit();
-
-            const string propertyName = "Spawn Rate";
-            var propertyId = Shader.PropertyToID(propertyName);
-            Assert.That(effect.HasFloat(propertyId), Is.True, "The sample exposes Spawn Rate as a float.");
-
-            var output = new VFXFloatOutput();
-            SetField(output, "target", effect);
-            SetField(output, "propertyName", propertyName);
-            output.Initialize(null);
-            output.Write(27.5f);
-
-            Assert.That(effect.GetFloat(propertyId), Is.EqualTo(27.5f).Within(0.0001f));
+            return effect;
         }
 
         private void UseTemporaryUniversalRenderPipelineWhenNeeded()

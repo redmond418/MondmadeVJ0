@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using MondmadeVJ0;
 using NUnit.Framework;
 using UnityEngine;
@@ -10,6 +11,19 @@ namespace MondmadeVJ0.Tests.Video
 {
     public sealed class VideoPendingOperationTests
     {
+        private static readonly Type[] VideoOutputTypes =
+        {
+            typeof(VideoPlayerSpeedFloatOutput),
+            typeof(VideoPlayerPlayBoolOutput),
+            typeof(VideoPlayerTimeFloatOutput),
+            typeof(VideoPlayerNormalizedTimeFloatOutput),
+            typeof(VideoPlayerClipIndexIntOutput),
+            typeof(VideoPlayerPlayTriggerOutput),
+            typeof(VideoPlayerPauseTriggerOutput),
+            typeof(VideoPlayerStopTriggerOutput),
+            typeof(VideoPlayerRestartTriggerOutput),
+        };
+
         private readonly List<IDisposable> disposables = new List<IDisposable>();
         private GameObject runtimeObject;
         private GameObject playerObject;
@@ -99,6 +113,25 @@ namespace MondmadeVJ0.Tests.Video
             Assert.That(applied, Is.False);
         }
 
+        [TestCaseSource(nameof(VideoOutputTypes))]
+        public void VideoOutputsRejectMissingTargetsAndClipIndexRejectsAnEmptyClipList(Type outputType)
+        {
+            var output = Activator.CreateInstance(outputType);
+            var initialize = outputType.GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(initialize, Is.Not.Null, outputType.Name + " must expose Initialize(RouteContext).");
+
+            var missingTarget = Assert.Throws<TargetInvocationException>(() => initialize.Invoke(output, new object[] { context }));
+            Assert.That(missingTarget.InnerException, Is.TypeOf<InvalidOperationException>(), outputType.Name);
+            Assert.That(missingTarget.InnerException.Message, Does.Contain("target is not assigned"), outputType.Name);
+
+            if (outputType != typeof(VideoPlayerClipIndexIntOutput)) return;
+
+            SetField(output, "target", player);
+            var missingClips = Assert.Throws<TargetInvocationException>(() => initialize.Invoke(output, new object[] { context }));
+            Assert.That(missingClips.InnerException, Is.TypeOf<InvalidOperationException>());
+            Assert.That(missingClips.InnerException.Message, Does.Contain("clip list is empty"));
+        }
+
         [Test]
         public void SharedPlayerPreparationKeepsValueOutputsAndOnlyTheLatestTrigger()
         {
@@ -164,6 +197,18 @@ namespace MondmadeVJ0.Tests.Video
             var operation = new VideoPendingOperation(player, context, new VideoPlayerRestartTriggerOutput(), prepare);
             disposables.Add(operation);
             return operation;
+        }
+
+        private static void SetField(object target, string name, object value)
+        {
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                var field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (field == null) continue;
+                field.SetValue(target, value);
+                return;
+            }
+            throw new MissingFieldException(target.GetType().FullName, name);
         }
 
         private sealed class ManualFrameClock : IFrameClock

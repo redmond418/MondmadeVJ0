@@ -41,6 +41,17 @@ namespace MondmadeVJ0.Tests.Rendering
             new object[] { typeof(MaterialTextureOutput), "_ContractFloat" },
         };
 
+        private static readonly object[] VolumeParameterTypeMismatchCases =
+        {
+            new object[] { typeof(VolumeFloatOutput), nameof(RenderingOutputTestComponent.integer) },
+            new object[] { typeof(VolumeIntOutput), nameof(RenderingOutputTestComponent.amount) },
+            new object[] { typeof(VolumeBoolOutput), nameof(RenderingOutputTestComponent.amount) },
+            new object[] { typeof(VolumeColorOutput), nameof(RenderingOutputTestComponent.vector4) },
+            new object[] { typeof(VolumeVector2Output), nameof(RenderingOutputTestComponent.vector3) },
+            new object[] { typeof(VolumeVectorOutput), nameof(RenderingOutputTestComponent.vector2) },
+            new object[] { typeof(VolumeVector4Output), nameof(RenderingOutputTestComponent.color) },
+        };
+
         private readonly List<UnityEngine.Object> cleanup = new List<UnityEngine.Object>();
         private readonly List<BindingScope> scopes = new List<BindingScope>();
         private GameObject runtimeObject;
@@ -288,6 +299,27 @@ namespace MondmadeVJ0.Tests.Rendering
             Assert.That(component.vector2.value, Is.EqualTo(expectedVector2));
             Assert.That(component.vector3.value, Is.EqualTo(expectedVector3));
             Assert.That(component.vector4.value, Is.EqualTo(expectedVector4));
+        }
+
+        [TestCaseSource(nameof(VolumeParameterTypeMismatchCases))]
+        public void VolumeOutputsRejectMissingTargetsAndWrongParameterTypes(Type outputType, string wrongParameterName)
+        {
+            var outputWithoutTarget = Activator.CreateInstance(outputType);
+            SetField(outputWithoutTarget, "componentTypeName", typeof(RenderingOutputTestComponent).AssemblyQualifiedName);
+            SetField(outputWithoutTarget, "parameterName", wrongParameterName);
+            var missingTarget = InitializeError(outputWithoutTarget, null);
+            Assert.That(missingTarget.Message, Does.Contain("Volume target is not assigned"), outputType.Name);
+
+            var profile = Own(ScriptableObject.CreateInstance<VolumeProfile>());
+            profile.Add<RenderingOutputTestComponent>(overrides: true);
+            var volumeObject = Own(new GameObject("Wrong Type Volume Output Target"));
+            var volume = volumeObject.AddComponent<Volume>();
+            volume.sharedProfile = profile;
+
+            var output = Activator.CreateInstance(outputType);
+            ConfigureVolumeOutput(output, volume, wrongParameterName, VolumeOverrideMode.Always);
+            var wrongType = InitializeError(output, Context(NewScope()));
+            Assert.That(wrongType.Message, Does.Contain("is not a"), outputType.Name);
         }
 
         [Test]
