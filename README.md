@@ -34,7 +34,7 @@ Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意�
 - APC mini mk2でPad / Fader / Track Buttonの入力、緑色LED、USB再接続後の状態保持を確認
 - Background Music入力の短時間probeを確認
 
-MIDI ClockのA14規定負荷、外部受信機の到着時刻、Windows IL2CPP / Windows上の実行、現行成果の公開HTTPS UPM導入は未完了です。Windows x64 Monoは過去の版でbuildできましたが、現行commitのbuild試行ではEXEが生成されていません。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を正とします。
+MIDI ClockのA14規定負荷、外部受信機の到着時刻、Windows IL2CPP / Windows上の実行、現行成果の公開HTTPS UPM導入は未完了です。現行package SHAのWindows x64 Mono Player buildは成功しました。Windows上でのPlayer実行・MIDI機器とWindows IL2CPPは未確認です。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を正とします。
 
 ## 設計上の前提
 
