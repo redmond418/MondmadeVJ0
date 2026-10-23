@@ -127,7 +127,7 @@
 
 ### A14追加比較：CoreMIDI送信バッファ再利用
 
-Clock送信ごとのnative allocationをなくし、`MIDIPacketList`とpacket data領域を接続中に共有workerから再利用する。Stage OSXEditor / Apple M1 / macOS 26.1.0のAPC mini mk2実機で、全LED・1000 Route・各61秒の120 / 174 / 240 BPM smokeを実施した。XMLはPassed、FPS 59.994 / 59.979 / 59.984、Clock missed / dropped 0 / 0、submission p99 1.202 / 1.216 / 1.196ms、最大遅延4.196 / 3.060 / 4.909ms、累積submission drift 3.1108 / 2.5123 / 4.9079ms。過去測定に対する一貫した精度改善は見られず、A14の10分条件・1ms drift・外部receiverのtarget時刻測定も未達のため、完了とは扱わない。XML: `/private/tmp/MondmadeVJ0-stage/codemidi-buffer-a14-smoke.xml`。
+Clock送信ごとのnative allocationをなくし、`MIDIPacketList`とpacket data領域を接続中に共有workerから再利用する。Stage OSXEditor / Apple M1 / macOS 26.1.0のAPC mini mk2実機で、全LED・1000 Route・各61秒の120 / 174 / 240 BPM smokeを実施した。XMLはPassed、FPS 59.994 / 59.979 / 59.984、Clock missed / dropped 0 / 0、submission p99 1.202 / 1.216 / 1.196ms、最大遅延4.196 / 3.060 / 4.909ms、累積submission drift 3.1108 / 2.5123 / 4.9079ms。関連MIDI EditMode 33/33、全EditMode 169/169も通過。過去測定に対する一貫した精度改善は見られず、A14の10分条件・1ms drift・外部receiverのtarget時刻測定も未達のため、完了とは扱わない。XML: `/private/tmp/MondmadeVJ0-stage/codemidi-buffer-a14-smoke.xml` / `/private/tmp/MondmadeVJ0-stage/post-coremidi-buffer-editmode.xml`。
 
 ## 動作例として揃えるRoute
 
