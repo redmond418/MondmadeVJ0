@@ -87,6 +87,44 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void EveryOutputNodeIsOfferedOnlyForItsDeclaredValueOrTriggerContract()
+        {
+            var allTypesMethod = typeof(RouteHostEditor).GetMethod("AllTypes", BindingFlags.Static | BindingFlags.NonPublic);
+            var nodeTypesMethod = typeof(RouteHostEditor).GetMethod("NodeTypes", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(allTypesMethod, Is.Not.Null);
+            Assert.That(nodeTypesMethod, Is.Not.Null);
+
+            var contracts = new[]
+            {
+                typeof(IValueOutput<float>),
+                typeof(IValueOutput<int>),
+                typeof(IValueOutput<bool>),
+                typeof(IValueOutput<Vector2>),
+                typeof(IValueOutput<Vector3>),
+                typeof(IValueOutput<Vector4>),
+                typeof(IValueOutput<Color>),
+                typeof(ITriggerOutput),
+            };
+            var allTypes = (System.Collections.Generic.IEnumerable<Type>)allTypesMethod.Invoke(null, null);
+            var outputNodes = allTypes
+                .Where(type => typeof(RouteNode).IsAssignableFrom(type)
+                    && !type.IsAbstract
+                    && contracts.Any(contract => contract.IsAssignableFrom(type)))
+                .ToArray();
+            Assert.That(outputNodes, Is.Not.Empty, "The output type catalog must be discoverable.");
+
+            foreach (var contract in contracts)
+            {
+                var offered = (System.Collections.Generic.IReadOnlyList<Type>)nodeTypesMethod.Invoke(null, new object[] { contract });
+                foreach (var outputNode in outputNodes)
+                {
+                    Assert.That(offered.Contains(outputNode), Is.EqualTo(contract.IsAssignableFrom(outputNode)),
+                        outputNode.FullName + " must only appear in the picker for " + contract.Name + ".");
+                }
+            }
+        }
+
+        [Test]
         public void MissingSourceIsReportedBeforePlay()
         {
             var route = new FloatRoute();

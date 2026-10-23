@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using MondmadeVJ0;
 using NUnit.Framework;
 using UnityEngine;
@@ -62,6 +63,28 @@ namespace MondmadeVJ0.Tests.Transport
         }
 
         [Test]
+        public void EveryTransportOutputRejectsAnUnregisteredTransportService()
+        {
+            var registeredTransport = services.Transport;
+            services.Transport = null;
+            var missingServiceContext = new RouteContext(runtime, null, new RuntimeStateStore(), scope, "transport-output-missing-service-test");
+
+            try
+            {
+                AssertMissingTransport(new TransportTapTriggerOutput(), missingServiceContext);
+                AssertMissingTransport(new TransportResetPhaseTriggerOutput(), missingServiceContext);
+                AssertMissingTransport(new TransportNudgeForwardTriggerOutput(), missingServiceContext);
+                AssertMissingTransport(new TransportNudgeBackwardTriggerOutput(), missingServiceContext);
+                AssertMissingTransport(new TransportBpmFloatOutput(), missingServiceContext);
+                AssertMissingTransport(new TransportMultiplierFloatOutput(), missingServiceContext);
+            }
+            finally
+            {
+                services.Transport = registeredTransport;
+            }
+        }
+
+        [Test]
         public void TriggerOutputsNudgeResetAndTapUsingUnscaledFrameTime()
         {
             transport.Seek(1d);
@@ -87,6 +110,15 @@ namespace MondmadeVJ0.Tests.Transport
             reset.Initialize(context);
             reset.Invoke();
             Assert.That(transport.BeatPosition, Is.EqualTo(0d));
+        }
+
+        private static void AssertMissingTransport(RouteNode output, RouteContext context)
+        {
+            var initialize = output.GetType().GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(initialize, Is.Not.Null, output.GetType().Name);
+            var exception = Assert.Throws<TargetInvocationException>(() => initialize.Invoke(output, new object[] { context }), output.GetType().Name);
+            Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>(), output.GetType().Name);
+            Assert.That(exception.InnerException.Message, Does.Contain("Transport service is not registered"), output.GetType().Name);
         }
 
         private sealed class ManualFrameClock : IFrameClock

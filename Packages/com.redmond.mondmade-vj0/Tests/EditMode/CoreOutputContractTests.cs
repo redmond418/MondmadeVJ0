@@ -174,6 +174,23 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void AudioSourceClipIndexRejectsEmptyAndNullClipEntries()
+        {
+            var targetObject = Own(new GameObject("Invalid Audio Clip List Target"));
+            var source = targetObject.AddComponent<AudioSource>();
+            var output = new AudioSourceClipIndexIntOutput();
+            SetField(output, "target", source);
+
+            Assert.That(() => output.Initialize(null), Throws.TypeOf<InvalidOperationException>().With.Message.Contains("clip list is empty"));
+
+            SetField(output, "clips", new AudioClip[] { null });
+            Assert.That(() => output.Initialize(null), Throws.TypeOf<InvalidOperationException>().With.Message.Contains("clip 0 is not assigned"));
+
+            SetField(output, "clips", null);
+            Assert.That(() => output.Initialize(null), Throws.TypeOf<InvalidOperationException>().With.Message.Contains("clip list is empty"));
+        }
+
+        [Test]
         public void GenericComponentOutputsWriteEverySupportedValueType()
         {
             var targetObject = Own(new GameObject("Generic Output Target"));
