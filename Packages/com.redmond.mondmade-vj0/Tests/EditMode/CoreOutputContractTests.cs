@@ -21,6 +21,17 @@ namespace MondmadeVJ0.Tests
 
     public sealed class CoreOutputContractTests
     {
+        private static readonly object[] ComponentMemberWrongTypeCases =
+        {
+            new object[] { typeof(ComponentMemberFloatOutput), "IntValue" },
+            new object[] { typeof(ComponentMemberIntOutput), "FloatValue" },
+            new object[] { typeof(ComponentMemberBoolOutput), "FloatValue" },
+            new object[] { typeof(ComponentMemberVector2Output), "Vector3Value" },
+            new object[] { typeof(ComponentMemberVector3Output), "Vector2Value" },
+            new object[] { typeof(ComponentMemberVector4Output), "ColorValue" },
+            new object[] { typeof(ComponentMemberColorOutput), "Vector4Value" },
+        };
+
         private readonly List<UnityEngine.Object> cleanup = new List<UnityEngine.Object>();
 
         [TearDown]
@@ -221,6 +232,42 @@ namespace MondmadeVJ0.Tests
             Assert.Throws<InvalidOperationException>(() => new AudioSourceVolumeFloatOutput().Initialize(null));
             Assert.Throws<InvalidOperationException>(() => new ComponentMemberFloatOutput().Initialize(null));
             Assert.Throws<InvalidOperationException>(() => new ComponentMemberIntOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new ComponentMemberBoolOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new ComponentMemberVector2Output().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new ComponentMemberVector3Output().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new ComponentMemberVector4Output().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new ComponentMemberColorOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalIntOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalBoolOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalVector2Output().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalVector3Output().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalVector4Output().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalColorOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new SignalTriggerOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourcePitchFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourcePanFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourcePlayBoolOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourceTimeFloatOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourceClipIndexIntOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourcePlayTriggerOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourcePauseTriggerOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourceStopTriggerOutput().Initialize(null));
+            Assert.Throws<InvalidOperationException>(() => new AudioSourceRestartTriggerOutput().Initialize(null));
+        }
+
+        [TestCaseSource(nameof(ComponentMemberWrongTypeCases))]
+        public void ComponentMemberOutputsRejectMissingTargetsAndWrongValueTypes(Type outputType, string wrongMemberName)
+        {
+            var output = Activator.CreateInstance(outputType);
+            Assert.That(InitializeError(output).Message, Does.Contain("target is not assigned"), outputType.Name);
+
+            var targetObject = Own(new GameObject("Wrong-Type Generic Output Target"));
+            SetField(output, "target", targetObject.AddComponent<CoreOutputProbe>());
+            SetField(output, "memberName", wrongMemberName);
+
+            var wrongType = InitializeError(output);
+            Assert.That(wrongType.Message, Does.Contain("not a writable").Or.Contain("not a public writable"), outputType.Name);
         }
 
         private void WriteAxis(TransformAxisFloatOutput output, Transform target, TransformAxis axis, float value)
@@ -269,6 +316,15 @@ namespace MondmadeVJ0.Tests
                 return;
             }
             throw new MissingFieldException(target.GetType().FullName, name);
+        }
+
+        private static InvalidOperationException InitializeError(object output)
+        {
+            var initialize = output.GetType().GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(initialize, Is.Not.Null, output.GetType().Name + " must expose Initialize(RouteContext).");
+            var exception = Assert.Throws<TargetInvocationException>(() => initialize.Invoke(output, new object[] { null }));
+            Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>(), output.GetType().Name);
+            return (InvalidOperationException)exception.InnerException;
         }
     }
 }

@@ -29,7 +29,7 @@ Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意�
 ## 開発環境と検証
 
 - Unity 6000.3.8f1、macOS arm64 Editor
-- 全依存Stage ProjectのEditMode 208/208、PlayMode 9 passed / 7 Explicit skippedを通過
+- 全依存Stage ProjectのEditMode 226/226、PlayMode 9 passed / 7 Explicit skippedを通過
 - 現行実装のmacOS universal Mono / IL2CPP Player buildを確認
 - APC mini mk2でPad / Fader / Track Buttonの入力、緑色LED、USB再接続後の状態保持を確認
 - Background Music入力の短時間probeを確認

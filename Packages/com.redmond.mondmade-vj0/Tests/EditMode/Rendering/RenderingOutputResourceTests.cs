@@ -26,6 +26,21 @@ namespace MondmadeVJ0.Tests.Rendering
 
     public sealed class RenderingOutputResourceTests
     {
+        private static readonly object[] ShaderPropertyTypeMismatchCases =
+        {
+            new object[] { typeof(RendererFloatOutput), "_ContractInt" },
+            new object[] { typeof(RendererIntOutput), "_ContractFloat" },
+            new object[] { typeof(RendererVectorOutput), "_ContractFloat" },
+            new object[] { typeof(RendererColorOutput), "_ContractInt" },
+            new object[] { typeof(RendererTextureOutput), "_ContractFloat" },
+            new object[] { typeof(RendererTextureIndexOutput), "_ContractInt" },
+            new object[] { typeof(MaterialFloatOutput), "_ContractInt" },
+            new object[] { typeof(MaterialIntOutput), "_ContractFloat" },
+            new object[] { typeof(MaterialVectorOutput), "_ContractFloat" },
+            new object[] { typeof(MaterialColorOutput), "_ContractInt" },
+            new object[] { typeof(MaterialTextureOutput), "_ContractFloat" },
+        };
+
         private readonly List<UnityEngine.Object> cleanup = new List<UnityEngine.Object>();
         private readonly List<BindingScope> scopes = new List<BindingScope>();
         private GameObject runtimeObject;
@@ -382,6 +397,35 @@ namespace MondmadeVJ0.Tests.Rendering
             Assert.That(renderer.sharedMaterial, Is.SameAs(sharedMaterial));
         }
 
+        [TestCaseSource(nameof(ShaderPropertyTypeMismatchCases))]
+        public void RendererAndMaterialOutputsRejectMissingTargetsAndWrongShaderPropertyTypes(Type outputType, string wrongPropertyName)
+        {
+            var missingTarget = Activator.CreateInstance(outputType);
+            SetField(missingTarget, "propertyName", wrongPropertyName);
+            var missingTargetError = InitializeError(missingTarget, null);
+            Assert.That(missingTargetError.Message, Does.Contain("target is not assigned"), outputType.Name);
+
+            var shader = Shader.Find("Hidden/MondmadeVJ0/OutputContractProperties");
+            Assert.That(shader, Is.Not.Null, "The rendering output test shader must be imported.");
+            var material = Own(new Material(shader));
+            var rendererObject = Own(new GameObject("Wrong Shader Property Type Output Target"));
+            var renderer = rendererObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            var output = Activator.CreateInstance(outputType);
+
+            if (IsRendererOutput(outputType))
+            {
+                ConfigureRendererOutput(output, renderer, wrongPropertyName);
+            }
+            else
+            {
+                ConfigureMaterialOutput(output, renderer, wrongPropertyName);
+            }
+
+            var wrongType = InitializeError(output, null);
+            Assert.That(wrongType.Message, Does.Contain("expected"), outputType.Name);
+        }
+
         [Test]
         public void ValidationReportsWritersTargetingTheSameRendererSlotAndProperty()
         {
@@ -534,6 +578,23 @@ namespace MondmadeVJ0.Tests.Rendering
                 return;
             }
             throw new MissingFieldException(target.GetType().FullName, name);
+        }
+
+        private static bool IsRendererOutput(Type outputType) =>
+            outputType == typeof(RendererFloatOutput)
+            || outputType == typeof(RendererIntOutput)
+            || outputType == typeof(RendererVectorOutput)
+            || outputType == typeof(RendererColorOutput)
+            || outputType == typeof(RendererTextureOutput)
+            || outputType == typeof(RendererTextureIndexOutput);
+
+        private static InvalidOperationException InitializeError(object output, RouteContext context)
+        {
+            var initialize = output.GetType().GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(initialize, Is.Not.Null, output.GetType().Name + " must expose Initialize(RouteContext).");
+            var exception = Assert.Throws<TargetInvocationException>(() => initialize.Invoke(output, new object[] { context }));
+            Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>(), output.GetType().Name);
+            return (InvalidOperationException)exception.InnerException;
         }
     }
 }
