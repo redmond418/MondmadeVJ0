@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Split `RouteHost` into its own script asset so QuickStart scenes resolve the component in Player builds.
 - Bound OSC receive-queue and latest-message-cache memory use by packet count and address length.
 - Bound pooled Raw MIDI input buffers to 8 MiB across the normal and Clock queues.
 

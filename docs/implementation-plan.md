@@ -96,6 +96,8 @@
 
 ## 現時点の検証結果
 
+以下の数値記録には、A14の累積ずれ上限が1msだった当時の試行も含む。それらは当時の判定を残す履歴であり、A14の現在の判定は本書の「A14最新判定」行にある5ms上限と最新10分×3速度測定を適用する。
+
 | 対象 | 結果 |
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
@@ -119,11 +121,13 @@
 | macOS Player | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerからStandaloneOSX universal Mono Player build成功（x86_64 + arm64）。2026-10-24、source commit `215b48c` の修正後QuickStart Sceneからuniversal IL2CPP Player build成功（errors 0 / warnings 1）。実行ファイル、`GameAssembly.dylib`、`RtMidi.bundle`がx86_64 + arm64 universal、codesign valid。Player logにmissing script / scene corruption / AOT例外はなく、AOT accessorは0.625を返し、RtMidi statusはConnected。Artifacts: `/private/tmp/MondmadeVJ0-18d832c-macos-universal-il2cpp-aot.app`, `/private/tmp/MondmadeVJ0-aot-il2cpp-build-retry.log`, `/private/tmp/MondmadeVJ0-18d832c-il2cpp-aot-runtime.log`。Cloud Diagnostics symbol upload設定のwarning 1件はbuildを妨げていない |
 | Windows Player | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerからStandaloneWindows64 x64 Mono Player build成功。後続StageでのWindows x64 Mono cross-buildも成功した。今回のA24受入ではWindows上の実行・MIDI機器・IL2CPPを対象外とする |
 | 任意依存なし構成 | R3 NuGet 1.3.0、System.Runtime.CompilerServices.Unsafe 6.0.0、NuGetForUnity、Unity標準moduleだけの隔離Projectでlocal UPM import・compile成功。Optional Integrationの欠落参照エラーなし。以前のpackage sourceでのmacOS universal IL2CPP buildも成功し、現行source commit `215b48c` の全依存Stageではuniversal IL2CPP buildとPlayer起動を再確認 |
-| ローカルGit UPM URL | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を指定した`git+file` consumerで全依存・部分依存・Core必須依存だけの構成を検証した。全依存: EditMode 252/252、PlayMode 11 passed / 7 Explicit skipped。部分依存: EditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけ: EditMode 127 passed / 3 skipped、PlayMode 2/2 passed。各consumerのlock fileが同じ完全SHAを解決した。公開HTTPS URLは未push・release tag未作成のため未検証 |
+| ローカルGit UPM URL | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を指定した`git+file` consumerで全依存・部分依存・Core必須依存だけの構成を検証した。全依存: EditMode 252/252、PlayMode 11 passed / 7 Explicit skipped。部分依存: EditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけ: EditMode 127 passed / 3 skipped、PlayMode 2/2 passed。各consumerのlock fileが同じ完全SHAを解決した |
+| 実装検証対象SHA Git UPM consumer | Input System / MIDI / OSC構成の隔離consumerで`b170336c3dd842077aca4d337a97c9c129c37b8e`を完全SHA指定し、Unity 6000.3.8f1で検証。`packages-lock.json`も同SHAを記録。EditMode 191 passed / 2 skipped / 0 failed、PlayMode 12 passed / 6 Explicit skipped / 0 failed。universal macOS Mono Player build成功、`lipo`でx86_64 + arm64を確認。consumer Playerは起動試験していない。XML: `/private/tmp/MondmadeVJ0-current-head-git-upm-editmode.xml`, `/private/tmp/MondmadeVJ0-current-head-git-upm-playmode.xml`。Player: `/private/tmp/MondmadeVJ0-current-head-git-upm-macos.app`。ローカルGit UPMの検証であり、公開HTTPS URLからの取得を示さない |
 | 全依存構成 | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerでEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped。最新source commit `215b48c` を同期したStageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped、macOS universal IL2CPP Player buildが成功。macOS universal Mono Playerも別Stageでbuild済み。Windows上の実行・実機MIDI、Windows IL2CPPは今回の受入対象外 |
 | 検証済みSHA全依存Git UPM | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存consumerからEditMode 252/252、PlayMode 11 passed / 7 Explicit skippedとmacOS universal Mono / Windows x64 Mono Player buildを確認。macOS universal IL2CPP build・Player起動、AOT accessor、stripping、RtMidi接続は後続の現行source commit `215b48c` のStageで検証 |
 | MIDI / OSC部分構成 | 検証対象commitのInput System＋MIDI＋OSC構成（Lasp / Cinemachine / URP / VFX Graphなし）をGit UPM consumerで検証。EditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped |
-| 未完了の受入 | 現行commitをpush・tagした後の公開HTTPS UPM導入確認だけ。A14送信側10分×3速度は累積ずれ≤5msで合格。外部受信機による実到着時刻は参考観測として未測定で送信側合格を妨げない。Windows上の実行・MIDI・IL2CPPと二台目APC mini mk2の物理確認は今回の受入対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続は完了 |
+| ローカル完成判定 | 宣言したA01〜A24のローカル受入範囲を検証済み。A14送信側10分×3速度は累積ずれ≤5msで合格。外部受信機による実到着時刻は参考観測として未測定で送信側合格を妨げない。Windows上の実行・MIDI・IL2CPPと二台目APC mini mk2の物理確認は今回の受入対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続は完了 |
+| リリース確認 | 公開HTTPS UPM導入は、現行commitをpushしrelease tagを作成する場合に、その後実施する。公開リポジトリへのpushとtag作成は未実施。これはローカルライブラリの実装・受入とは別の公開作業 |
 
 ### A20 OSCメモリ上限回帰
 
@@ -175,9 +179,9 @@ QuickStart Sceneの`RouteHost`はRuntime source file内の2つ目の`MonoBehavio
 
 配布Sceneへ追加しないStage専用AOT probeで`ComponentAccessorGenerator.Add`を用いて`Il2CppAotAccessorTarget.Gain`のfactory delegateを生成し、`ComponentMemberFloatOutput`経由でIL2CPP Player内の実値0.625を確認した。Unityのmanaged strippingを有効にしたbuildでも実行できた。RtMidiのネイティブportを含むPlayerはruntime logで`MONDMADE_IL2CPP_MIDI_STATUS=Connected`を報告した。別のA20 probeではmacOS universal Mono / IL2CPP Playerと別プロセスOSC peer間の型付き双方向送受信も確認済み。AOT結果は`MONDMADE_AOT_ACCESSOR_RESULT=Passed actual=0.625`。Artifacts: `/private/tmp/MondmadeVJ0-18d832c-macos-universal-il2cpp-aot.app`, build log `/private/tmp/MondmadeVJ0-aot-il2cpp-build-retry.log`, runtime log `/private/tmp/MondmadeVJ0-18d832c-il2cpp-aot-runtime.log`。
 
-Package source同期後のStage全テストはEditMode 255/255 passed、通常PlayMode 12/12 passed・7 Explicit skipped。XML: `/private/tmp/MondmadeVJ0-routehost-split-editmode.xml`, `/private/tmp/MondmadeVJ0-routehost-split-playmode.xml`。A24で定めたmacOS Player、native MIDI、AOT accessor、strippingのローカル確認は完了した。Windows上のPlayer実行は受入対象外。現行成果の公開HTTPS UPM導入確認だけはpush・release tag後に残る。
+Package source同期後のStage全テストはEditMode 255/255 passed、通常PlayMode 12/12 passed・7 Explicit skipped。XML: `/private/tmp/MondmadeVJ0-routehost-split-editmode.xml`, `/private/tmp/MondmadeVJ0-routehost-split-playmode.xml`。A24で定めたmacOS Player、native MIDI、AOT accessor、strippingのローカル確認は完了した。Windows上のPlayer実行は受入対象外。公開HTTPS UPM導入はpush・release tagを行う場合のリリース確認として扱う。
 
-上記は検証した環境に限る。今回の受入範囲でAcceptance A01〜A24のローカル検証は完了している。公開HTTPS URL導入確認は現行commitのpushとrelease tag後に行う。
+上記は検証した環境に限る。今回の受入範囲でAcceptance A01〜A24のローカル検証は完了している。公開HTTPS URL導入確認は公開push・release tagを行う場合のリリース確認として実施する。
 
 ### A14計測点補正
 
