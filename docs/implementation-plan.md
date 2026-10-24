@@ -142,6 +142,20 @@ Clock欠落と共有出力dropは0で、fps・Route・LED・p99条件を満た�
 
 同じ約30分の実行中、macOSのmemory_pressure空き率は概ね31〜35%、終了直後は50%。Unity batch processのRSSは採取時点で約0.10〜0.69GiBの範囲を上下し、低い値へ戻る動きがあった。使用swapは概ね9.2〜9.4GiBで横ばい、30分を通したRSSやswapの継続的な増加は観測されず、この実行からUnityの持続的なメモリリークは確認できなかった。これは他アプリを含む過去のメモリ不足や別シーンの負荷を否定するものではない。ソース調査ではOSC unique address cacheとMIDI Raw入力queueに保持量が大きくなり得る経路を確認し、OSCはA20節のLRU・queue上限、MIDIはD13節のbyte上限を実装した。ほかの外部入力 / 出力queueとMonitor履歴には容量上限があり、Video・Material / Volume・Input Actionの一時資源はDisposeまたはlease解放に結び付いていることを確認した。別問題としてData volumeは使用率100%表示・空き約3.1GiBで、過去にIL2CPP dSYM生成が`No space left on device`で失敗している。
 
+### 2026-10-24 最新Package A14再測定とメモリ観測
+
+最新Package source `1e63f60` を同期したStage OSXEditor（Apple M1、macOS 26.1.0、Unity 6000.3.8f1、APC mini mk2）で厳格なA14 full runを再実施した。BPM 120 / 174 / 240を各600秒、1000 Route、LED全control 10Hz、Monitor capture無効、CoreMIDI timestamped backend（schedule lead 8ms）で連続測定。総実行時間は1800.219秒、XML: `/private/tmp/MondmadeVJ0-a14-latest-10minx3.xml`。
+
+| BPM | fps / 最大frame間隔 | Route writes/s | LED Hz / control states | Clock sent / expected / missed / dropped | p99 / 最大遅延 / 累積期限ずれ | GC 0/1/2 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 120 | 59.999 / 25.909ms | 59,999 | 10.000 / 479,984 | 28,801 / 28,800 / 0 / 0 | 0.006 / 4.542 / 4.5406ms | 62 / 62 / 62 |
+| 174 | 59.967 / 355.677ms | 59,967 | 9.996 / 479,824 | 41,760 / 41,760 / 0 / 0 | 0.142 / 3.724 / 3.7213ms | 62 / 62 / 62 |
+| 240 | 59.999 / 30.978ms | 59,999 | 10.000 / 479,984 | 57,601 / 57,601 / 0 / 0 | 0.056 / 4.682 / 4.6805ms | 61 / 61 / 61 |
+
+3速度ともfps・Route書込み・LED更新、p99・最大遅延、Clock欠落0・出力drop 0の条件を満たしたが、累積期限ずれがすべて1msを超えたためA14未合格。測定値はCoreMIDIの`MIDISend` entryと「期限−schedule lead」の差であり、受信側の実到着時刻ではない。外部受信機での測定は別途必要。
+
+同じ約30分の実行中、Unity batch processのRSSは採取時点で約0.29〜1.03GiBを上下し、増加後に約0.5GiB以下へ戻った。memory_pressure空き率の採取値は37〜56%、終了時56%。このA14負荷ではRSSの持続的増加やメモリ不足を再現せず、継続的なUnityリークは観測していない。ただし別アプリや別Sceneでの不足を否定するものではない。Data volumeの空きは試験前約3.0GiB、終了後約2.8GiBで、IL2CPP dSYM生成を妨げる容量問題は引き続き残る。
+
 ### D13 MIDI Raw入力のbyte budget
 
 2026-10-24、個数8192のClock queueと最大64KiBのSysExを組み合わせると、Raw MIDI bufferだけで最大512MiB保持できる設定上限を確認した。通常Controlの挙動とSysEx単体の64KiB上限を維持しつつ、通常 / Clock queue共通でArrayPoolから借りた配列の実サイズ合計を8MiBに制限した。超過packetは該当queueのdrop countへ加算してPoolへ戻し、dequeue完了またはShutdownでもbyte予算を回収する。StageのMIDI Hub PlayMode契約9/9が通過し、byte上限時のdrop、drain後とShutdown後の予算解放を専用回帰で確認した。最新Package同期後のStage全体はEditMode 255/255、通常PlayMode 12/12通過（Explicit 7件はハードウェアprobeのためskip）。XML: `/private/tmp/MondmadeVJ0-editmode-memory-midi-bytebudget-final.xml`, `/private/tmp/MondmadeVJ0-playmode-midi-bytebudget-final.xml`。
