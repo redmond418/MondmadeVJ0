@@ -99,6 +99,7 @@ namespace MondmadeVJ0
         private const int NormalCapacity = 8192;
         private const int ClockCapacity = 8192;
         private const int SysExMaxLength = 64 * 1024;
+        private const int RawQueueByteCapacity = 8 * 1024 * 1024;
         [SerializeField] private MidiSurfaceInstance[] surfaces = Array.Empty<MidiSurfaceInstance>();
         private readonly object queueLock = new object();
         private readonly Queue<InputPacket> normalQueue = new Queue<InputPacket>();
@@ -109,6 +110,7 @@ namespace MondmadeVJ0
         private readonly Dictionary<string, MidiLedPayload> sentPayloads = new Dictionary<string, MidiLedPayload>(StringComparer.Ordinal);
         private readonly Dictionary<string, string> outputQueueKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly object callbackLock = new object();
+        private int queuedRawBytes;
         private Action<MidiControlChange>[] controlChangedCallbacks = Array.Empty<Action<MidiControlChange>>();
         private Action<MidiRawMessage>[] rawInputCallbacks = Array.Empty<Action<MidiRawMessage>>();
         private long droppedNormal, droppedClock, sequence;
@@ -234,7 +236,18 @@ namespace MondmadeVJ0
                     if (packet.Raw != null) ProcessRaw(packet);
                     else ProcessControl(packet);
                 }
-                finally { if (packet.Raw != null) ArrayPool<byte>.Shared.Return(packet.Raw); }
+                finally
+                {
+                    if (packet.Raw != null)
+                    {
+                        lock (queueLock)
+                        {
+                            var rawBufferBytes = packet.Raw.Length;
+                            ArrayPool<byte>.Shared.Return(packet.Raw);
+                            queuedRawBytes -= rawBufferBytes;
+                        }
+                    }
+                }
                 processed++;
             }
         }
@@ -359,8 +372,8 @@ namespace MondmadeVJ0
             }
             lock (queueLock)
             {
-                while (normalQueue.Count > 0) ReturnRaw(normalQueue.Dequeue());
-                while (clockQueue.Count > 0) ReturnRaw(clockQueue.Dequeue());
+                while (normalQueue.Count > 0) ReturnQueuedRaw(normalQueue.Dequeue());
+                while (clockQueue.Count > 0) ReturnQueuedRaw(clockQueue.Dequeue());
             }
         }
 
@@ -613,13 +626,15 @@ namespace MondmadeVJ0
             {
                 var queue = clock ? clockQueue : normalQueue;
                 var capacity = clock ? ClockCapacity : NormalCapacity;
-                if (queue.Count >= capacity)
+                var rawBufferBytes = packet.Raw?.Length ?? 0;
+                if (queue.Count >= capacity || rawBufferBytes > RawQueueByteCapacity - queuedRawBytes)
                 {
                     if (packet.Raw != null) ArrayPool<byte>.Shared.Return(packet.Raw);
                     if (clock) Interlocked.Increment(ref droppedClock); else Interlocked.Increment(ref droppedNormal);
                     return;
                 }
                 queue.Enqueue(packet);
+                queuedRawBytes += rawBufferBytes;
             }
         }
 
@@ -787,6 +802,12 @@ namespace MondmadeVJ0
         }
         private static void CloseOutput(MidiSurfaceRuntime runtime) { runtime.Output?.Dispose(); runtime.Output = null; }
         private static void ReturnRaw(InputPacket packet) { if (packet.Raw != null) ArrayPool<byte>.Shared.Return(packet.Raw); }
+        private void ReturnQueuedRaw(InputPacket packet)
+        {
+            if (packet.Raw == null) return;
+            ReturnRaw(packet);
+            queuedRawBytes -= packet.Raw.Length;
+        }
         private static string Key(string surface, string control) => (surface ?? string.Empty) + "\0" + (control ?? string.Empty);
         private static bool Same(MidiControlReference a, MidiControlReference b) => string.Equals(a.SurfaceInstanceId, b.SurfaceInstanceId, StringComparison.Ordinal) && string.Equals(a.ControlId, b.ControlId, StringComparison.Ordinal);
 

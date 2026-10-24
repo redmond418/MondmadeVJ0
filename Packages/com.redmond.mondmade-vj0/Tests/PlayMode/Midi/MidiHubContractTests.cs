@@ -100,6 +100,59 @@ namespace MondmadeVJ0.Tests
         }
 
         [UnityTest]
+        public IEnumerator RawInputQueueHasAnAggregatePooledBufferByteLimit()
+        {
+            var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
+            profile.Configure("test", "SysEx source", Array.Empty<MidiSurfaceControl>());
+            var surface = new MidiSurfaceInstance();
+            surface.Configure(profile, "SysEx source", 0, MidiInputBackend.RtMidiRaw, -1, -1);
+            var harness = CreateHarness(surface);
+            try
+            {
+                var capacity = (int)typeof(MidiHub).GetField("RawQueueByteCapacity", BindingFlags.Static | BindingFlags.NonPublic)
+                    .GetRawConstantValue();
+                var inputBytes = 64 * 1024;
+                var sampleBuffer = ArrayPool<byte>.Shared.Rent(inputBytes);
+                var rentedBytes = sampleBuffer.Length;
+                Assert.That(rentedBytes, Is.LessThanOrEqualTo(capacity));
+                ArrayPool<byte>.Shared.Return(sampleBuffer);
+                var queuedPackets = capacity / rentedBytes;
+                Assert.That(queuedPackets, Is.LessThanOrEqualTo(8192));
+
+                for (var i = 0; i < queuedPackets; i++)
+                {
+                    var bytes = ArrayPool<byte>.Shared.Rent(inputBytes);
+                    bytes[0] = 0xF0;
+                    EnqueuePacket(harness, CreatePacket(surface.InstanceId, bytes, inputBytes), clock: true);
+                }
+
+                Assert.That(GetQueuedRawBytes(harness.Hub), Is.EqualTo(queuedPackets * rentedBytes));
+                var overflow = ArrayPool<byte>.Shared.Rent(inputBytes);
+                overflow[0] = 0xF0;
+                EnqueuePacket(harness, CreatePacket(surface.InstanceId, overflow, inputBytes), clock: true);
+
+                Assert.That(GetQueuedRawBytes(harness.Hub), Is.LessThanOrEqualTo(capacity));
+                Assert.That(harness.Hub.DroppedClockMessages, Is.EqualTo(1));
+                harness.Hub.DrainInputQueue(harness.Runtime.Services, queuedPackets);
+                Assert.That(GetQueuedRawBytes(harness.Hub), Is.Zero);
+
+                var pendingAtShutdown = ArrayPool<byte>.Shared.Rent(inputBytes);
+                pendingAtShutdown[0] = 0xF0;
+                EnqueuePacket(harness, CreatePacket(surface.InstanceId, pendingAtShutdown, inputBytes), clock: true);
+                Assert.That(GetQueuedRawBytes(harness.Hub), Is.EqualTo(pendingAtShutdown.Length));
+                harness.Hub.Shutdown(harness.Runtime.Services);
+                Assert.That(GetQueuedRawBytes(harness.Hub), Is.Zero);
+            }
+            finally
+            {
+                harness.Hub.Shutdown(harness.Runtime.Services);
+                DestroyHarness(harness);
+                UnityEngine.Object.Destroy(profile);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator RelativeEncoderDecodesAllDocumentedFormats()
         {
             var profile = MidiSurfaceProfile.CreateInstance<MidiSurfaceProfile>();
@@ -476,10 +529,18 @@ namespace MondmadeVJ0.Tests
 
         private static void PushPacket(Harness harness, object packet)
         {
-            var hubType = typeof(MidiHub);
-            hubType.GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(harness.Hub, new[] { packet, (object)false });
+            EnqueuePacket(harness, packet, clock: false);
             harness.Hub.DrainInputQueue(harness.Runtime.Services, 128);
         }
+
+        private static void EnqueuePacket(Harness harness, object packet, bool clock)
+        {
+            var hubType = typeof(MidiHub);
+            hubType.GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(harness.Hub, new[] { packet, (object)clock });
+        }
+
+        private static int GetQueuedRawBytes(MidiHub hub)
+            => (int)typeof(MidiHub).GetField("queuedRawBytes", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hub);
 
         private static object CreatePacket(string surfaceId, MidiAddressType type, int channel, int number, float value)
             => CreatePacket(surfaceId, type, channel, number, value, null, 0);
