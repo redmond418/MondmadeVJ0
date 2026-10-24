@@ -140,7 +140,7 @@
 
 Clock欠落と共有出力dropは0で、fps・Route・LED・p99条件を満たした。BPM 120では最大遅延13.796msが10ms基準を超過し、累積期限ずれも3速度すべてで1msを超過したためA14未合格。指標は`MIDISend` entryと「期限−schedule lead」の差で、外部receiverの受信時刻ではない。
 
-同じ約30分の実行中、macOSのmemory_pressure空き率は概ね31〜35%、終了直後は50%。Unity batch processのRSSは採取時点で約0.10〜0.69GiBの範囲を上下し、低い値へ戻る動きがあった。使用swapは概ね9.2〜9.4GiBで横ばい、30分を通したRSSやswapの継続的な増加は観測されず、この実行からUnityの持続的なメモリリークは確認できなかった。これは他アプリを含む過去のメモリ不足や別シーンの負荷を否定するものではない。今回ソースで見つけた具体的な成長経路はOSC unique address cacheで、上記A20節のLRU・queue上限を実装済み。別問題としてData volumeは使用率100%表示・空き約3.1GiBで、過去にIL2CPP dSYM生成が`No space left on device`で失敗している。
+同じ約30分の実行中、macOSのmemory_pressure空き率は概ね31〜35%、終了直後は50%。Unity batch processのRSSは採取時点で約0.10〜0.69GiBの範囲を上下し、低い値へ戻る動きがあった。使用swapは概ね9.2〜9.4GiBで横ばい、30分を通したRSSやswapの継続的な増加は観測されず、この実行からUnityの持続的なメモリリークは確認できなかった。これは他アプリを含む過去のメモリ不足や別シーンの負荷を否定するものではない。ソース調査ではOSC unique address cacheとMIDI Raw入力queueに保持量が大きくなり得る経路を確認し、OSCはA20節のLRU・queue上限、MIDIはD13節のbyte上限を実装した。ほかの外部入力 / 出力queueとMonitor履歴には容量上限があり、Video・Material / Volume・Input Actionの一時資源はDisposeまたはlease解放に結び付いていることを確認した。別問題としてData volumeは使用率100%表示・空き約3.1GiBで、過去にIL2CPP dSYM生成が`No space left on device`で失敗している。
 
 ### D13 MIDI Raw入力のbyte budget
 
