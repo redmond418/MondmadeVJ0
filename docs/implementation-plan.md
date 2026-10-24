@@ -202,6 +202,10 @@ Clock欠落・共有出力dropはなく、p99・Route・LED条件を満たした
 
 CoreMIDI lead 8msを維持し、共有workerのspin窓だけを1msへ変えた20秒smokeでは、FPS 59.979 / 59.958 / 59.882、Clock missed / droppedは全相0、p99遅延0.248 / 0.144 / 0.008ms、最大遅延2.880 / 1.175 / 5.590ms、累積ずれ2.8785 / 1.1727 / 5.5889msだった。spin窓0.5msではFPS 59.913 / 59.958 / 59.940、Clock missed / droppedは全相0、p99遅延0.623 / 0.469 / 0.461ms、最大遅延4.388 / 0.644 / 3.155ms、累積ずれ4.3868 / 0.5006 / 2.7607msだった。どちらも10分条件ではなく、累積ずれ条件を満たしたのは0.5msの174 BPMだけなので不採用とした。コードは既定の3ms spin窓へ戻した。XML: `/private/tmp/MondmadeVJ0-stage/a14-spin1ms-smoke.xml`、`/private/tmp/MondmadeVJ0-stage/a14-spin0_5ms-smoke.xml`。
 
+### A14追加比較：共有出力workerのQoSを一段下げる
+
+CoreMIDI Clock生成workerはUserInteractive / Highestのまま、LED・Clockを送る共有出力workerをmacOS UserInitiated / AboveNormalへ下げる61秒×3速度smokeを実機で比較した。BPM 120 / 174 / 240の順にFPSは59.993 / 59.984 / 59.986、p99遅延0.006 / 0.154 / 0.009ms、最大遅延3.548 / 3.058 / 3.794ms、累積期限ずれ3.5465 / 3.0557 / 3.7933ms、Clock missed / output droppedは全相0 / 0だった。結果XMLはPassedだが累積ずれは3速度とも1msを超え、10分条件も満たさない。過去61秒測定より240 BPMで改善が見られたものの、全速度での一貫した改善を確認できず、優先度変更は採用せず既定設定へ戻した。XML: `/private/tmp/MondmadeVJ0-a14-output-worker-priority-61s.xml`。
+
 ## 動作例として揃えるRoute
 
 - APC Fader → Remap → Smooth → VFX Float
