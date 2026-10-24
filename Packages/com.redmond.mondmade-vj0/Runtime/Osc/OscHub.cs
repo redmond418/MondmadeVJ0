@@ -12,17 +12,21 @@ namespace MondmadeVJ0
     public sealed class OscHub : MonoBehaviour, IRuntimeModule
     {
         internal const int QueueCapacity = 8192;
+        internal const int InputQueueAddressCharacterCapacity = 512 * 1024;
+        internal const int LatestMessageCacheCapacity = 8192;
+        internal const int LatestMessageCacheCharacterCapacity = 256 * 1024;
         [SerializeField, Range(1, 65535)] private int listenPort = 9000;
         [SerializeField] private string destinationAddress = "127.0.0.1";
         [SerializeField, Range(1, 65535)] private int destinationPort = 9001;
         private readonly ConcurrentQueue<OscPacket> inputQueue = new ConcurrentQueue<OscPacket>();
-        private readonly Dictionary<string, OscPacket> latestMessages = new Dictionary<string, OscPacket>(StringComparer.Ordinal);
+        private readonly Dictionary<string, LinkedListNode<OscPacket>> latestMessages = new Dictionary<string, LinkedListNode<OscPacket>>(StringComparer.Ordinal);
+        private readonly LinkedList<OscPacket> latestMessageRecency = new LinkedList<OscPacket>();
         private readonly object callbackLock = new object();
         private Action<OscPacket>[] messageCallbacks = Array.Empty<Action<OscPacket>>();
         private OscServer server;
         private OscClient client;
         private RuntimeServices services;
-        private int queuedCount;
+        private int queuedCount, queuedAddressCharacters, cachedAddressCharacters;
         private long receivedCount, sentCount, droppedCount, malformedCount;
         public string ModuleName => nameof(OscHub);
         public long ReceivedCount => Interlocked.Read(ref receivedCount);
@@ -103,6 +107,13 @@ namespace MondmadeVJ0
                 Interlocked.Increment(ref droppedCount);
                 return false;
             }
+            if (Interlocked.Add(ref queuedAddressCharacters, packet.Address.Length) > InputQueueAddressCharacterCapacity)
+            {
+                Interlocked.Add(ref queuedAddressCharacters, -packet.Address.Length);
+                Interlocked.Decrement(ref queuedCount);
+                Interlocked.Increment(ref droppedCount);
+                return false;
+            }
             inputQueue.Enqueue(packet);
             Interlocked.Increment(ref receivedCount);
             return true;
@@ -124,12 +135,52 @@ namespace MondmadeVJ0
             for (var count = 0; count < remaining && inputQueue.TryDequeue(out var packet); count++)
             {
                 Interlocked.Decrement(ref queuedCount);
-                latestMessages[packet.Address] = packet;
+                Interlocked.Add(ref queuedAddressCharacters, -packet.Address.Length);
+                RememberLatest(packet);
                 DispatchPacket(packet);
             }
         }
 
-        public bool TryGetLatest(string address, out OscPacket packet) => latestMessages.TryGetValue(address, out packet);
+        public bool TryGetLatest(string address, out OscPacket packet)
+        {
+            if (!latestMessages.TryGetValue(address, out var node))
+            {
+                packet = default;
+                return false;
+            }
+
+            latestMessageRecency.Remove(node);
+            latestMessageRecency.AddLast(node);
+            packet = node.Value;
+            return true;
+        }
+
+        private void RememberLatest(OscPacket packet)
+        {
+            var address = packet.Address;
+            if (latestMessages.TryGetValue(address, out var existing))
+            {
+                existing.Value = packet.WithAddress(existing.Value.Address);
+                latestMessageRecency.Remove(existing);
+                latestMessageRecency.AddLast(existing);
+                return;
+            }
+
+            if (address.Length > LatestMessageCacheCharacterCapacity) return;
+            while (latestMessages.Count >= LatestMessageCacheCapacity ||
+                   cachedAddressCharacters + address.Length > LatestMessageCacheCharacterCapacity)
+            {
+                var oldest = latestMessageRecency.First;
+                if (oldest == null) break;
+                latestMessageRecency.RemoveFirst();
+                latestMessages.Remove(oldest.Value.Address);
+                cachedAddressCharacters -= oldest.Value.Address.Length;
+            }
+
+            var node = latestMessageRecency.AddLast(packet);
+            latestMessages.Add(address, node);
+            cachedAddressCharacters += address.Length;
+        }
 
         public void Send(string address, int value)
         {
@@ -185,7 +236,10 @@ namespace MondmadeVJ0
             client = null;
             while (inputQueue.TryDequeue(out _)) { }
             queuedCount = 0;
+            Interlocked.Exchange(ref queuedAddressCharacters, 0);
             latestMessages.Clear();
+            latestMessageRecency.Clear();
+            cachedAddressCharacters = 0;
             lock (callbackLock) messageCallbacks = Array.Empty<Action<OscPacket>>();
             services = null;
         }
@@ -200,6 +254,8 @@ namespace MondmadeVJ0
         public readonly int Int0, Int1, Int2, Int3;
         public OscPacket(string address, int count, char tag0, char tag1, char tag2, char tag3, float float0, float float1, float float2, float float3, int int0, int int1, int int2, int int3)
         { Address = address; ArgumentCount = count; Tag0 = tag0; Tag1 = tag1; Tag2 = tag2; Tag3 = tag3; Float0 = float0; Float1 = float1; Float2 = float2; Float3 = float3; Int0 = int0; Int1 = int1; Int2 = int2; Int3 = int3; }
+        internal OscPacket WithAddress(string address)
+            => new OscPacket(address, ArgumentCount, Tag0, Tag1, Tag2, Tag3, Float0, Float1, Float2, Float3, Int0, Int1, Int2, Int3);
         public char GetTypeTag(int index) => index switch { 0 when ArgumentCount > 0 => Tag0, 1 when ArgumentCount > 1 => Tag1, 2 when ArgumentCount > 2 => Tag2, 3 when ArgumentCount > 3 => Tag3, _ => throw new ArgumentOutOfRangeException(nameof(index)) };
         public float GetFloat(int index) => index switch { 0 when ArgumentCount > 0 => Float0, 1 when ArgumentCount > 1 => Float1, 2 when ArgumentCount > 2 => Float2, 3 when ArgumentCount > 3 => Float3, _ => throw new ArgumentOutOfRangeException(nameof(index)) };
         public int GetInt(int index) => index switch { 0 when ArgumentCount > 0 => Int0, 1 when ArgumentCount > 1 => Int1, 2 when ArgumentCount > 2 => Int2, 3 when ArgumentCount > 3 => Int3, _ => throw new ArgumentOutOfRangeException(nameof(index)) };

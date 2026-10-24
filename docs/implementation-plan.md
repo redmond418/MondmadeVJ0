@@ -124,6 +124,10 @@
 | MIDI / OSC部分構成 | 検証対象commitのInput System＋MIDI＋OSC構成（Lasp / Cinemachine / URP / VFX Graphなし）をGit UPM consumerで検証。EditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped |
 | 未完了の受入 | 現行成果のHTTPS UPM導入（push未実施、release tagなし）、Windows IL2CPP / Windows上の実行とMIDI、macOS universal IL2CPP、A14の厳格な10分×3速度基準、外部受信機での実到着時刻測定。APC mini mk2のA17実機Pad・USB切断 / 再接続確認は完了。二台目APC mini mk2の物理確認は対象外 |
 
+### A20 OSCメモリ上限回帰
+
+2026-10-24のメモリ調査で、受信OSC addressをすべて保持する最新値cacheに生涯上限がないことを確認した。unique addressが増え続ける入力ではcacheが継続成長するため、cacheをLRU 8192件・合計262144 UTF-16 code unitsに制限し、受信待ちQueueも8192件・address合計524288 UTF-16 code unitsに制限した。上限超過時はcacheから古い値を退避し、Queueは新しいpacketをdropするが、cache対象外のpacketを含めてQueueに受理されたeventはMain Threadへ配送する。過大address・LRU退避・総文字数上限のOSC Source / QueueテストをStageで追加確認し、対象テスト10/10通過。XML: `/private/tmp/MondmadeVJ0-memory-osc-tests-final.xml`。macOS全体ではmemory_pressure 57% free、10秒vm_stat sampleでswapout/pageout増加なし、sysctlで使用中swapは約9.6GiBだった。Unityの過去ログはGC memory consumption約190〜450MB。直接観測した失敗要因はIL2CPP dSYM生成時の`No space left on device`で、disk freeは約3.2GiBだったため、RAM不足とディスク不足を区別して記録する。
+
 ### 2026-10-24 検証対象commitのGit UPM・Player検証
 
 commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を完全SHAで指定した`git+file` UPM consumerで確認した。全依存構成はEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped。部分依存構成はEditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけの構成はEditMode 127 passed / 3 skipped、PlayMode 2/2 passed。各consumerの`packages-lock.json`は同じSHAを記録する。

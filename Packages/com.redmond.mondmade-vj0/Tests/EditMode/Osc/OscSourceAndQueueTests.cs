@@ -87,6 +87,65 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void LatestMessageCacheIsBoundedAndEvictsLeastRecentlyUsedAddress()
+        {
+            for (var i = 0; i < OscHub.LatestMessageCacheCapacity; i++)
+                Assert.That(hub.TryQueuePacket(FloatPacket("/vj/cache/" + i, i)), Is.True);
+            hub.DrainInputQueue(services, OscHub.QueueCapacity);
+
+            Assert.That(hub.TryGetLatest("/vj/cache/0", out _), Is.True);
+            Assert.That(hub.TryGetLatest("/vj/cache/" + (OscHub.LatestMessageCacheCapacity - 1), out _), Is.True);
+            Assert.That(hub.TryQueuePacket(FloatPacket("/vj/cache/new", 1f)), Is.True);
+            hub.DrainInputQueue(services, 1);
+
+            Assert.That(hub.TryGetLatest("/vj/cache/0", out _), Is.True, "A recently read address should stay in the cache.");
+            Assert.That(hub.TryGetLatest("/vj/cache/1", out _), Is.False, "The least recently used address should be evicted.");
+            Assert.That(hub.TryGetLatest("/vj/cache/new", out _), Is.True);
+        }
+
+        [Test]
+        public void LatestMessageCacheIsBoundedByAggregateAddressLength()
+        {
+            var firstAddress = "/" + new string('a', 140000);
+            var secondAddress = "/" + new string('b', 140000);
+            var oversizedAddress = "/" + new string('c', OscHub.LatestMessageCacheCharacterCapacity);
+
+            Assert.That(hub.TryQueuePacket(FloatPacket(firstAddress, 1f)), Is.True);
+            Assert.That(hub.TryQueuePacket(FloatPacket(secondAddress, 2f)), Is.True);
+            hub.DrainInputQueue(services, 2);
+            Assert.That(hub.TryGetLatest(firstAddress, out _), Is.False);
+            Assert.That(hub.TryGetLatest(secondAddress, out _), Is.True);
+
+            Assert.That(hub.TryQueuePacket(FloatPacket(oversizedAddress, 3f)), Is.True);
+            hub.DrainInputQueue(services, 1);
+            Assert.That(hub.TryGetLatest(oversizedAddress, out _), Is.False);
+            Assert.That(hub.TryGetLatest(secondAddress, out _), Is.True);
+        }
+
+        [Test]
+        public void InputQueueBoundsAggregateAddressLengthAndStillDispatchesAcceptedPackets()
+        {
+            var firstAddress = "/" + new string('a', OscHub.InputQueueAddressCharacterCapacity / 2);
+            var overflowingAddress = "/" + new string('b', OscHub.InputQueueAddressCharacterCapacity / 2);
+            var dispatched = 0;
+            Action<OscPacket> callback = _ => dispatched++;
+            hub.MessageReceived += callback;
+
+            Assert.That(hub.TryQueuePacket(FloatPacket(firstAddress, 1f)), Is.True);
+            Assert.That(hub.TryQueuePacket(FloatPacket(overflowingAddress, 2f)), Is.False);
+            Assert.That(hub.ReceivedCount, Is.EqualTo(1));
+            Assert.That(hub.DroppedCount, Is.EqualTo(1));
+
+            hub.DrainInputQueue(services, OscHub.QueueCapacity);
+            Assert.That(hub.TryQueuePacket(FloatPacket(overflowingAddress, 2f)), Is.True, "Draining should release the pending address budget.");
+            hub.DrainInputQueue(services, 1);
+
+            Assert.That(dispatched, Is.EqualTo(2));
+            Assert.That(hub.TryGetLatest(firstAddress, out _), Is.False, "Addresses beyond the latest-value cache budget are delivered but not retained.");
+            hub.MessageReceived -= callback;
+        }
+
+        [Test]
         public void QueueRejectsMalformedPacketsBeforeTheyReachRoutes()
         {
             Assert.That(hub.TryQueuePacket(new OscPacket("missing/slash", 1, 'f', '\0', '\0', '\0', 1f, 0f, 0f, 0f, 0, 0, 0, 0)), Is.False);

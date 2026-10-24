@@ -202,6 +202,8 @@ SpectrumはLaspのlinear-frequency spectrumSpanを利用し、bin中心周波数
 
 OSCはaddressを完全一致させ、float=f、int=i、boolはiの0/1、Vectorは2〜4個のf、Colorはlinear RGBAの4個のf、Triggerは引数なし。T/F・double・暗黙の型変換・部分一致は標準wire契約に含めず、不正型は棄却して診断する。SourceにInitial Value、Outputに送信先とaddressを明示する。
 
+OSC受信Queueはpacket数8192件に加えて待機中addressの合計を524288 UTF-16コード単位以下に制限し、超過する新規packetをdropする。最新値cacheはLRU方式で最大8192 address・合計262144 UTF-16コード単位を保持する。上限を超えた古い値や大きすぎるaddressはcache対象から外すが、受信eventの配送は継続する。
+
 upstream OSC Jack 2.0.0の公開Getterはi/fを暗黙変換し、Type Tag自体を公開しないため、厳密な型検査には不足する。配布元はredmond418/OscJack forkとし、`OscDataHandle.GetElementTypeTag(index)`を追加した固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328`を採用した。Runtime Adapterは型タグを厳密に検査する。fork APIのPlayer / IL2CPP動作、外部機器との実ネットワーク受け入れは未完。UDP loopbackでは実Type Tagと送受信を確認済み。無関係な機能はforkへ追加しない。
 
 OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送4096件/frame・超過新規分棄却。自動echoは実装しない。同じRuntimeで入力→出力の同じendpoint / addressへの直接loopはValidation Error。別PCを跨ぐ構成のloopは自動検出できないため、送受信addressを分ける。外部Transport同期は`/mondmade/transport`へ`BPM(float), wholeBeat(float), fractionalBeat(float), running(float)`の4個のfを1パケットで30Hz以上で受信し、受信時刻を基準に同期する。wholeBeatは0〜16777215の整数、fractionalBeatは0以上1未満、runningは0/1とし、内部ではdoubleへ復元する。範囲外パケットは棄却する。送信側Clockとネットワーク遅延の絶対補償は行わず、D11と同じLost / 再取得規則を使う。
