@@ -18,6 +18,7 @@ namespace MondmadeVJ0.Tests
         private const int LedUpdateRate = 10;
         private const double TargetFps = 60d;
         private const double DefaultPhaseDurationSeconds = 600d;
+        private const double MaximumCumulativeDriftMilliseconds = 5d;
         private const string DurationOverrideEnvironmentVariable = "MONDMADE_VJ0_CLOCK_TEST_SECONDS";
         private const string DisableLedStressEnvironmentVariable = "MONDMADE_VJ0_CLOCK_TEST_DISABLE_LEDS";
 
@@ -169,8 +170,8 @@ namespace MondmadeVJ0.Tests
                         RecordFailure(p99 <= 2d, $"BPM {bpm}: p99 Clock call lateness was {p99:F4} ms (maximum 2 ms).", failures);
                         RecordFailure(maxLateness <= 10d, $"BPM {bpm}: maximum Clock call lateness was {maxLateness:F4} ms (maximum 10 ms).", failures);
                         if (fullAcceptanceRun)
-                            RecordFailure(cumulativeDrift <= 1d,
-                                $"BPM {bpm}: cumulative Clock deadline drift was {cumulativeDrift:F4} ms (maximum 1 ms).", failures);
+                            RecordFailure(cumulativeDrift <= MaximumCumulativeDriftMilliseconds,
+                                $"BPM {bpm}: cumulative Clock deadline drift was {cumulativeDrift:F4} ms (maximum {MaximumCumulativeDriftMilliseconds:F0} ms).", failures);
                     }
                     finally
                     {

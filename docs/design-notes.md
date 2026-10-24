@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-24（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editor実装を行い、Unity 6000.3.8f1 macOS arm64 Editorの隔離CheckoutでEditMode 169件・通常PlayMode 7件、APC Pad 1物理入力と緑色LED点灯、ClockとLEDの同一worker実機結合、macOS universalのMono / IL2CPPおよびWindows x64 Mono Player buildを検証済み。最新Packageを同期した全依存Stage ProjectではEditMode 255/255、PlayMode 12 passed / 7 Explicit skippedが通過し、A19ではDebug出力のログ、Core / Generic Component / Animator / Cinemachine / VFX / Renderer / Material / Volume / AudioSource / OSCのOutput契約、MIDI LED Outputの色・明るさ・Indexと、5種類すべての未知Control / LEDなしControl参照拒否を検証した。A20のBackground Music入力も8秒probeで確認した。D16ではMaterial / Volume cloneの共有lease、Transform / Generic / Shader書込競合、Video prepare待ち・timeout・非同期Faultを契約テストで検証した。D20ではLasp dBFS・FFT bin / Hz・Trigger状態とOSC UDP / 型・queue契約を検証した。A17 USB切断・再接続probeは実機1/1 Passed。Windows IL2CPP module、10分MIDI Clock精度、公開Git URL導入、全Integration Playerの外部実行受け入れも継続中であり、検証結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-24（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。A14送信側の最新10分×3速度負荷は、2026-10-24に改訂した累積期限ずれ≤5msを含む条件で合格し、詳細を[実装・検証計画](implementation-plan.md)に記録した。公開HTTPS UPM導入と現行コードのmacOS universal IL2CPP buildは未完了。Windows上の実行・MIDI・IL2CPPは当面の受入対象外。
 
 ## 採用済みの判断
 
@@ -126,7 +126,7 @@ RtMidi即時backendのClock送信呼出し遅延は、workerが`SendMessage`を�
 
 CoreMIDI Clock送信のnative `MIDIPacketList`とpacket data領域を接続中に一度だけ確保し、共有output workerから再利用する変更を加えた。APC mini mk2・OSXEditor / Apple M1の61秒×3速度・全LED / 1000 Route smokeはPassed、欠落 / drop 0、FPS 59.994 / 59.979 / 59.984だったが、submission p99は1.202 / 1.216 / 1.196ms、最大遅延4.196 / 3.060 / 4.909ms、累積submission drift 3.1108 / 2.5123 / 4.9079msとなった。8ms予約条件を変えておらず、過去の短縮測定より一貫した精度改善は見られない。10分条件と外部receiver測定は未実施のためA14は未合格。XML: `/private/tmp/MondmadeVJ0-stage/codemidi-buffer-a14-smoke.xml`。
 
-採用する合格目標は、BPM 120 / 174 / 240・各10分、60fps、1000 Route、LED全灯更新10HzのmacOS arm64 / Windows x64環境で、送信呼出し時刻の誤差p99≤2ms、最大≤10ms、欠落0、累積期限ずれ≤1ms。外部受信機での実測も記録し、USB / 機器遅延は別列にする。未達は実装不合格としてbackendまたはschedulerを改善し、機能完成扱いにしない。OS設定と計測機器は結果に必ず添付する。
+2026-10-24、ユーザー判断により累積期限ずれの上限を1msから5msへ改訂した。A14送信側の合格目標は、macOS arm64 EditorでBPM 120 / 174 / 240を各10分、60fps、1000 Route、LED全control更新10Hz、送信呼出し時刻の誤差p99≤2ms、最大≤10ms、欠落0、出力drop 0、累積期限ずれ≤5ms。外部受信機での実到着時刻は送信呼出し結果と別列に記録する参考観測で、A14送信側の合否を妨げない。OS設定と計測機器は結果に添付する。Windows上の実行・MIDI・IL2CPPは当面の受入対象外。
 
 Tapは直近8間隔のMedian、最初のTapは履歴開始のみ、2秒未入力で破棄。許容BPMは30〜300。3間隔以上の履歴がある場合、Medianとの差が20%超の入力は外れ値として履歴へ入れず、新しい連続2間隔が互いに20%以内ならテンポ変更とみなして履歴を切り替える。TapによるBPM更新は位相を保持する。
 

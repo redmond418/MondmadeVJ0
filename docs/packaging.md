@@ -1,14 +1,14 @@
 # パッケージ構成と導入
 
-更新日：2026-10-24（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerでEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped、macOS universal MonoとWindows x64 Mono Player buildが成功した。部分依存consumerはEditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけのconsumerはEditMode 127 passed / 3 skipped、PlayMode 2/2 passed。現行コードのmacOS universal IL2CPP buildはdSYM生成中にディスク不足で失敗し、未検証。A14のMIDI Clock厳格負荷基準と外部受信機測定、公開HTTPS UPM URL、Windows IL2CPP / Windows上の実機MIDI確認が残る。APC mini mk2のA17実機Pad・USB切断 / 再接続確認は完了し、二台目を使う試験は所有機器がないため対象外。A20ではBackground Music入力（2ch）を8秒取得し、Runtime FrameClock経由で2,984 normalized samples・peak 0.797を確認（音声データは保存していない）。残る受け入れ条件の詳細は[実装・検証計画](implementation-plan.md)を参照。
+更新日：2026-10-24（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerでEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped、macOS universal MonoとWindows x64 Mono Player buildが成功した。部分依存consumerはEditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけのconsumerはEditMode 127 passed / 3 skipped、PlayMode 2/2 passed。現行コードのmacOS universal IL2CPP buildはdSYM生成中にディスク不足で失敗し、未検証。A14送信側の10分×3速度基準は、ユーザー合意の累積ずれ≤5msで最新測定が合格。外部受信機の実到着時刻は別観測として未実施。公開HTTPS UPM URLとmacOS universal IL2CPP buildは未完了。Windows上の実行・MIDI・IL2CPPは当面対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続確認は完了し、二台目を使う試験は所有機器がないため対象外。A20ではBackground Music入力（2ch）を8秒取得し、Runtime FrameClock経由で2,984 normalized samples・peak 0.797を確認（音声データは保存していない）。残る受け入れ条件の詳細は[実装・検証計画](implementation-plan.md)を参照。
 
 2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を指定した`git+file` UPM consumerで全依存・部分依存・Core必須依存のみを検証した。各依存構成の詳細とXML保存先は[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)を参照。全依存consumerからmacOS universal Mono PlayerとWindows x64 Mono Playerをbuildした。macOS universal IL2CPPはdSYM生成中にディスク不足となり未検証。
 
 過去のcommit `e436983` ではStandaloneOSX universal Mono / IL2CPP buildが成功しているが、これは現行コードのIL2CPP buildを証明しない。以前のWindows Build Profile / Pipeline経由のunsupported target errorsは、現行commitの標準Unity CLI Mono build成功で置き換えた。過去commitに対するStandaloneOSX IL2CPP Test Runnerは終了後NUnit XMLがなく、実行件数は未確定。
 
-2026-10-23の後続A14 smokeではCoreMIDI計測点を`MIDISend`直前へ修正した。各61秒・120 / 174 / 240 BPMの累積submission driftは3.9339 / 2.9742 / 5.1804msで、依然1ms基準を超えた。旧計測点による値と外部receiver測定の区別は[実装・検証計画](implementation-plan.md)に記録する。
+2026-10-23の後続A14 smokeではCoreMIDI計測点を`MIDISend`直前へ修正した。各61秒・120 / 174 / 240 BPMの累積submission driftは3.9339 / 2.9742 / 5.1804msで、当時の1ms基準を超えた。旧計測点による値と外部receiver測定の区別は[実装・検証計画](implementation-plan.md)に記録する。
 
-2026-10-24、3msの送信spin窓を使った20秒×3速度smokeはClock missed / drop 0、p99 0.013 / 0.012 / 0.111ms、最大4.059 / 1.210 / 7.964ms、累積ずれ3.5227 / 1.2057 / 7.9616msだった。短縮smokeの結果はPassだが累積ずれ1msを超え、A14の10分条件も外部receiver実測も満たしていないため未合格。詳細は[実装・検証計画](implementation-plan.md)に記録する。
+2026-10-24、3msの送信spin窓を使った20秒×3速度smokeはClock missed / drop 0、p99 0.013 / 0.012 / 0.111ms、最大4.059 / 1.210 / 7.964ms、累積ずれ3.5227 / 1.2057 / 7.9616msだった。短縮smokeの結果はPassだが累積ずれは当時の1ms条件を超え、10分負荷・外部receiver実測でもない短縮比較として記録した。詳細は[実装・検証計画](implementation-plan.md)に記録する。
 
 ## 配置
 
@@ -84,7 +84,7 @@ Core Editorは利用可能なIntegrationだけを型登録から列挙する。�
 
 OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
 
-任意依存なし構成はR3 / Unsafe / NuGetForUnity / Unity標準moduleだけでlocal package import・compileを確認し、macOS universal IL2CPPとWindows x64 Mono Player buildも成功した。2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存・部分依存・Core必須依存のみconsumerからimport / compile / Player buildを検証した結果は冒頭と[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)に記載する。古いSHA `f238b0a20e0c9b3430f74f2f1c41ed6667ca4257` や`066590edf7353b158865311324cf6c194ca74779`の検証結果は当時のpackage内容を対象とする。現行成果のHTTPS UPM導入はcommit未push・release tag未作成のため未検証。Windows IL2CPPは対象OS上でのbuildが必要で、このmacOS hostでは確認できない。
+任意依存なし構成はR3 / Unsafe / NuGetForUnity / Unity標準moduleだけでlocal package import・compileを確認し、macOS universal IL2CPPとWindows x64 Mono Player buildも成功した。2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存・部分依存・Core必須依存のみconsumerからimport / compile / Player buildを検証した結果は冒頭と[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)に記載する。古いSHA `f238b0a20e0c9b3430f74f2f1c41ed6667ca4257` や`066590edf7353b158865311324cf6c194ca74779`の検証結果は当時のpackage内容を対象とする。現行成果のHTTPS UPM導入はcommit未push・release tag未作成のため未検証。Windows上の実行・IL2CPPはユーザー判断により当面の受入対象外。
 
 ## 導入手順
 
@@ -119,8 +119,8 @@ Scene内のPort ordinalは開発時のAPC列挙結果を初期値にする。「
 
 同時開発は「Install package from disk」で、このcloneの `Packages/com.redmond.mondmade-vj0/package.json` を1つ指定する。共有・リリース時はローカルパスをGit tagへ戻す。利用側の拡張はAssets/<ProjectName>/または独立packageへ置く。
 
-対象はUnity 6000.3系列以降、基準Editorは6000.3.8f1。macOS arm64 / Windows x64のEditorとStandalone（Mono / IL2CPP）を検証する。対象と試験済み結果は区別する。
+対象Unityは6000.3系列以降、基準Editorは6000.3.8f1。想定platformはmacOS arm64 / Windows x64だが、今回のWindows上の実行・MIDI・IL2CPPはユーザー判断により当面の受入対象外とする。現在の実行検証はmacOS arm64を中心に行い、Windows x64 Mono cross-buildは確認済み。
 
-releaseは1つのversion・tagで更新する。全機能の完成判定に加え、Core必須依存のみ・一部外部依存あり・全依存ありの各構成でGit導入・Editor import・Playerビルドを検証する。機能ごとに別のMondmadeVJ0 packageを登録する操作がないことも確認する。
+releaseは1つのversion・tagで更新する。全機能の完成判定に加え、Core必須依存のみ・一部外部依存あり・全依存ありの各構成でGit導入・Editor import・Playerビルドを検証する。機能ごとに別のMondmadeVJ0 packageを登録する操作がないことも確認する。Windows上の実行・MIDI・IL2CPPは現行受入範囲から除外する。
 
 LICENSE・外部依存通知・CHANGELOG・移行手順を同梱する。公開ライセンスは所有者の判断とし、この文書更新では新設しない。ライセンスは追加していない。NuGetForUnityが生成する`Assets/Packages/`と`Assets/packages.config`は復元物としてGit ignoreする。

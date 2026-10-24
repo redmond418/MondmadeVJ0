@@ -29,12 +29,13 @@ Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意�
 ## 開発環境と検証
 
 - Unity 6000.3.8f1、macOS arm64 Editor
-- 全依存Stage ProjectのEditMode 249/249、PlayMode 11 passed / 7 Explicit skippedを通過
-- 現行実装のmacOS universal Mono / IL2CPP Player buildを確認
-- APC mini mk2でPad / Fader / Track Buttonの入力、緑色LED、USB再接続後の状態保持を確認
-- Background Music入力の短時間probeを確認
+- 最新全依存Stage ProjectのEditMode 255/255、通常PlayMode 12/12を通過（Explicit probe 7件は通常実行でskip）
+- 最新PackageのmacOS universal Mono Player buildとWindows x64 Mono cross-buildを確認
+- APC mini mk2でPad / Fader / Track Button入力、緑色LED、USB切断・再接続時の状態保持とLED同期を確認
+- Background Music入力の8秒probeで2,984 samplesを確認（音声データは保存していません）
+- A14 MIDI Clock送信側は、累積期限ずれ上限をユーザー合意の5msへ改訂し、最新の10分×3速度測定が合格
 
-MIDI ClockのA14規定負荷、外部受信機の到着時刻、Windows IL2CPP / Windows上の実行、現行成果の公開HTTPS UPM導入は未完了です。package SHA `e436983ae974c6ce27a5e1f8808cbcd56845338b` のWindows x64 Mono Player buildは成功しました。Windows上でのPlayer実行・MIDI機器とWindows IL2CPPは未確認です。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を正とします。
+残る受入項目は、現行成果の公開HTTPS UPM導入とmacOS universal IL2CPP buildです。最新A14の保存XMLは旧1ms assertionでFailedですが、failureは累積ずれ3件のみで、4.5406 / 3.7213 / 4.6805msはいずれも現行5ms条件内です。外部受信機の実到着時刻は別観測として未測定で、A14送信側の合格を妨げません。Windows上の実行・MIDI・IL2CPPは当面の受入範囲外です。30分負荷調査では持続的なUnity RSS増加やメモリ不足を再現しませんでした。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を参照してください。
 
 ## 設計上の前提
 

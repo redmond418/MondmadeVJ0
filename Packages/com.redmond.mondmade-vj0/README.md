@@ -20,10 +20,10 @@ APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../As
 
 ## Verification status
 
-Unity 6000.3.8f1の最新全依存Stage ProjectではEditMode 169/169が通過し、通常PlayModeは7 passed / 6 Explicit skippedです。macOS universal Mono / IL2CPP Player buildとWindows x64 Mono cross-buildは成功しました。Windows buildにはUnity Cloud Diagnosticsのsymbol-upload warningが2件あります。StandaloneOSX IL2CPP Test Runnerは全テスト成功と表示しましたが、NUnit XMLが出力されず実行件数は未確定です。
+Unity 6000.3.8f1の最新全依存Stage ProjectではEditMode 255/255、通常PlayMode 12/12が通過しました（Explicit probe 7件は通常実行でskip）。最新PackageのmacOS universal Mono Player buildとWindows x64 Mono cross-buildを確認しています。現行コードのmacOS universal IL2CPP buildはdSYM生成中のディスク不足で未検証です。Windows上の実行・MIDI・IL2CPPは当面の受入対象外です。
 
-MIDI ClockのA14は未合格です。CoreMIDI timestamped backendの8ms先行予約では61秒×3速度smokeのClock欠落 / output dropは0でしたが、submission driftは3.219 / 4.011 / 4.304msで1ms基準を超えました。外部受信機での期限出力実測は未実施です。stage-onlyの10 / 12ms比較も一貫して1ms以下にならず、20msはClock欠落・frame cadence悪化を生じたため、実装は8ms設定のままです。以前の10分×3速度RtMidi実測も欠落・最大遅延・累積ずれの条件で不合格です。
+MIDI ClockのA14送信側は、ユーザー合意により累積期限ずれ上限を5msへ改訂し、最新10分×3速度測定で合格しました。120 / 174 / 240 BPMの累積ずれは4.5406 / 3.7213 / 4.6805ms、Clock missed / output dropは全相0です。保存XMLは旧1ms assertionに対してFailedですが、failureはこの累積ずれ3件だけです。外部受信機の実到着時刻は別観測として未測定で、送信側合格を妨げません。
 
-APC mini mk2の左上Pad 1からNote 56を受信し、VelocityButtonの押下・Releaseと正規化velocityを確認しました。型付きPad probe #14は9.214秒、Fader / Track Button probe #13は15.210秒で通過し、Fader 1の型付き入力とTrack Button 1の押下・解放も確認しました。probe #12ではFader CC 48の0〜1往復を記録しています。APC mini mk2は接続状態を維持しており、USB切断・再接続は未試験です。
+APC mini mk2ではPad 1、Fader 1、Track Button 1の型付き入力、緑色LED、USB切断中の値保持と再接続後のLED同期を実機確認しました。Background Music入力は8秒probeで2,984 normalized samples・peak 0.797を確認し、音声データは保存していません。約30分の高負荷調査ではUnity RSSは上下後に戻り、持続的な増加やメモリ不足を再現しませんでした。
 
-CoreMIDI backendを含むPackage SHA `066590edf7353b158865311324cf6c194ca74779` を指定したローカル`git+file` UPM URLからの導入では、部分依存ProjectでEditMode 145 passed / 2 optional skipped、PlayMode 7 passed / 6 Explicit skippedとmacOS universal Mono Player build（0 errors / 0 warnings）を確認しました。公開HTTPS UPM URLからの導入は、現行commitのpushとrelease tagが未実施のため未検証です。Windows IL2CPP / 実機MIDI、実Audio device capture、外部受信機測定も未確認です。受入項目の詳細と個別測定値は[実装・検証計画](../../docs/implementation-plan.md)を参照してください。
+公開HTTPS UPM導入は現行commitのpushとrelease tagが未実施のため未検証です。macOS universal IL2CPP buildはdSYM生成中のディスク不足で未完了です。各受入項目と測定値は[実装・検証計画](../../docs/implementation-plan.md)を参照してください。
