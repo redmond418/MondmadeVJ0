@@ -174,6 +174,12 @@ Clock欠落・共有出力dropはなく、p99・Route・LED条件を満たした
 
 2026-10-24、CoreMIDIのschedule leadを既定8msから6msへ変更した短縮smokeを、現行Stageコードで120 / 174 / 240 BPM各20秒実施した。FPSは59.980 / 59.958 / 59.957、Clock missed / droppedは各0、p99遅延は0.007 / 0.013 / 0.242ms、最大遅延は1.204 / 7.787 / 2.685ms、累積期限ずれは1.2024 / 7.7803 / 2.6841ms。3速度とも1msの累積ずれ条件を超え、10分負荷でもないためA14未合格。8msから一貫した改善を示さなかったので、6ms候補は採用せず既定8msを維持した。XML: `/private/tmp/MondmadeVJ0-stage/a14-lead6-smoke-rerun.xml`.
 
+### A14 先行予約とspin窓の追加短縮smoke
+
+同日、schedule lead 7msを120 / 174 / 240 BPM各20秒で2回計測した。初回はEditorの外れ値を含み、FPS 58.558 / 59.964 / 59.936、Clock missed 2 / 0 / 0、p99遅延8.764 / 0.007 / 0.005ms、最大遅延25.486 / 0.708 / 3.063ms、累積ずれ21.9245 / 0.7059 / 3.0619msだった。再試行はFPS 59.979 / 59.958 / 59.956、Clock missed / droppedは全相0、p99遅延0.006 / 0.006 / 0.005ms、最大遅延2.680 / 2.600 / 5.265ms、累積ずれ2.6781 / 2.5981 / 5.2642msだった。試行間のばらつきがあり、再試行でも累積ずれ1msを3速度すべてで超えたため不採用とし、既定8msへ戻した。XML: `/private/tmp/MondmadeVJ0-stage/a14-lead7-smoke.xml`、`/private/tmp/MondmadeVJ0-stage/a14-lead7-rerun.xml`。
+
+CoreMIDI lead 8msを維持し、共有workerのspin窓だけを1msへ変えた20秒smokeでは、FPS 59.979 / 59.958 / 59.882、Clock missed / droppedは全相0、p99遅延0.248 / 0.144 / 0.008ms、最大遅延2.880 / 1.175 / 5.590ms、累積ずれ2.8785 / 1.1727 / 5.5889msだった。spin窓0.5msではFPS 59.913 / 59.958 / 59.940、Clock missed / droppedは全相0、p99遅延0.623 / 0.469 / 0.461ms、最大遅延4.388 / 0.644 / 3.155ms、累積ずれ4.3868 / 0.5006 / 2.7607msだった。どちらも10分条件ではなく、累積ずれ条件を満たしたのは0.5msの174 BPMだけなので不採用とした。コードは既定の3ms spin窓へ戻した。XML: `/private/tmp/MondmadeVJ0-stage/a14-spin1ms-smoke.xml`、`/private/tmp/MondmadeVJ0-stage/a14-spin0_5ms-smoke.xml`。
+
 ## 動作例として揃えるRoute
 
 - APC Fader → Remap → Smooth → VFX Float
