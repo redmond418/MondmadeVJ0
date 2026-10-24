@@ -128,6 +128,20 @@
 
 2026-10-24のメモリ調査で、受信OSC addressをすべて保持する最新値cacheに生涯上限がないことを確認した。unique addressが増え続ける入力ではcacheが継続成長するため、cacheをLRU 8192件・合計262144 UTF-16 code unitsに制限し、受信待ちQueueも8192件・address合計524288 UTF-16 code unitsに制限した。上限超過時はcacheから古い値を退避し、Queueは新しいpacketをdropするが、cache対象外のpacketを含めてQueueに受理されたeventはMain Threadへ配送する。過大address・LRU退避・総文字数上限のOSC Source / QueueテストをStageで追加確認し、対象テスト10/10通過。XML: `/private/tmp/MondmadeVJ0-memory-osc-tests-final.xml`。macOS全体ではmemory_pressure 57% free、10秒vm_stat sampleでswapout/pageout増加なし、sysctlで使用中swapは約9.6GiBだった。Unityの過去ログはGC memory consumption約190〜450MB。直接観測した失敗要因はIL2CPP dSYM生成時の`No space left on device`で、disk freeは約3.2GiBだったため、RAM不足とディスク不足を区別して記録する。
 
+### 2026-10-24 A14規定負荷とメモリ観測
+
+最新package commit `7398406` を同期したStage OSXEditor（Apple M1、macOS 26.1.0、Unity 6000.3.8f1、APC mini mk2）で、BPM 120 / 174 / 240を各600秒、1000 Route、LED 10Hz、Monitor capture無効、CoreMIDI timestamped backend（schedule lead 8ms）で連続実行した。結果XML: `/private/tmp/MondmadeVJ0-a14-memory-fix-current-600s.xml`。
+
+| BPM | fps / 最大frame間隔 | Route writes/s | LED更新 / states | Clock sent / expected / missed / dropped | p99 / 最大送信遅延 | 累積期限ずれ | GC 0/1/2 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 120 | 60.000 / 58.361ms | 60,000 | 10.000Hz / 479,984 | 28,800 / 28,800 / 0 / 0 | 0.006 / 13.796ms | 11.8937ms | 14 / 14 / 14 |
+| 174 | 60.000 / 31.253ms | 60,000 | 10.000Hz / 479,984 | 41,760 / 41,760 / 0 / 0 | 0.073 / 4.198ms | 4.1927ms | 13 / 13 / 13 |
+| 240 | 60.000 / 38.490ms | 60,000 | 10.000Hz / 479,984 | 57,600 / 57,600 / 0 / 0 | 0.260 / 4.278ms | 2.9398ms | 14 / 14 / 14 |
+
+Clock欠落と共有出力dropは0で、fps・Route・LED・p99条件を満たした。BPM 120では最大遅延13.796msが10ms基準を超過し、累積期限ずれも3速度すべてで1msを超過したためA14未合格。指標は`MIDISend` entryと「期限−schedule lead」の差で、外部receiverの受信時刻ではない。
+
+同じ約30分の実行中、macOSのmemory_pressure空き率は概ね31〜35%、終了直後は50%。Unity batch processのRSSは採取時点で約0.10〜0.69GiBの範囲を上下し、低い値へ戻る動きがあった。使用swapは概ね9.2〜9.4GiBで横ばい、30分を通したRSSやswapの継続的な増加は観測されず、この実行からUnityの持続的なメモリリークは確認できなかった。これは他アプリを含む過去のメモリ不足や別シーンの負荷を否定するものではない。今回ソースで見つけた具体的な成長経路はOSC unique address cacheで、上記A20節のLRU・queue上限を実装済み。別問題としてData volumeは使用率100%表示・空き約3.1GiBで、過去にIL2CPP dSYM生成が`No space left on device`で失敗している。
+
 ### 2026-10-24 検証対象commitのGit UPM・Player検証
 
 commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を完全SHAで指定した`git+file` UPM consumerで確認した。全依存構成はEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped。部分依存構成はEditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけの構成はEditMode 127 passed / 3 skipped、PlayMode 2/2 passed。各consumerの`packages-lock.json`は同じSHAを記録する。
