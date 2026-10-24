@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-24（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。A14送信側の最新10分×3速度負荷は、2026-10-24に改訂した累積期限ずれ≤5msを含む条件で合格し、詳細を[実装・検証計画](implementation-plan.md)に記録した。公開HTTPS UPM導入と現行コードのmacOS universal IL2CPP buildは未完了。Windows上の実行・MIDI・IL2CPPは当面の受入対象外。
+更新日：2026-10-24（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。詳細は[実装・検証計画](implementation-plan.md)に記録した。残るのはpushとrelease tag後の公開HTTPS UPM導入確認。Windows上の実行は今回の受入対象外。
 
 ## 採用済みの判断
 
@@ -142,7 +142,7 @@ RtMidiは`IgnoreTypes(sysex:false, time:false, sense:true)`で必要なメッセ
 
 Portを1秒ごとに再列挙し、失敗時は1秒間隔で再接続する。Surface Instance GUID、機器名、同名機器の明示ordinalで識別し、曖昧な自動割当は行わない。Minisが物理Portを識別できないまま同名ProductのSurfaceが重なる場合、RuntimeはMinisの自動attachを停止して診断を残し、RtMidiRawと明示ordinalの利用を促す。APC Surface追加UIは使用中ordinalを避けてControl Portを優先する。永続的な実機serialを取得できないため、接続順が変わった場合の物理対応は保証せず、Play開始前にInspectorでordinalを確認・再指定する。Note On velocity=0はRelease。
 
-対象はUnity 6000.3系以降のmacOS arm64とWindows x64のEditor / Standalone。PlayerはMonoとIL2CPPを検証対象とする。WebGL / mobile / Linuxは本仕様のサポート対象外。R3等の採用版は[導入仕様](packaging.md)に固定する。OS対応は設計上の対象であり、試験済みという意味ではない。
+対象Unityは6000.3系以降。現在の実行受入範囲はmacOS arm64 EditorとmacOS universal Mono / IL2CPP Player。Windows x64のcross-build記録はあるが、Windows上の実行・MIDI・IL2CPPは今回の受入対象外とする。WebGL / mobile / Linuxは本仕様のサポート対象外。R3等の採用版は[導入仕様](packaging.md)に固定する。
 
 ## D14：Profile・LED・Panic
 
@@ -204,6 +204,6 @@ OSCはaddressを完全一致させ、float=f、int=i、boolはiの0/1、Vector�
 
 OSC受信Queueはpacket数8192件に加えて待機中addressの合計を524288 UTF-16コード単位以下に制限し、超過する新規packetをdropする。最新値cacheはLRU方式で最大8192 address・合計262144 UTF-16コード単位を保持する。上限を超えた古い値や大きすぎるaddressはcache対象から外すが、受信eventの配送は継続する。
 
-upstream OSC Jack 2.0.0の公開Getterはi/fを暗黙変換し、Type Tag自体を公開しないため、厳密な型検査には不足する。配布元はredmond418/OscJack forkとし、`OscDataHandle.GetElementTypeTag(index)`を追加した固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328`を採用した。Runtime Adapterは型タグを厳密に検査する。fork APIのPlayer / IL2CPP動作、外部機器との実ネットワーク受け入れは未完。UDP loopbackでは実Type Tagと送受信を確認済み。無関係な機能はforkへ追加しない。
+upstream OSC Jack 2.0.0の公開Getterはi/fを暗黙変換し、Type Tag自体を公開しないため、厳密な型検査には不足する。配布元はredmond418/OscJack forkとし、`OscDataHandle.GetElementTypeTag(index)`を追加した固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328`を採用した。Runtime Adapterは型タグを厳密に検査する。UDP loopbackに加え、macOS universal Mono / IL2CPP Playerと別プロセスのOSC peer間で型付き送受信を確認した。実機の別PC・外部ネットワークでの受入は未実施。無関係な機能はforkへ追加しない。
 
 OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送4096件/frame・超過新規分棄却。自動echoは実装しない。同じRuntimeで入力→出力の同じendpoint / addressへの直接loopはValidation Error。別PCを跨ぐ構成のloopは自動検出できないため、送受信addressを分ける。外部Transport同期は`/mondmade/transport`へ`BPM(float), wholeBeat(float), fractionalBeat(float), running(float)`の4個のfを1パケットで30Hz以上で受信し、受信時刻を基準に同期する。wholeBeatは0〜16777215の整数、fractionalBeatは0以上1未満、runningは0/1とし、内部ではdoubleへ復元する。範囲外パケットは棄却する。送信側Clockとネットワーク遅延の絶対補償は行わず、D11と同じLost / 再取得規則を使う。

@@ -2,7 +2,7 @@
 
 UnityでVJシステムを組むための基盤ライブラリです。Inspectorで `Source → Modifiers → Route State → Outputs` をつなぎ、音楽時間、MIDI Surface、OSC、音声解析、映像・LED出力を扱います。
 
-Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意しています。受け入れ試験には未完了項目が残っているため、プロジェクト全体はまだ完成扱いにしていません。現在の実装、環境別の確認結果、残作業は[実装と検証](docs/implementation-plan.md)を参照してください。
+Runtime、Editor、Setup、Monitorと標準機能カタログを実装し、宣言した受入範囲のA01〜A24をローカルで検証しました。公開HTTPS UPMからの導入だけは、pushとrelease tagを行っていないため未検証です。現在の実装、環境別の確認結果、残作業は[実装と検証](docs/implementation-plan.md)を参照してください。
 
 ## ドキュメント
 
@@ -30,12 +30,13 @@ Runtime、Editor、Setup、Monitorと標準機能カタログの実装を用意�
 
 - Unity 6000.3.8f1、macOS arm64 Editor
 - 最新全依存Stage ProjectのEditMode 255/255、通常PlayMode 12/12を通過（Explicit probe 7件は通常実行でskip）
-- 最新PackageのmacOS universal Mono Player buildとWindows x64 Mono cross-buildを確認
+- macOS universal Mono Player buildを確認。現行sourceのuniversal IL2CPP Playerもx86_64 / arm64両方で起動し、AOT accessor、stripping後の実行、RtMidi接続状態を確認
+- Windows x64 Mono cross-buildも確認。Windows上での実行は今回の受入範囲外
 - APC mini mk2でPad / Fader / Track Button入力、緑色LED、USB切断・再接続時の状態保持とLED同期を確認
 - Background Music入力の8秒probeで2,984 samplesを確認（音声データは保存していません）
 - A14 MIDI Clock送信側は、累積期限ずれ上限をユーザー合意の5msへ改訂し、最新の10分×3速度測定が合格
 
-残る受入項目は、現行成果の公開HTTPS UPM導入とmacOS universal IL2CPP buildです。最新A14の保存XMLは旧1ms assertionでFailedですが、failureは累積ずれ3件のみで、4.5406 / 3.7213 / 4.6805msはいずれも現行5ms条件内です。外部受信機の実到着時刻は別観測として未測定で、A14送信側の合格を妨げません。Windows上の実行・MIDI・IL2CPPは当面の受入範囲外です。30分負荷調査では持続的なUnity RSS増加やメモリ不足を再現しませんでした。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を参照してください。
+ローカルの受入で残っている項目はありません。公開HTTPS UPM導入の確認には、現行commitのpushとrelease tagが必要です。A14の最新10分×3速度は、累積ずれ上限を5msへ改訂した基準で合格しています（4.5406 / 3.7213 / 4.6805ms）。保存XMLは改訂前の1ms assertionで生成された履歴です。外部受信機の実到着時刻は参考観測として未測定で、A14送信側の合否条件には含めません。Windows上での実行は今回の受入範囲外です。30分負荷調査では持続的なUnity RSS増加やメモリ不足を再現しませんでした。検証済み範囲と制限は[実装と検証](docs/implementation-plan.md)を参照してください。
 
 ## 設計上の前提
 

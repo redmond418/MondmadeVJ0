@@ -1,8 +1,8 @@
 # パッケージ構成と導入
 
-更新日：2026-10-24（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerでEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped、macOS universal MonoとWindows x64 Mono Player buildが成功した。部分依存consumerはEditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけのconsumerはEditMode 127 passed / 3 skipped、PlayMode 2/2 passed。現行コードのmacOS universal IL2CPP buildはdSYM生成中にディスク不足で失敗し、未検証。A14送信側の10分×3速度基準は、ユーザー合意の累積ずれ≤5msで最新測定が合格。外部受信機の実到着時刻は別観測として未実施。公開HTTPS UPM URLとmacOS universal IL2CPP buildは未完了。Windows上の実行・MIDI・IL2CPPは当面対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続確認は完了し、二台目を使う試験は所有機器がないため対象外。A20ではBackground Music入力（2ch）を8秒取得し、Runtime FrameClock経由で2,984 normalized samples・peak 0.797を確認（音声データは保存していない）。残る受け入れ条件の詳細は[実装・検証計画](implementation-plan.md)を参照。
+更新日：2026-10-24（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerでEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped、macOS universal MonoとWindows x64 Mono Player buildが成功した。部分依存consumerはEditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped。Core必須依存だけのconsumerはEditMode 127 passed / 3 skipped、PlayMode 2/2 passed。後続の現行source commit `215b48c` ではmacOS universal IL2CPP Player build・起動、AOT accessor、stripping、RtMidi接続状態を確認した。A14送信側の10分×3速度は累積ずれ上限をユーザー合意の5msへ改訂した基準で合格。外部受信機の実到着時刻は参考観測として未実施。残るのは現行commitをpush・tagした後の公開HTTPS UPM導入確認。Windows上の実行は今回の受入対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続確認は完了。A20ではBackground Music入力（2ch）を8秒取得し、Runtime FrameClock経由で2,984 normalized samples・peak 0.797を確認（音声データは保存していない）。残作業と証跡は[実装・検証計画](implementation-plan.md)を参照。
 
-2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を指定した`git+file` UPM consumerで全依存・部分依存・Core必須依存のみを検証した。各依存構成の詳細とXML保存先は[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)を参照。全依存consumerからmacOS universal Mono PlayerとWindows x64 Mono Playerをbuildした。macOS universal IL2CPPはdSYM生成中にディスク不足となり未検証。
+2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を指定した`git+file` UPM consumerで全依存・部分依存・Core必須依存のみを検証した。各依存構成の詳細とXML保存先は[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)を参照。全依存consumerからmacOS universal Mono PlayerとWindows x64 Mono Playerをbuildした。この当時のStageではIL2CPP dSYM生成がディスク不足で失敗したが、後続の現行source commitで再buildとPlayer起動に成功した（下記記録）。
 
 過去のcommit `e436983` ではStandaloneOSX universal Mono / IL2CPP buildが成功しているが、これは現行コードのIL2CPP buildを証明しない。以前のWindows Build Profile / Pipeline経由のunsupported target errorsは、現行commitの標準Unity CLI Mono build成功で置き換えた。過去commitに対するStandaloneOSX IL2CPP Test Runnerは終了後NUnit XMLがなく、実行件数は未確定。
 
@@ -82,9 +82,9 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 Core Editorは利用可能なIntegrationだけを型登録から列挙する。未導入機能はSetupに「依存未導入」と表示し、Route追加メニューには出さない。外部型を参照するProfile・Prefab・Sceneは該当Samples~以下に置き、依存未導入時に自動importしない。既存Routeが使う依存の除去はD18の欠落型保護に従う。
 
-OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。fork APIのPlayer動作は別途検証記録が必要。
+OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照する。Type Tag APIの直接呼び出しとIL2CPP preservation descriptorを実装した。macOS universal Mono / IL2CPP Playerから別プロセスのOSC peerへの双方向送受信を確認済み。別PCを使う実ネットワーク確認は未実施。
 
-任意依存なし構成はR3 / Unsafe / NuGetForUnity / Unity標準moduleだけでlocal package import・compileを確認し、macOS universal IL2CPPとWindows x64 Mono Player buildも成功した。2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存・部分依存・Core必須依存のみconsumerからimport / compile / Player buildを検証した結果は冒頭と[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)に記載する。古いSHA `f238b0a20e0c9b3430f74f2f1c41ed6667ca4257` や`066590edf7353b158865311324cf6c194ca74779`の検証結果は当時のpackage内容を対象とする。現行成果のHTTPS UPM導入はcommit未push・release tag未作成のため未検証。Windows上の実行・IL2CPPはユーザー判断により当面の受入対象外。
+任意依存なし構成はR3 / Unsafe / NuGetForUnity / Unity標準moduleだけでlocal package import・compileを確認し、以前のpackage sourceでmacOS universal IL2CPPとWindows x64 Mono Player buildも成功した。2026-10-24に検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存・部分依存・Core必須依存のみconsumerからimport / compile / Player buildを検証した結果は冒頭と[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)を参照。古いSHA `f238b0a20e0c9b3430f74f2f1c41ed6667ca4257` や`066590edf7353b158865311324cf6c194ca74779`の結果は当時のpackage内容を対象とする。現行source commit `215b48c` ではmacOS universal IL2CPP Player build・起動が成功した。現行成果のHTTPS UPM導入だけはpush・release tag未実施のため未検証。Windows上の実行・IL2CPPは今回の受入対象外。
 
 ## 導入手順
 
