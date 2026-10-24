@@ -240,21 +240,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!115 &923366915
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 7
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_Type: 0
-  m_ExecutionOrder: 0
-  m_ClassName: RouteHost
-  m_Namespace: MondmadeVJ0
-  m_AssemblyName: MondmadeVJ0.Core
 --- !u!1 &1020704171
 GameObject:
   m_ObjectHideFlags: 0
@@ -685,7 +670,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1582157153}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 923366915}
+  m_Script: {fileID: 11500000, guid: 9b7acb9421404d80b7828ef0f03a0248, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MondmadeVJ0.Core::MondmadeVJ0.RouteHost
   routes:
