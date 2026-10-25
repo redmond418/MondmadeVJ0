@@ -95,10 +95,10 @@ OSC forkは固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328` を参照す�
 3. パッケージ内のSetup Windowで必要な外部Integration依存をまとめて導入する。既存の互換版は再導入せず、依存が揃うと対応assemblyが有効になる。
 
 ```text
-https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#RELEASE_TAG
+https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#main
 ```
 
-RELEASE_TAGは実在する検証済みtagへ置き換える。完成時の公開版は1.0.0から始めるが、配布tagはまだ作成していない。ライブ用はtagまたはcommitへ固定する。URL形式は[UnityのGit dependencies](https://docs.unity3d.com/6000.3/Documentation/Manual/upm-git.html)に従う。
+`#main`は開発ブランチを参照する。チームや本番環境では検証済みtagまたはcommit SHAへ置き換える。完成時の公開版は1.0.0から始めるが、配布tagはまだ作成していない。URL形式は[UnityのGit dependencies](https://docs.unity3d.com/6000.3/Documentation/Manual/upm-git.html)に従う。
 
 SetupはInput System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphから利用するものを選び、固定版をUnity Package Manager Client APIで追加する。未選択の任意依存は追加しない。Setup WindowからR3本体とUnsafeも導入できる。MondmadeVJ0の機能別packageを追加するbootstrapや、複数のMondmadeVJ0 Git URL登録は不要。
 

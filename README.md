@@ -16,11 +16,27 @@ Runtime、Editor、Setup、Monitorと標準機能カタログを実装し、宣�
 | [実装と検証](docs/implementation-plan.md) | 受け入れ条件、検証結果、未完了項目 |
 | [会話の設計本文](docs/reference/conversation-design.md) | 移植元の設計資料。保存用の原文 |
 
+## Installation
+
+Unity Package Managerで「Add package from git URL」を選び、次のURLを入力します。
+
+```text
+https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#main
+```
+
+Projectの`Packages/manifest.json`へ直接追加する場合は、既存の`dependencies` object内に次の1行を加えます。既存の依存は残し、項目間のカンマを保ってください。
+
+```json
+"com.redmond.mondmade-vj0": "https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#main"
+```
+
+`#main`は開発ブランチを参照します。チームや本番環境では、検証したrelease tagまたはcommit SHAへ置き換えて固定してください。導入後、`Tools > Mondmade VJ0 > Setup`からR3と必須依存を導入し、必要なIntegrationだけを選択します。詳細は[パッケージ導入手順](docs/packaging.md)を参照してください。
+
 ## パッケージ構成
 
 ライブラリは `Packages/com.redmond.mondmade-vj0/` の単一UPMパッケージです。機能別Runtime / Editor assemblyで分離し、任意Integrationは対応する外部依存が導入された場合だけ有効になります。開発Sceneと実機結合検証は `Assets/MondmadeVJ0.Dev/` に置いています。
 
-開発中はPackage Managerの「Install package from disk」で、このclone内の `Packages/com.redmond.mondmade-vj0/package.json` を選択できます。共有用Git URLは[パッケージ導入手順](docs/packaging.md)に記載しています。公開HTTPS URLとrelease tagはまだ検証していません。
+開発中はPackage Managerの「Install package from disk」で、このclone内の `Packages/com.redmond.mondmade-vj0/package.json` を選択できます。公開HTTPS URLからの導入はpushとrelease tagを伴うリリース時に検証します。
 
 ## QuickStart
 

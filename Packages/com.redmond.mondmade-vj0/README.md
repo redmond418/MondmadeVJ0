@@ -11,10 +11,19 @@ Inspectorで組み立てる型安全なVJ制御Route基盤。Core、Musical Tran
 
 ## Setup
 
-1. Package ManagerからこのUPMパッケージを導入します。
-2. `Tools > Mondmade VJ0 > Setup`を開き、R3と必須の推移依存を導入し、必要なIntegrationだけを選んで追加します。
-3. Sceneへ`MondmadeVJ0Runtime`と必要なModule、`RouteHost`を配置します。
-4. Route InspectorでSource、Modifier、Outputを追加します。Play前ValidationとRuntime Monitorで設定と状態を確認します。
+Package Managerの「Add package from git URL」に次のURLを入力します。
+
+```text
+https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#main
+```
+
+または、Projectの`Packages/manifest.json`の既存`dependencies` object内に次の1行を追加します。ほかの依存は残し、項目間のカンマを保ってください。
+
+```json
+"com.redmond.mondmade-vj0": "https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#main"
+```
+
+`#main`は開発ブランチです。チームや本番環境では検証したrelease tagまたはcommit SHAへ置き換えてください。インストール後、`Tools > Mondmade VJ0 > Setup`を開き、R3と必須の推移依存を導入して必要なIntegrationを選びます。その後、Sceneへ`MondmadeVJ0Runtime`と必要なModule、`RouteHost`を配置し、Route InspectorでSource、Modifier、Outputを追加します。Play前ValidationとRuntime Monitorで設定と状態を確認します。
 
 APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../Assets/MondmadeVJ0.Dev/README.md)、機能一覧は[機能カタログ](../../docs/feature-catalog.md)、詳細契約は[仕様](../../docs/spec.md)と[設計判断](../../docs/design-notes.md)、依存導入は[パッケージ構成](../../docs/packaging.md)を参照してください。
 
