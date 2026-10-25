@@ -54,7 +54,7 @@ namespace MondmadeVJ0
             {
                 for (var x = 0; x < 8; x++)
                 {
-                    var note = (7 - y) * 8 + x;
+                    var note = y * 8 + x;
                     definitions.Add(new MidiSurfaceControl { id = $"pad_{x}_{y}", label = $"Pad [{x},{y}]", type = MidiControlType.VelocityButton, inputAddressType = MidiAddressType.Note, channel = -1, inputNumber = note, groupId = "grid", groupIndex = y * 8 + x, hasLed = true, outputAddressType = MidiAddressType.Note, outputNumber = note });
                 }
             }

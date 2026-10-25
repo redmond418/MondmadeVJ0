@@ -131,7 +131,7 @@ MidiHub → MidiSurface → MidiSurfaceProfile → Logical Controls → Source /
 Route State → LED Output → Layer合成 → Driver → MIDI OUT
 ```
 
-ProfileはScriptableObjectで、物理レイアウトだけを定義する。ControlにはStable ID、表示名、Group、Control Type、Input Address、Feedback Address / Capability、Editor位置を持たせる。標準APC mini mk2 Profileは、64 Pad、8 Track、8 Scene、Shift、9 Faderの計90 Controlを持つ。RouteはSurface InstanceとLogical Control IDを参照し、Note / CC番号を直接保持しない。
+ProfileはScriptableObjectで、物理レイアウトだけを定義する。ControlにはStable ID、表示名、Group、Control Type、Input Address、Feedback Address / Capability、Editor位置を持たせる。標準APC mini mk2 Profileは、64 Pad、8 Track、8 Scene、Shift、9 Faderの計90 Controlを持つ。Padの`[x,y]`座標は左下を`[0,0]`とし、yが上向きに増える。RouteはSurface InstanceとLogical Control IDを参照し、Note / CC番号を直接保持しない。
 
 Control TypeはButton、Velocity Button、Absolute Fader / Knob、Relative Encoder、XY、Pitch Bend、Aftertouch。互換Sourceだけを選択可能にする。複数Surfaceと同一Profileの複数実機に対応する。
 

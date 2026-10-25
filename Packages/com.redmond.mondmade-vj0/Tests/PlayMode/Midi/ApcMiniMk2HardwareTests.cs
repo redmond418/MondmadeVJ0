@@ -42,7 +42,7 @@ namespace MondmadeVJ0.Tests
             var velocity = 0f;
             void CaptureControl(MidiControlChange change)
             {
-                if (change.Reference.SurfaceInstanceId != surface.InstanceId || change.Reference.ControlId != "pad_0_0") return;
+                if (change.Reference.SurfaceInstanceId != surface.InstanceId || change.Reference.ControlId != "pad_0_7") return;
                 if (change.PressedDown)
                 {
                     pressed = true;
@@ -59,7 +59,7 @@ namespace MondmadeVJ0.Tests
             try
             {
                 Assert.That(hub.GetSurfaceStatus(surface.InstanceId), Is.EqualTo("Connected"));
-                Assert.That(profile.Find("pad_0_0").type, Is.EqualTo(MidiControlType.VelocityButton));
+                Assert.That(profile.Find("pad_0_7").type, Is.EqualTo(MidiControlType.VelocityButton));
                 Debug.Log("[APC_PROBE_READY] Press and release the upper-left APC mini mk2 Pad 1 once now.");
                 var deadline = Time.realtimeSinceStartup + 60f;
                 while ((!received || !pressed || !released) && Time.realtimeSinceStartup < deadline)
@@ -167,7 +167,7 @@ namespace MondmadeVJ0.Tests
             var profile = MidiSurfaceProfile.CreateApcMiniMk2Profile();
             var surface = new MidiSurfaceInstance();
             surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
-            var reference = new MidiControlReference(surface.InstanceId, "pad_0_0");
+            var reference = new MidiControlReference(surface.InstanceId, "pad_0_7");
             var runtimeObject = new GameObject("APC mini mk2 hardware test");
             runtimeObject.SetActive(false);
             var hub = runtimeObject.AddComponent<MidiHub>();
@@ -192,7 +192,7 @@ namespace MondmadeVJ0.Tests
 
                 var sent = GetSentPayloads(hub);
                 Assert.That(sent.Count, Is.EqualTo(80), "APC mini mk2 has 80 LED-capable controls.");
-                var payload = sent[surface.InstanceId + "\0pad_0_0"];
+                var payload = sent[surface.InstanceId + "\0pad_0_7"];
                 Assert.That((byte)payload.GetType().GetField("Status").GetValue(payload), Is.EqualTo(0x96));
                 Assert.That((byte)payload.GetType().GetField("Number").GetValue(payload), Is.EqualTo(56));
                 Assert.That((byte)payload.GetType().GetField("Value").GetValue(payload), Is.EqualTo(21));
@@ -203,7 +203,7 @@ namespace MondmadeVJ0.Tests
                 while (!IsOutputIdle(output) && Time.realtimeSinceStartup < sendDeadline) yield return null;
                 Assert.That(IsOutputIdle(output), Is.True);
                 sent = GetSentPayloads(hub);
-                payload = sent[surface.InstanceId + "\0pad_0_0"];
+                payload = sent[surface.InstanceId + "\0pad_0_7"];
                 Assert.That((byte)payload.GetType().GetField("Value").GetValue(payload), Is.EqualTo(0));
             }
             finally
@@ -226,7 +226,7 @@ namespace MondmadeVJ0.Tests
             var profile = MidiSurfaceProfile.CreateApcMiniMk2Profile();
             var surface = new MidiSurfaceInstance();
             surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
-            var reference = new MidiControlReference(surface.InstanceId, "pad_0_0");
+            var reference = new MidiControlReference(surface.InstanceId, "pad_0_7");
             var runtimeObject = new GameObject("APC mini mk2 LED visual probe");
             runtimeObject.SetActive(false);
             var hub = runtimeObject.AddComponent<MidiHub>();
@@ -300,7 +300,7 @@ namespace MondmadeVJ0.Tests
                 Assert.That(GetLeaseEndpoint(hubLease), Is.SameAs(GetLeaseEndpoint(clockLease)), "Clock and LED sends must share exactly one port endpoint and worker.");
 
                 var owner = hub.CreateLayerOwner(null);
-                hub.SetLed(new MidiControlReference(surface.InstanceId, "pad_0_0"), owner, MidiLedLayer.State,
+                hub.SetLed(new MidiControlReference(surface.InstanceId, "pad_0_7"), owner, MidiLedLayer.State,
                     new MidiLedStyle { color = Color.green, brightness = 1f, effect = MidiLedEffect.Solid });
                 hub.FlushFrame(runtime.Services);
                 deadline = Time.realtimeSinceStartup + 5f;
@@ -331,7 +331,7 @@ namespace MondmadeVJ0.Tests
             var profile = MidiSurfaceProfile.CreateApcMiniMk2Profile();
             var surface = new MidiSurfaceInstance();
             surface.Configure(profile, "APC mini mk2", 0, MidiInputBackend.RtMidiRaw, inputPort, outputPort);
-            var padReference = new MidiControlReference(surface.InstanceId, "pad_0_0");
+            var padReference = new MidiControlReference(surface.InstanceId, "pad_0_7");
             var faderReference = new MidiControlReference(surface.InstanceId, "fader_1");
             var trackReference = new MidiControlReference(surface.InstanceId, "track_1");
             var runtimeObject = new GameObject("APC mini mk2 reconnect probe");
@@ -361,7 +361,7 @@ namespace MondmadeVJ0.Tests
             var padReleased = false;
             System.Action<MidiControlChange> capture = change =>
             {
-                if (change.Reference.SurfaceInstanceId != surface.InstanceId || change.Reference.ControlId != "pad_0_0") return;
+                if (change.Reference.SurfaceInstanceId != surface.InstanceId || change.Reference.ControlId != "pad_0_7") return;
                 if (change.PressedDown) padPressed = true;
                 if (change.Released) padReleased = true;
             };
@@ -394,7 +394,7 @@ namespace MondmadeVJ0.Tests
                 var outputBeforeDisconnect = GetRawOutput(hub, surface.InstanceId);
                 Assert.That(outputBeforeDisconnect, Is.Not.Null);
                 var generationBeforeDisconnect = GetConnectionGeneration(outputBeforeDisconnect);
-                Assert.That(GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_0"), Is.EqualTo(21));
+                Assert.That(GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_7"), Is.EqualTo(21));
                 var ledDeadline = Time.realtimeSinceStartup + 5f;
                 while (!IsOutputIdle(outputBeforeDisconnect) && Time.realtimeSinceStartup < ledDeadline) yield return null;
                 Assert.That(IsOutputIdle(outputBeforeDisconnect), Is.True, "Latest desired LED feedback must reach the device before unplugging.");
@@ -424,7 +424,7 @@ namespace MondmadeVJ0.Tests
                     yield return new WaitForSecondsRealtime(0.5f);
                     var currentOutput = GetRawOutput(hub, surface.InstanceId);
                     if (FindPort(true) >= 0 && FindPort(false) >= 0 && currentOutput != null && GetConnectionGeneration(currentOutput) > generationBeforeDisconnect && IsOutputOk(currentOutput) && IsOutputIdle(currentOutput) &&
-                        GetSentPayloads(hub).Count == 80 && GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_0") == 0)
+                        GetSentPayloads(hub).Count == 80 && GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_7") == 0)
                     {
                         reconnectedAndSynced = true;
                         break;
@@ -433,7 +433,7 @@ namespace MondmadeVJ0.Tests
 
                 var diagnosticOutput = GetRawOutput(hub, surface.InstanceId);
                 var diagnosticSent = GetSentPayloads(hub);
-                var padPayloadKey = surface.InstanceId + "\0pad_0_0";
+                var padPayloadKey = surface.InstanceId + "\0pad_0_7";
                 var padPayloadValue = diagnosticSent.Contains(padPayloadKey) ? GetPayloadValue(diagnosticSent, padPayloadKey).ToString() : "missing";
                 Assert.That(reconnectedAndSynced, Is.True,
                     $"Reconnect must reopen the Output port and resync all LEDs to Panic OFF. inputPorts=[{DescribePorts(true)}], outputPorts=[{DescribePorts(false)}], " +
@@ -452,7 +452,7 @@ namespace MondmadeVJ0.Tests
                 while (!IsOutputIdle(outputBeforeDisconnect) && Time.realtimeSinceStartup < resumeDeadline) yield return null;
                 Assert.That(IsOutputIdle(outputBeforeDisconnect), Is.True, "Resume must drain the full desired LED resync.");
                 Assert.That(hub.PanicLatched, Is.False);
-                Assert.That(GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_0"), Is.EqualTo(21), "Resuming output must restore the latest desired LED state.");
+                Assert.That(GetPayloadValue(GetSentPayloads(hub), surface.InstanceId + "\0pad_0_7"), Is.EqualTo(21), "Resuming output must restore the latest desired LED state.");
             }
             finally
             {

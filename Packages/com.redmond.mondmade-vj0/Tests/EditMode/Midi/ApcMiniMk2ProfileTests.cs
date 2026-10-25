@@ -16,10 +16,12 @@ namespace MondmadeVJ0.Tests
                 Assert.That(profile.Controls.Count, Is.EqualTo(90));
                 Assert.That(profile.ProductName, Is.EqualTo("APC mini mk2"));
                 Assert.That(profile.DriverId, Is.EqualTo("apc-mini-mk2"));
-                Assert.That(profile.Find("pad_0_0").inputNumber, Is.EqualTo(56));
-                Assert.That(profile.Find("pad_0_0").outputNumber, Is.EqualTo(56));
-                Assert.That(profile.Find("pad_7_7").inputNumber, Is.EqualTo(7));
-                Assert.That(profile.Find("pad_7_7").outputNumber, Is.EqualTo(7));
+                Assert.That(profile.Find("pad_0_0").inputNumber, Is.EqualTo(0));
+                Assert.That(profile.Find("pad_0_0").outputNumber, Is.EqualTo(0));
+                Assert.That(profile.Find("pad_0_7").inputNumber, Is.EqualTo(56));
+                Assert.That(profile.Find("pad_0_7").outputNumber, Is.EqualTo(56));
+                Assert.That(profile.Find("pad_7_7").inputNumber, Is.EqualTo(63));
+                Assert.That(profile.Find("pad_7_7").outputNumber, Is.EqualTo(63));
                 Assert.That(profile.Find("fader_9").inputNumber, Is.EqualTo(0x38));
             }
             finally { UnityEngine.Object.DestroyImmediate(profile); }
@@ -57,7 +59,7 @@ namespace MondmadeVJ0.Tests
             for (var x = 0; x < 8; x++)
             {
                 var control = profile.Find($"pad_{x}_{y}");
-                var note = (7 - y) * 8 + x;
+                var note = y * 8 + x;
                 Assert.That(control, Is.Not.Null, $"Pad [{x},{y}] must exist.");
                 Assert.That(control.inputNumber, Is.EqualTo(note), $"Pad [{x},{y}] input note.");
                 Assert.That(control.outputNumber, Is.EqualTo(note), $"Pad [{x},{y}] output note.");

@@ -808,7 +808,7 @@ MonoBehaviour:
         nodeId: f4b0f29bf87c469caed6bd38a69c06c5
         control:
           surfaceInstanceId: 5bc04af097e84289802bdb014732b38b
-          controlId: pad_0_0
+          controlId: pad_0_7
         layer: 100
         offColor: {r: 0, g: 0, b: 0, a: 1}
         onColor: {r: 0, g: 1, b: 0, a: 1}
@@ -849,7 +849,7 @@ MonoBehaviour:
         nodeId: f85565d0e7d54091892ec200878062a1
         control:
           surfaceInstanceId: 5bc04af097e84289802bdb014732b38b
-          controlId: pad_0_0
+          controlId: pad_0_7
 --- !u!4 &1582157155
 Transform:
   m_ObjectHideFlags: 0
