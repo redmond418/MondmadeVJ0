@@ -43,7 +43,11 @@ namespace MondmadeVJ0.Tests
         [TearDown]
         public void TearDown()
         {
-            if (window != null) UnityEngine.Object.DestroyImmediate(window);
+            if (window != null)
+            {
+                Invoke(window, "StopListening");
+                UnityEngine.Object.DestroyImmediate(window);
+            }
             if (hostObject != null) UnityEngine.Object.DestroyImmediate(hostObject);
             if (hubObject != null) UnityEngine.Object.DestroyImmediate(hubObject);
             if (profile != null) UnityEngine.Object.DestroyImmediate(profile);
@@ -51,30 +55,35 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
-        public void StartListeningInEditModeArmsAutomaticallyForPlayMode()
+        public void StartListeningInEditModeCreatesAnInputOnlyHub()
         {
             SetField(window, "hub", hub);
             SetField(window, "surfaceId", hub.Surfaces[0].InstanceId);
 
             Invoke(window, "StartListening");
 
-            Assert.That(GetField(window, "startOnPlay"), Is.True,
-                "Edit-mode MIDI Learn should arm and attach after Play mode begins.");
-            Assert.That(GetField(window, "listening"), Is.False,
-                "The window must not imply that a non-running Runtime is already receiving MIDI.");
-            Assert.That(GetField(window, "lastMessage"), Is.EqualTo("Armed. Enter Play mode to start MIDI Learn."));
+            var editorInputHub = (MidiHub)GetField(window, "editorInputHub");
+            Assert.That(GetField(window, "listening"), Is.True,
+                "Edit-mode MIDI Learn should receive input without entering Play mode.");
+            Assert.That(editorInputHub, Is.Not.Null);
+            Assert.That(editorInputHub, Is.Not.SameAs(hub),
+                "Edit-mode Learn must not initialize the scene's runtime hub in place.");
+            Assert.That(editorInputHub.Surfaces[0].OutputPortOrdinal, Is.EqualTo(-1),
+                "The editor-only listener must not open a MIDI output port.");
+            Assert.That(GetField(window, "lastMessage"), Is.EqualTo("Waiting for a MIDI message."));
         }
 
         [Test]
-        public void CancelClearsAnArmedEditModeLearn()
+        public void CancelStopsEditModeListening()
         {
             SetField(window, "hub", hub);
             Invoke(window, "StartListening");
 
-            Invoke(window, "StopListening", true);
+            Invoke(window, "StopListening");
 
-            Assert.That(GetField(window, "startOnPlay"), Is.False,
-                "Cancel must disarm a Learn request before Play mode begins.");
+            Assert.That(GetField(window, "listening"), Is.False);
+            Assert.That(GetField(window, "editorInputHub"), Is.Null,
+                "Cancel must shut down the temporary editor listener.");
         }
 
         [Test]
@@ -83,10 +92,11 @@ namespace MondmadeVJ0.Tests
             var route = new FloatRoute();
             route.Configure("MIDI Learn assignment", new MidiAbsoluteFloatSource());
             host.AddRoute(route);
+            SetField(window, "hub", hub);
             SetField(window, "targetObject", host);
             SetField(window, "propertyPath", "routes.Array.data[0].source.control");
             SetField(window, "surfaceId", "test-surface");
-            SetField(window, "listening", true);
+            Invoke(window, "StartListening");
 
             var change = new MidiControlChange(
                 new MidiControlReference("test-surface", "fader"),
@@ -99,6 +109,8 @@ namespace MondmadeVJ0.Tests
             Assert.That(reference.FindPropertyRelative("surfaceInstanceId").stringValue, Is.EqualTo("test-surface"));
             Assert.That(reference.FindPropertyRelative("controlId").stringValue, Is.EqualTo("fader"));
             Assert.That(GetField(window, "lastMessage"), Is.EqualTo("Assigned fader."));
+            Assert.That(GetField(window, "editorInputHub"), Is.Null,
+                "A successful Learn should close its temporary editor listener.");
         }
 
         private static void Invoke(object target, string name, params object[] arguments)

@@ -1,7 +1,7 @@
 {
   "name": "MondmadeVJ0.Midi.Editor",
   "rootNamespace": "MondmadeVJ0.Editor",
-  "references": ["MondmadeVJ0.Midi", "RtMidi.Runtime"],
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Midi", "RtMidi.Runtime"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

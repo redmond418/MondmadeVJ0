@@ -182,7 +182,7 @@ namespace MondmadeVJ0.Editor
                     if (matchingHub != null) break;
                 }
                 if (matchingHub == null)
-                    EditorUtility.DisplayDialog("MIDI Learn", "Add this profile to a MidiHub in MondmadeVJ0Runtime.Modules. Start listening in the Learn window, then enter Play mode.", "OK");
+                    EditorUtility.DisplayDialog("MIDI Learn", "Add this profile to a MidiHub in MondmadeVJ0Runtime.Modules, then start listening in the Learn window. MIDI input is received in Edit Mode.", "OK");
                 else MidiLearnWindow.OpenProfile(profile, learnControlIndex, matchingHub);
             }
         }
@@ -330,51 +330,64 @@ namespace MondmadeVJ0.Editor
         private MidiSurfaceProfile profile;
         [SerializeField]
         private int profileControlIndex = -1;
-        [SerializeField]
-        private bool startOnPlay;
         [NonSerialized]
         private bool listening;
         [NonSerialized]
         private MidiHub listeningHub;
+        [NonSerialized]
+        private GameObject editorInputObject;
+        [NonSerialized]
+        private MidiHub editorInputHub;
+        [NonSerialized]
+        private RuntimeServices editorInputServices;
+        [NonSerialized]
+        private bool pumpingEditorInput;
+        [NonSerialized]
+        private bool editorInputCleanupPending;
         [SerializeField]
         private string lastMessage = "Select a surface and start listening.";
 
         private void OnEnable()
         {
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-            if (startOnPlay && Application.isPlaying) StartListening();
         }
 
         public static void OpenReference(UnityEngine.Object owner, string path, MidiHub sourceHub, string selectedSurface)
         {
             var window = GetWindow<MidiLearnWindow>("MIDI Learn");
+            window.StopListening();
             window.targetObject = owner;
             window.propertyPath = path;
             window.profile = null;
             window.profileControlIndex = -1;
             window.hub = sourceHub;
             window.surfaceId = selectedSurface;
-            window.listening = false;
             window.Show();
         }
 
         public static void OpenProfile(MidiSurfaceProfile targetProfile, int controlIndex, MidiHub sourceHub)
         {
             var window = GetWindow<MidiLearnWindow>("MIDI Learn");
+            window.StopListening();
             window.profile = targetProfile;
             window.profileControlIndex = controlIndex;
             window.targetObject = targetProfile;
             window.propertyPath = null;
             window.hub = sourceHub;
-            window.surfaceId = sourceHub.Surfaces.Count > 0 ? sourceHub.Surfaces[0].InstanceId : null;
-            window.listening = false;
+            window.surfaceId = null;
+            foreach (var surface in sourceHub == null ? Array.Empty<MidiSurfaceInstance>() : sourceHub.Surfaces)
+            {
+                if (surface?.Profile != targetProfile) continue;
+                window.surfaceId = surface.InstanceId;
+                break;
+            }
             window.Show();
         }
 
         private void OnDisable()
         {
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-            StopListening(cancelPending: !EditorApplication.isPlayingOrWillChangePlaymode);
+            StopListening();
         }
 
         private void OnGUI()
@@ -402,10 +415,11 @@ namespace MondmadeVJ0.Editor
                 return;
             }
             var labels = new string[surfaces.Count];
+            var statusHub = editorInputHub != null ? editorInputHub : hub;
             var selected = 0;
             for (var i = 0; i < surfaces.Count; i++)
             {
-                labels[i] = $"{surfaces[i].ProductName} ({hub.GetSurfaceStatus(surfaces[i].InstanceId)})";
+                labels[i] = $"{surfaces[i].ProductName} ({statusHub.GetSurfaceStatus(surfaces[i].InstanceId)})";
                 if (surfaces[i].InstanceId == surfaceId) selected = i;
             }
             selected = EditorGUILayout.Popup("Surface", selected, labels);
@@ -415,46 +429,94 @@ namespace MondmadeVJ0.Editor
             else EditorGUILayout.LabelField("Route reference", targetObject == null ? "Not assigned" : propertyPath);
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (listening || (!Application.isPlaying && startOnPlay))
-                {
-                    if (GUILayout.Button("Cancel")) StopListening();
-                }
-                else if (GUILayout.Button(Application.isPlaying ? "Start listening" : "Start on Play"))
-                {
-                    StartListening();
-                }
+                if (listening)
+                { if (GUILayout.Button("Cancel")) { StopListening(); lastMessage = "MIDI Learn cancelled."; } }
+                else if (GUILayout.Button("Start listening")) StartListening();
             }
             var statusMessage = listening
-                ? "Press or move the control you want to assign."
-                : !Application.isPlaying && startOnPlay
-                    ? "Armed. Enter Play mode; MIDI Learn will start automatically."
-                    : !Application.isPlaying
-                        ? "MIDI input is available in Play mode. Click Start on Play, then enter Play mode."
-                        : lastMessage;
+                ? $"Listening in {(Application.isPlaying ? "Play Mode" : "Edit Mode")}. Move the control you want to assign."
+                : lastMessage;
             EditorGUILayout.HelpBox(statusMessage, MessageType.Info);
         }
 
         private void StartListening()
         {
-            StopListening(cancelPending: false);
+            StopListening();
             if (hub == null) { lastMessage = "Select a MidiHub before listening."; Repaint(); return; }
-            if (!Application.isPlaying)
+            try
             {
-                startOnPlay = true;
-                lastMessage = "Armed. Enter Play mode to start MIDI Learn.";
-                Repaint();
-                return;
+                if (Application.isPlaying)
+                {
+                    listeningHub = hub;
+                }
+                else
+                {
+                    CreateEditorInputHub();
+                    listeningHub = editorInputHub;
+                    EditorApplication.update += PumpEditorInput;
+                }
+                listeningHub.ControlChanged += OnControlChanged;
+                if (profile != null) listeningHub.RawInputObserved += OnRawInput;
+                listening = true;
+                lastMessage = "Waiting for a MIDI message.";
             }
-            startOnPlay = false;
-            listeningHub = hub;
-            listeningHub.ControlChanged += OnControlChanged;
-            if (profile != null) listeningHub.RawInputObserved += OnRawInput;
-            listening = true;
-            lastMessage = "Waiting for a MIDI message.";
+            catch (Exception exception)
+            {
+                StopListening();
+                lastMessage = "Could not start MIDI Learn: " + exception.Message;
+            }
             Repaint();
         }
 
-        private void StopListening(bool cancelPending = true)
+        private void CreateEditorInputHub()
+        {
+            editorInputObject = new GameObject("Mondmade VJ0 MIDI Learn Input") { hideFlags = HideFlags.HideAndDontSave };
+            editorInputHub = editorInputObject.AddComponent<MidiHub>();
+            editorInputHub.hideFlags = HideFlags.HideAndDontSave;
+            EditorUtility.CopySerialized(hub, editorInputHub);
+
+            var serialized = new SerializedObject(editorInputHub);
+            var surfaces = serialized.FindProperty("surfaces");
+            if (surfaces == null || !surfaces.isArray)
+                throw new InvalidOperationException("The selected MidiHub has no serialized surface list.");
+            for (var i = 0; i < surfaces.arraySize; i++)
+            {
+                var outputPort = surfaces.GetArrayElementAtIndex(i).FindPropertyRelative("outputPortOrdinal");
+                if (outputPort == null)
+                    throw new InvalidOperationException("A MIDI surface is missing its output port setting.");
+                outputPort.intValue = -1;
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            editorInputServices = new RuntimeServices();
+            editorInputHub.Register(editorInputServices);
+            editorInputHub.Initialize(editorInputServices);
+        }
+
+        private void PumpEditorInput()
+        {
+            var activeHub = editorInputHub;
+            var services = editorInputServices;
+            if (!listening || activeHub == null || services == null) return;
+            pumpingEditorInput = true;
+            try
+            {
+                activeHub.DrainInputQueue(services, 4096);
+                activeHub.Tick(services, 0d);
+            }
+            catch (Exception exception)
+            {
+                lastMessage = "Editor MIDI input failed: " + exception.Message;
+                StopListening();
+            }
+            finally
+            {
+                pumpingEditorInput = false;
+                if (editorInputCleanupPending) DisposeEditorInputHub();
+            }
+        }
+
+        private void StopListening()
         {
             if (listeningHub != null)
             {
@@ -463,17 +525,35 @@ namespace MondmadeVJ0.Editor
             }
             listeningHub = null;
             listening = false;
-            if (cancelPending) startOnPlay = false;
+            EditorApplication.update -= PumpEditorInput;
+            if (editorInputHub != null)
+            {
+                if (pumpingEditorInput) editorInputCleanupPending = true;
+                else DisposeEditorInputHub();
+            }
             Repaint();
+        }
+
+        private void DisposeEditorInputHub()
+        {
+            var inputHub = editorInputHub;
+            var inputObject = editorInputObject;
+            var services = editorInputServices;
+            editorInputHub = null;
+            editorInputObject = null;
+            editorInputServices = null;
+            editorInputCleanupPending = false;
+            try { if (inputHub != null && services != null) inputHub.Shutdown(services); }
+            catch (Exception exception) { Debug.LogException(exception); }
+            if (inputObject != null) DestroyImmediate(inputObject);
         }
 
         private void OnPlayModeStateChanged(PlayModeStateChange state)
         {
-            if (state == PlayModeStateChange.EnteredPlayMode && startOnPlay) StartListening();
-            else if (state == PlayModeStateChange.ExitingPlayMode)
+            if (state == PlayModeStateChange.ExitingEditMode || state == PlayModeStateChange.ExitingPlayMode)
             {
                 StopListening();
-                lastMessage = "Play mode ended. Start listening again when ready.";
+                lastMessage = "Play mode changed. Start listening again when ready.";
             }
         }
 

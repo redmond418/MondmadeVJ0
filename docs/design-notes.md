@@ -186,6 +186,8 @@ Editorで対象型・member・Value型からC#の直接代入Accessorを生成�
 
 単一UPM内で、各機能が独立したRuntime / Editor / Tests asmdefを持つ。Core EditorはUnity標準UI Toolkitで作り、Alchemyを必須依存にしない。Integration EditorはそのIntegrationとCore Editorだけを参照する。任意外部依存は各IntegrationのVersion Defines＋Define Constraintsで判定する。Coreから無効なIntegrationを参照せず、条件を巨大な単一asmdefへ集約しない。Samples~の依存型も未導入状態で自動importしない。
 
+MIDI LearnはEdit Modeから開始でき、Learn専用の一時MidiHubが設定済みSurfaceの入力だけを受ける。編集時の一時HubではMIDI出力を開かず、Editor updateで受信QueueをMain Threadへ配送する。Play Modeへの切替前に一時Hubを閉じ、Play中はRuntimeに登録したMidiHubを購読する。Learn終了・Cancel・ウィンドウ終了でも入力を解放する。
+
 SerializeReferenceの型名変更はMovedFrom等で移行し、保存schemaVersionを持つ。欠落型を検出したら元のserialized dataを保ち、保存前警告と復旧手順を表示する。自動的にnullへ書き換えたり別型へ置換したりしない。Integration削除前に参照Routeの一覧を表示する。将来の互換性を壊す変更はmajor versionを上げる。
 
 ## D19：失敗隔離とMonitor
