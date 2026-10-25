@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using MondmadeVJ0.Editor;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 namespace MondmadeVJ0.Tests
 {
@@ -207,6 +211,144 @@ namespace MondmadeVJ0.Tests
             {
                 var field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
                 if (field != null) return field.GetValue(target);
+            }
+            throw new MissingFieldException(target.GetType().FullName, name);
+        }
+    }
+
+    public sealed class RouteHostEditorInspectorTests
+    {
+        private Scene temporaryScene;
+        private GameObject hostObject;
+        private GameObject targetObject;
+        private RouteHost host;
+        private RouteHostEditor editor;
+
+        [SetUp]
+        public void SetUp()
+        {
+            temporaryScene = EditorSceneManager.NewPreviewScene();
+            hostObject = new GameObject("A21 Inspector Test RouteHost");
+            targetObject = new GameObject("A21 Inspector Test Target");
+            SceneManager.MoveGameObjectToScene(hostObject, temporaryScene);
+            SceneManager.MoveGameObjectToScene(targetObject, temporaryScene);
+            host = hostObject.AddComponent<RouteHost>();
+            editor = UnityEditor.Editor.CreateEditor(host, typeof(RouteHostEditor)) as RouteHostEditor;
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (editor != null) UnityEngine.Object.DestroyImmediate(editor);
+            if (hostObject != null) UnityEngine.Object.DestroyImmediate(hostObject);
+            if (targetObject != null) UnityEngine.Object.DestroyImmediate(targetObject);
+            if (temporaryScene.IsValid()) EditorSceneManager.ClosePreviewScene(temporaryScene);
+        }
+
+        [Test]
+        public void RouteInspectorShowsNestedSourceModifierAndOutputParameters()
+        {
+            var route = new Vector3Route();
+            route.Configure("A21 nested inspector", new FloatToVector3Source
+            {
+                Input = new ConstantFloatSource { Value = 0.75f }
+            });
+            var modifier = new AddVector3Modifier();
+            SetField(modifier, "amount", new Vector4(0.1f, 0.2f, 0.3f, 0f));
+            route.Modifiers.Add(modifier);
+            var output = new TransformScaleVector3Output();
+            SetField(output, "target", targetObject.transform);
+            route.Outputs.Add(output);
+            route.Outputs.Add(new ComponentMemberVector3Output());
+            host.AddRoute(route);
+            var unconfiguredRoute = new FloatRoute();
+            unconfiguredRoute.Configure("A21 empty nested source", new FloatBinarySource());
+            host.AddRoute(unconfiguredRoute);
+
+            var inspector = editor.CreateInspectorGUI();
+            var propertyPaths = inspector.Query<PropertyField>().ToList()
+                .Select(field => field.bindingPath)
+                .ToList();
+
+            Assert.That(propertyPaths, Does.Contain("routes.Array.data[0].source.input.Value"), "Nested Source settings should be editable.");
+            Assert.That(propertyPaths, Does.Contain("routes.Array.data[0].modifiers.Array.data[0].amount"), "Modifier settings should be editable.");
+            Assert.That(propertyPaths, Does.Contain("routes.Array.data[0].outputs.Array.data[0].target"), "Output settings should be editable.");
+            Assert.That(propertyPaths, Does.Contain("routes.Array.data[0].outputs.Array.data[1]"), "Integration outputs should keep their specialized PropertyDrawers.");
+
+            var labels = inspector.Query<Label>().ToList().Select(label => label.text).ToList();
+            Assert.That(labels, Does.Contain("Input (float Source)"), "Nested reference fields should explain the required Source type.");
+            Assert.That(inspector.Query<Button>().ToList().Any(button => button.text == "Select"), Is.True,
+                "An empty nested Source reference should provide a type picker.");
+        }
+
+        [Test]
+        public void RouteInspectorProvidesAddPickerForNestedSerializeReferenceLists()
+        {
+            var route = new FloatRoute();
+            route.Configure("A21 nested source list", new MostRecentFloatSource());
+            host.AddRoute(route);
+
+            var inspector = editor.CreateInspectorGUI();
+            var buttons = inspector.Query<Button>().ToList();
+
+            Assert.That(buttons.Any(button => button.text == "Add Input"), Is.True,
+                "Inherited SerializeReference input lists should have a compatible Add picker.");
+        }
+
+        [Test]
+        public void RouteInspectorDeletesNestedManagedReferenceListItems()
+        {
+            var source = new MostRecentFloatSource();
+            SetField(source, "inputs", new List<IValueSource<float>>
+            {
+                new ConstantFloatSource { Value = 0.25f }
+            });
+            var route = new FloatRoute();
+            route.Configure("A21 nested source delete", source);
+            host.AddRoute(route);
+
+            var inspector = editor.CreateInspectorGUI();
+            var deleteButton = inspector.Query<Button>().ToList().Last(button => button.text == "Delete");
+            Assert.That(deleteButton, Is.Not.Null, "Each nested list entry should expose a Delete control.");
+            Invoke("DeleteNode", "routes.Array.data[0].source.inputs", 0, null);
+            editor.serializedObject.Update();
+            var inputs = editor.serializedObject.FindProperty("routes").GetArrayElementAtIndex(0)
+                .FindPropertyRelative("source").FindPropertyRelative("inputs");
+
+            Assert.That(inputs.arraySize, Is.Zero, "Delete should remove a list entry rather than leave an empty placeholder.");
+        }
+
+        [Test]
+        public void RouteInspectorProvidesCompatiblePickerForTriggerModifierSources()
+        {
+            var route = new TriggerRoute();
+            route.Configure("A21 nested trigger modifier", new SignalTriggerSource());
+            route.Modifiers.Add(new GateTriggerModifier());
+            host.AddRoute(route);
+
+            var inspector = editor.CreateInspectorGUI();
+            var labels = inspector.Query<Label>().ToList().Select(label => label.text).ToList();
+
+            Assert.That(labels, Does.Contain("Gate (bool Source)"));
+            Assert.That(inspector.Query<Button>().ToList().Any(button => button.text == "Select"), Is.True);
+        }
+
+        private void Invoke(string name, params object[] arguments)
+        {
+            var method = typeof(RouteHostEditor).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, "Expected RouteHostEditor method " + name);
+            method.Invoke(editor, arguments);
+            editor.serializedObject.Update();
+        }
+
+        private static void SetField(object target, string name, object value)
+        {
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                var field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (field == null) continue;
+                field.SetValue(target, value);
+                return;
             }
             throw new MissingFieldException(target.GetType().FullName, name);
         }

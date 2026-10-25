@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -16,6 +17,7 @@ namespace MondmadeVJ0.Editor
         private static string clipboardJson;
         private static string clipboardType;
         private static object clipboardReferenceSnapshot;
+        private static readonly Dictionary<Type, bool> customPropertyDrawerCache = new Dictionary<Type, bool>();
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -105,7 +107,7 @@ namespace MondmadeVJ0.Editor
             {
                 row.Add(new Label(ShortTypeName(nodeProperty.managedReferenceValue.GetType())) { style = { flexGrow = 1 } });
                 row.Add(new Button(() => CopyNode(nodeProperty)) { text = "Copy" });
-                row.Add(new Button(() => PasteNode(nodeProperty, rebuild)) { text = "Paste" });
+                row.Add(new Button(() => PasteNode(nodeProperty, types, rebuild)) { text = "Paste" });
                 row.Add(CreateTypePickerButton("Change", "Change " + title, types, type => { nodeProperty.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); }));
                 row.Add(new Button(() => { nodeProperty.managedReferenceValue = null; ApplyAndRebuild(rebuild); }) { text = "Remove" });
             }
@@ -122,93 +124,308 @@ namespace MondmadeVJ0.Editor
 
         private VisualElement BuildNodeContents(SerializedProperty nodeProperty, Action rebuild)
         {
-            if (nodeProperty.managedReferenceValue is MapValueSourceNode mapSource)
-                return BuildMapValueSourceContents(nodeProperty, mapSource, rebuild);
-
+            var node = nodeProperty?.managedReferenceValue;
+            if (node == null) return new HelpBox("No node is assigned.", HelpBoxMessageType.Warning);
             nodeProperty.isExpanded = true;
-            return new PropertyField(nodeProperty);
+            if (HasCustomPropertyDrawer(node.GetType())) return new PropertyField(nodeProperty);
+            return BuildManagedObjectContents(nodeProperty, rebuild, new HashSet<long>());
         }
 
-        private VisualElement BuildMapValueSourceContents(SerializedProperty nodeProperty, MapValueSourceNode mapSource, Action rebuild)
+        private VisualElement BuildManagedObjectContents(SerializedProperty objectProperty, Action rebuild, HashSet<long> visitedReferences)
         {
             var contents = new VisualElement();
-            var description = MapValueSourceDescription(mapSource);
-            if (!string.IsNullOrEmpty(description))
-                contents.Add(new HelpBox(description, HelpBoxMessageType.Info));
+            var value = objectProperty.managedReferenceValue;
+            if (value == null) return new HelpBox("The serialized reference is empty.", HelpBoxMessageType.Warning);
+            if (!visitedReferences.Add(objectProperty.managedReferenceId))
+                return new HelpBox("This managed reference is already shown above. Cycles and shared node instances cannot be expanded recursively.", HelpBoxMessageType.Warning);
 
-            var inputProperty = nodeProperty.FindPropertyRelative("input");
-            if (inputProperty == null)
+            if (value is MapValueSourceNode mapSource)
             {
-                contents.Add(new HelpBox("This converter has no serialized Input Source field.", HelpBoxMessageType.Error));
-                return contents;
+                var description = MapValueSourceDescription(mapSource);
+                if (!string.IsNullOrEmpty(description)) contents.Add(new HelpBox(description, HelpBoxMessageType.Info));
             }
 
-            var inputRow = new VisualElement();
-            inputRow.style.flexDirection = FlexDirection.Row;
-            inputRow.style.alignItems = Align.Center;
-            inputRow.Add(new Label("Input (" + ValueTypeLabel(mapSource.InputValueType) + ")") { style = { minWidth = 105 } });
-            var inputContract = typeof(IValueSource<>).MakeGenericType(mapSource.InputValueType);
-            var inputTypes = NodeTypes(inputContract);
-            var nodePath = nodeProperty.propertyPath;
-
-            void AssignInput(Type type)
+            var visibleChildCount = 0;
+            foreach (var child in DirectChildren(objectProperty))
             {
-                serializedObject.Update();
-                var currentNode = serializedObject.FindProperty(nodePath);
-                var currentInput = currentNode?.FindPropertyRelative("input");
-                if (currentInput == null || !inputContract.IsAssignableFrom(type)) return;
-                currentInput.managedReferenceValue = Activator.CreateInstance(type);
-                ApplyAndRebuild(rebuild);
-            }
-
-            var currentInputValue = inputProperty.managedReferenceValue;
-            var hasMissingInputType = currentInputValue == null && !string.IsNullOrEmpty(inputProperty.managedReferenceFullTypename);
-            if (currentInputValue == null && !hasMissingInputType)
-            {
-                var selectButton = CreateTypePickerButton("Select Input", "Select Input Source", inputTypes, AssignInput);
-                selectButton.SetEnabled(inputTypes.Count > 0);
-                inputRow.Add(selectButton);
-            }
-            else
-            {
-                var inputType = currentInputValue?.GetType();
-                inputRow.Add(new Label(inputType == null ? "Missing Source type" : ShortTypeName(inputType)) { style = { flexGrow = 1 } });
-                var replaceButton = CreateTypePickerButton(hasMissingInputType ? "Replace" : "Change", hasMissingInputType ? "Replace Input Source" : "Change Input Source", inputTypes, AssignInput);
-                replaceButton.SetEnabled(inputTypes.Count > 0);
-                inputRow.Add(replaceButton);
-                inputRow.Add(new Button(() =>
-                {
-                    serializedObject.Update();
-                    var currentNode = serializedObject.FindProperty(nodePath);
-                    var currentInput = currentNode?.FindPropertyRelative("input");
-                    if (currentInput == null) return;
-                    currentInput.managedReferenceValue = null;
-                    ApplyAndRebuild(rebuild);
-                }) { text = "Remove" });
-            }
-            if (inputTypes.Count == 0)
-                contents.Add(new HelpBox("No compatible Input Source types are available in the loaded assemblies.", HelpBoxMessageType.Warning));
-            if (hasMissingInputType)
-                contents.Add(new HelpBox("Missing Input Source type preserved: " + inputProperty.managedReferenceFullTypename + ". Replace or remove it only if intended.", HelpBoxMessageType.Warning));
-            contents.Add(inputRow);
-
-            if (inputProperty.managedReferenceValue != null)
-            {
-                if (inputProperty.managedReferenceValue is MapValueSourceNode nestedMapSource)
-                    contents.Add(BuildMapValueSourceContents(inputProperty, nestedMapSource, rebuild));
+                if (child.name == "nodeId") continue;
+                visibleChildCount++;
+                if (child.propertyType == SerializedPropertyType.ManagedReference)
+                    contents.Add(BuildManagedReferenceField(child, child.displayName, rebuild, visitedReferences));
+                else if (IsManagedReferenceList(child))
+                    contents.Add(BuildManagedReferenceList(child, rebuild, visitedReferences));
                 else
+                    contents.Add(new PropertyField(child));
+            }
+            if (visibleChildCount == 0 && !(value is MapValueSourceNode))
+                contents.Add(new HelpBox("This node has no editable serialized properties.", HelpBoxMessageType.Info));
+            return contents;
+        }
+
+        private VisualElement BuildManagedReferenceField(SerializedProperty referenceProperty, string label, Action rebuild, HashSet<long> visitedReferences, string listPath = null, int listIndex = -1)
+        {
+            var container = new VisualElement();
+            var contract = ResolveSerializedPropertyType(referenceProperty);
+            var candidateTypes = contract == null ? Array.Empty<Type>() : NodeTypes(contract);
+            var path = referenceProperty.propertyPath;
+            var value = referenceProperty.managedReferenceValue;
+            var hasMissingType = value == null && !string.IsNullOrEmpty(referenceProperty.managedReferenceFullTypename);
+
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            var labelText = label;
+            if (contract != null) labelText += " (" + ReferenceContractLabel(contract) + ")";
+            row.Add(new Label(labelText) { style = { minWidth = 130 } });
+            if (value != null) row.Add(new Label(ShortTypeName(value.GetType())) { style = { flexGrow = 1 } });
+            else if (hasMissingType) row.Add(new Label("Missing type") { style = { flexGrow = 1 } });
+            else row.Add(new VisualElement { style = { flexGrow = 1 } });
+
+            Action<Type> assign = type => AssignManagedReference(path, contract, type, rebuild);
+            var picker = CreateTypePickerButton(value == null ? (hasMissingType ? "Replace" : "Select") : "Change", "Select " + ReferenceContractLabel(contract), candidateTypes, assign);
+            picker.SetEnabled(contract != null && candidateTypes.Count > 0);
+            row.Add(picker);
+
+            if (value != null) row.Add(new Button(() => CopyNode(referenceProperty)) { text = "Copy" });
+            var paste = new Button(() => PasteManagedReferenceInto(path, contract, rebuild)) { text = "Paste" };
+            paste.SetEnabled(contract != null);
+            row.Add(paste);
+
+            if (!string.IsNullOrEmpty(listPath) && listIndex >= 0)
+            {
+                var currentIndex = listIndex;
+                row.Add(new Button(() => MoveNode(listPath, currentIndex, -1, rebuild)) { text = "↑" });
+                row.Add(new Button(() => MoveNode(listPath, currentIndex, 1, rebuild)) { text = "↓" });
+                row.Add(new Button(() => DuplicateNode(listPath, currentIndex, rebuild)) { text = "Duplicate" });
+            }
+            var remove = string.IsNullOrEmpty(listPath)
+                ? (Action)(() => RemoveManagedReference(path, rebuild))
+                : () => DeleteNode(listPath, listIndex, rebuild);
+            row.Add(new Button(remove) { text = string.IsNullOrEmpty(listPath) ? "Remove" : "Delete" });
+            container.Add(row);
+
+            if (hasMissingType)
+                container.Add(new HelpBox("Missing serialized type preserved: " + referenceProperty.managedReferenceFullTypename + ". Replace or remove it only if intended.", HelpBoxMessageType.Warning));
+            else if (contract != null && candidateTypes.Count == 0)
+                container.Add(new HelpBox("No compatible serializable node types are available for " + ReferenceContractLabel(contract) + ".", HelpBoxMessageType.Warning));
+
+            if (value != null)
+            {
+                referenceProperty.isExpanded = true;
+                var nested = HasCustomPropertyDrawer(value.GetType())
+                    ? (VisualElement)new PropertyField(referenceProperty)
+                    : BuildManagedObjectContents(referenceProperty, rebuild, visitedReferences);
+                nested.style.marginLeft = 14;
+                nested.style.marginTop = 2;
+                container.Add(nested);
+            }
+            return container;
+        }
+
+        private VisualElement BuildManagedReferenceList(SerializedProperty listProperty, Action rebuild, HashSet<long> visitedReferences)
+        {
+            var container = new Box();
+            var elementType = GetCollectionElementType(ResolveSerializedPropertyType(listProperty));
+            if (elementType == null)
+            {
+                container.Add(new HelpBox("Could not determine the serialized reference list element type.", HelpBoxMessageType.Error));
+                return container;
+            }
+
+            var label = Singularize(listProperty.displayName);
+            container.Add(new Label(listProperty.displayName + " (" + listProperty.arraySize + ")") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
+            var candidates = NodeTypes(elementType);
+            for (var index = 0; index < listProperty.arraySize; index++)
+            {
+                var element = listProperty.GetArrayElementAtIndex(index);
+                container.Add(BuildManagedReferenceField(element, label + " " + (index + 1), rebuild, visitedReferences, listProperty.propertyPath, index));
+            }
+
+            var listPath = listProperty.propertyPath;
+            var addButton = CreateTypePickerButton("Add " + label, "Add " + label, candidates, type => AddNode(listPath, type, rebuild));
+            addButton.SetEnabled(candidates.Count > 0);
+            container.Add(addButton);
+            if (candidates.Count == 0)
+                container.Add(new HelpBox("No compatible serializable node types are available for " + ReferenceContractLabel(elementType) + ".", HelpBoxMessageType.Warning));
+            return container;
+        }
+
+        private void AssignManagedReference(string path, Type contract, Type type, Action rebuild)
+        {
+            if (contract == null || type == null || !contract.IsAssignableFrom(type)) return;
+            serializedObject.Update();
+            var property = serializedObject.FindProperty(path);
+            if (property == null) return;
+            property.managedReferenceValue = Activator.CreateInstance(type);
+            ApplyAndRebuild(rebuild);
+        }
+
+        private void PasteManagedReferenceInto(string path, Type contract, Action rebuild)
+        {
+            if (!CanPaste(contract)) return;
+            serializedObject.Update();
+            var property = serializedObject.FindProperty(path);
+            if (property == null) return;
+            var clone = PasteManagedReference();
+            if (clone == null || !contract.IsInstanceOfType(clone)) return;
+            RegenerateIdentity(clone, false);
+            property.managedReferenceValue = clone;
+            ApplyAndRebuild(rebuild);
+        }
+
+        private void RemoveManagedReference(string path, Action rebuild)
+        {
+            serializedObject.Update();
+            var property = serializedObject.FindProperty(path);
+            if (property == null) return;
+            property.managedReferenceValue = null;
+            ApplyAndRebuild(rebuild);
+        }
+
+        private bool IsManagedReferenceList(SerializedProperty property)
+        {
+            if (property == null || !property.isArray || property.propertyType == SerializedPropertyType.String) return false;
+            var elementType = GetCollectionElementType(ResolveSerializedPropertyType(property));
+            return elementType != null && (elementType.IsInterface || elementType.IsAbstract)
+                && ResolveSerializedPropertyFieldInfo(property)?.GetCustomAttribute<SerializeReference>() != null;
+        }
+
+        private static Type ResolveSerializedPropertyType(SerializedProperty property)
+        {
+            var target = property?.serializedObject?.targetObject;
+            if (target == null || string.IsNullOrEmpty(property.propertyPath)) return null;
+            var currentObject = (object)target;
+            var currentType = target.GetType();
+            var pathParts = property.propertyPath.Split('.');
+            for (var index = 0; index < pathParts.Length; index++)
+            {
+                var part = pathParts[index];
+                if (part == "Array")
                 {
-                    inputProperty.isExpanded = true;
-                    contents.Add(new PropertyField(inputProperty));
+                    var elementType = GetCollectionElementType(currentType);
+                    if (elementType == null || index + 1 >= pathParts.Length) return null;
+                    var dataPart = pathParts[++index];
+                    var start = dataPart.IndexOf('[', StringComparison.Ordinal);
+                    var end = dataPart.IndexOf(']', StringComparison.Ordinal);
+                    if (start < 0 || end <= start || !int.TryParse(dataPart.Substring(start + 1, end - start - 1), out var elementIndex)) return null;
+                    currentObject = GetCollectionItem(currentObject, elementIndex);
+                    if (index == pathParts.Length - 1) return elementType;
+                    currentType = currentObject?.GetType() ?? elementType;
+                    continue;
+                }
+
+                var field = FindField(currentType, part);
+                if (field == null) return null;
+                if (index == pathParts.Length - 1) return field.FieldType;
+                currentObject = currentObject == null ? null : field.GetValue(currentObject);
+                currentType = currentObject?.GetType() ?? field.FieldType;
+            }
+            return currentType;
+        }
+
+        private static FieldInfo ResolveSerializedPropertyFieldInfo(SerializedProperty property)
+        {
+            var target = property?.serializedObject?.targetObject;
+            if (target == null || string.IsNullOrEmpty(property.propertyPath)) return null;
+            var currentObject = (object)target;
+            var currentType = target.GetType();
+            FieldInfo lastField = null;
+            var pathParts = property.propertyPath.Split('.');
+            for (var index = 0; index < pathParts.Length; index++)
+            {
+                var part = pathParts[index];
+                if (part == "Array")
+                {
+                    var elementType = GetCollectionElementType(currentType);
+                    if (elementType == null || index + 1 >= pathParts.Length) return null;
+                    var dataPart = pathParts[++index];
+                    var start = dataPart.IndexOf('[', StringComparison.Ordinal);
+                    var end = dataPart.IndexOf(']', StringComparison.Ordinal);
+                    if (start < 0 || end <= start || !int.TryParse(dataPart.Substring(start + 1, end - start - 1), out var elementIndex)) return null;
+                    currentObject = GetCollectionItem(currentObject, elementIndex);
+                    currentType = currentObject?.GetType() ?? elementType;
+                    continue;
+                }
+
+                lastField = FindField(currentType, part);
+                if (lastField == null) return null;
+                if (index == pathParts.Length - 1) return lastField;
+                currentObject = currentObject == null ? null : lastField.GetValue(currentObject);
+                currentType = currentObject?.GetType() ?? lastField.FieldType;
+            }
+            return lastField;
+        }
+
+        private static object GetCollectionItem(object collection, int index)
+        {
+            if (collection is IList list && index >= 0 && index < list.Count) return list[index];
+            if (collection is Array array && index >= 0 && index < array.Length) return array.GetValue(index);
+            return null;
+        }
+
+        private static Type GetCollectionElementType(Type collectionType)
+        {
+            if (collectionType == null) return null;
+            if (collectionType.IsArray) return collectionType.GetElementType();
+            var enumerable = collectionType.GetInterfaces().Concat(new[] { collectionType })
+                .FirstOrDefault(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+            return enumerable?.GetGenericArguments()[0];
+        }
+
+        private static FieldInfo FindField(Type type, string name)
+        {
+            for (var current = type; current != null && current != typeof(object); current = current.BaseType)
+            {
+                var field = current.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (field != null) return field;
+            }
+            return null;
+        }
+
+        private static bool HasCustomPropertyDrawer(Type propertyType)
+        {
+            if (propertyType == null) return false;
+            if (customPropertyDrawerCache.TryGetValue(propertyType, out var cached)) return cached;
+            foreach (var drawerType in TypeCache.GetTypesDerivedFrom<PropertyDrawer>())
+            foreach (var attribute in drawerType.GetCustomAttributes<CustomPropertyDrawer>(false))
+            {
+                var fields = attribute.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var typeField = fields.FirstOrDefault(field => field.FieldType == typeof(Type));
+                var childrenField = fields.FirstOrDefault(field => field.FieldType == typeof(bool));
+                var drawerTarget = typeField?.GetValue(attribute) as Type;
+                if (drawerTarget == propertyType || (childrenField?.GetValue(attribute) is bool useForChildren && useForChildren && drawerTarget != null && drawerTarget.IsAssignableFrom(propertyType)))
+                {
+                    customPropertyDrawerCache[propertyType] = true;
+                    return true;
                 }
             }
+            customPropertyDrawerCache[propertyType] = false;
+            return false;
+        }
 
-            foreach (var child in DirectChildren(nodeProperty))
+        private static string ReferenceContractLabel(Type contract)
+        {
+            if (contract == null) return "Source";
+            if (contract == typeof(ITriggerSource)) return "Trigger Source";
+            if (contract == typeof(ITriggerModifier)) return "Trigger Modifier";
+            if (contract == typeof(ITriggerOutput)) return "Trigger Output";
+            if (contract.IsGenericType)
             {
-                if (child.name == "input" || child.name == "nodeId") continue;
-                contents.Add(new PropertyField(child));
+                var generic = contract.GetGenericTypeDefinition();
+                var valueType = ValueTypeLabel(contract.GetGenericArguments()[0]);
+                if (generic == typeof(IValueSource<>)) return valueType + " Source";
+                if (generic == typeof(IValueModifier<>)) return valueType + " Modifier";
+                if (generic == typeof(IValueOutput<>)) return valueType + " Output";
             }
-            return contents;
+            return ValueTypeLabel(contract);
+        }
+
+        private static string Singularize(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "Item";
+            if (value.EndsWith("ies", StringComparison.OrdinalIgnoreCase)) return value.Substring(0, value.Length - 3) + "y";
+            if (value.EndsWith("s", StringComparison.OrdinalIgnoreCase)) return value.Substring(0, value.Length - 1);
+            return value;
         }
 
         private static string MapValueSourceDescription(MapValueSourceNode source)
@@ -247,7 +464,7 @@ namespace MondmadeVJ0.Editor
                 row.Add(new Button(() => MoveNode(list.propertyPath, elementIndex, -1, rebuild)) { text = "↑" });
                 row.Add(new Button(() => MoveNode(list.propertyPath, elementIndex, 1, rebuild)) { text = "↓" });
                 row.Add(new Button(() => CopyNode(element)) { text = "Copy" });
-                row.Add(new Button(() => PasteNodeAt(list.propertyPath, elementIndex, rebuild)) { text = "Paste" });
+                row.Add(new Button(() => PasteNodeAt(list.propertyPath, elementIndex, types, rebuild)) { text = "Paste" });
                 row.Add(new Button(() => DuplicateNode(list.propertyPath, elementIndex, rebuild)) { text = "Duplicate" });
                 row.Add(new Button(() => DeleteNode(list.propertyPath, elementIndex, rebuild)) { text = "Delete" });
                 section.Add(row);
@@ -374,24 +591,24 @@ namespace MondmadeVJ0.Editor
 
         private void CopyNode(SerializedProperty property) => CopyManagedReference(property.managedReferenceValue);
 
-        private void PasteNode(SerializedProperty property, Action rebuild)
+        private void PasteNode(SerializedProperty property, IReadOnlyList<Type> types, Action rebuild)
         {
-            if (!CanPaste(typeof(RouteNode))) return;
+            if (!CanPaste(types)) return;
             serializedObject.Update();
             var clone = PasteManagedReference();
-            if (!(clone is RouteNode)) return;
+            if (clone == null || !types.Any(type => type.IsInstanceOfType(clone))) return;
             RegenerateIdentity(clone, false);
             property.managedReferenceValue = clone;
             ApplyAndRebuild(rebuild);
         }
 
-        private void PasteNodeAt(string path, int index, Action rebuild)
+        private void PasteNodeAt(string path, int index, IReadOnlyList<Type> types, Action rebuild)
         {
-            if (!CanPaste(typeof(RouteNode))) return;
+            if (!CanPaste(types)) return;
             serializedObject.Update();
             var property = serializedObject.FindProperty(path).GetArrayElementAtIndex(index);
             var clone = PasteManagedReference();
-            if (!(clone is RouteNode)) return;
+            if (clone == null || !types.Any(type => type.IsInstanceOfType(clone))) return;
             RegenerateIdentity(clone, false);
             property.managedReferenceValue = clone;
             ApplyAndRebuild(rebuild);
@@ -423,8 +640,15 @@ namespace MondmadeVJ0.Editor
 
         private static bool CanPaste(Type contract)
         {
+            if (contract == null) return false;
             var type = Type.GetType(clipboardType);
             return type != null && contract.IsAssignableFrom(type);
+        }
+
+        private static bool CanPaste(IEnumerable<Type> types)
+        {
+            var type = Type.GetType(clipboardType);
+            return type != null && types != null && types.Any(candidate => candidate == type);
         }
 
         private static object PasteManagedReference()
