@@ -113,11 +113,121 @@ namespace MondmadeVJ0.Editor
             if (nodeProperty?.managedReferenceValue != null)
             {
                 nodeProperty.isExpanded = true;
-                section.Add(new PropertyField(nodeProperty));
+                section.Add(BuildNodeContents(nodeProperty, rebuild));
             }
             else if (!string.IsNullOrEmpty(nodeProperty?.managedReferenceFullTypename))
                 section.Add(new HelpBox("Missing node type preserved: " + nodeProperty.managedReferenceFullTypename, HelpBoxMessageType.Warning));
             return section;
+        }
+
+        private VisualElement BuildNodeContents(SerializedProperty nodeProperty, Action rebuild)
+        {
+            if (nodeProperty.managedReferenceValue is MapValueSourceNode mapSource)
+                return BuildMapValueSourceContents(nodeProperty, mapSource, rebuild);
+
+            nodeProperty.isExpanded = true;
+            return new PropertyField(nodeProperty);
+        }
+
+        private VisualElement BuildMapValueSourceContents(SerializedProperty nodeProperty, MapValueSourceNode mapSource, Action rebuild)
+        {
+            var contents = new VisualElement();
+            var description = MapValueSourceDescription(mapSource);
+            if (!string.IsNullOrEmpty(description))
+                contents.Add(new HelpBox(description, HelpBoxMessageType.Info));
+
+            var inputProperty = nodeProperty.FindPropertyRelative("input");
+            if (inputProperty == null)
+            {
+                contents.Add(new HelpBox("This converter has no serialized Input Source field.", HelpBoxMessageType.Error));
+                return contents;
+            }
+
+            var inputRow = new VisualElement();
+            inputRow.style.flexDirection = FlexDirection.Row;
+            inputRow.style.alignItems = Align.Center;
+            inputRow.Add(new Label("Input (" + ValueTypeLabel(mapSource.InputValueType) + ")") { style = { minWidth = 105 } });
+            var inputContract = typeof(IValueSource<>).MakeGenericType(mapSource.InputValueType);
+            var inputTypes = NodeTypes(inputContract);
+            var nodePath = nodeProperty.propertyPath;
+
+            void AssignInput(Type type)
+            {
+                serializedObject.Update();
+                var currentNode = serializedObject.FindProperty(nodePath);
+                var currentInput = currentNode?.FindPropertyRelative("input");
+                if (currentInput == null || !inputContract.IsAssignableFrom(type)) return;
+                currentInput.managedReferenceValue = Activator.CreateInstance(type);
+                ApplyAndRebuild(rebuild);
+            }
+
+            var currentInputValue = inputProperty.managedReferenceValue;
+            var hasMissingInputType = currentInputValue == null && !string.IsNullOrEmpty(inputProperty.managedReferenceFullTypename);
+            if (currentInputValue == null && !hasMissingInputType)
+            {
+                var selectButton = CreateTypePickerButton("Select Input", "Select Input Source", inputTypes, AssignInput);
+                selectButton.SetEnabled(inputTypes.Count > 0);
+                inputRow.Add(selectButton);
+            }
+            else
+            {
+                var inputType = currentInputValue?.GetType();
+                inputRow.Add(new Label(inputType == null ? "Missing Source type" : ShortTypeName(inputType)) { style = { flexGrow = 1 } });
+                var replaceButton = CreateTypePickerButton(hasMissingInputType ? "Replace" : "Change", hasMissingInputType ? "Replace Input Source" : "Change Input Source", inputTypes, AssignInput);
+                replaceButton.SetEnabled(inputTypes.Count > 0);
+                inputRow.Add(replaceButton);
+                inputRow.Add(new Button(() =>
+                {
+                    serializedObject.Update();
+                    var currentNode = serializedObject.FindProperty(nodePath);
+                    var currentInput = currentNode?.FindPropertyRelative("input");
+                    if (currentInput == null) return;
+                    currentInput.managedReferenceValue = null;
+                    ApplyAndRebuild(rebuild);
+                }) { text = "Remove" });
+            }
+            if (inputTypes.Count == 0)
+                contents.Add(new HelpBox("No compatible Input Source types are available in the loaded assemblies.", HelpBoxMessageType.Warning));
+            if (hasMissingInputType)
+                contents.Add(new HelpBox("Missing Input Source type preserved: " + inputProperty.managedReferenceFullTypename + ". Replace or remove it only if intended.", HelpBoxMessageType.Warning));
+            contents.Add(inputRow);
+
+            if (inputProperty.managedReferenceValue != null)
+            {
+                if (inputProperty.managedReferenceValue is MapValueSourceNode nestedMapSource)
+                    contents.Add(BuildMapValueSourceContents(inputProperty, nestedMapSource, rebuild));
+                else
+                {
+                    inputProperty.isExpanded = true;
+                    contents.Add(new PropertyField(inputProperty));
+                }
+            }
+
+            foreach (var child in DirectChildren(nodeProperty))
+            {
+                if (child.name == "input" || child.name == "nodeId") continue;
+                contents.Add(new PropertyField(child));
+            }
+            return contents;
+        }
+
+        private static string MapValueSourceDescription(MapValueSourceNode source)
+        {
+            if (source is FloatToVector2Source) return "Copies each input float f to both components: Vector2(f, f).";
+            if (source is FloatToVector3Source) return "Copies each input float f to all components: Vector3(f, f, f).";
+            if (source is FloatToVector4Source) return "Copies each input float f to all components: Vector4(f, f, f, f).";
+            if (source is FloatToVector2ComponentSource) return "Replaces the selected component of Fixed Components with the input float.";
+            if (source is FloatToVector3ComponentSource) return "Replaces the selected component of Fixed Components with the input float.";
+            if (source is FloatToVector4ComponentSource) return "Replaces the selected component of Fixed Components with the input float.";
+            return "Reads a nested " + ValueTypeLabel(source.InputValueType) + " Source and converts it to " + ValueTypeLabel(source.OutputValueType) + ".";
+        }
+
+        private static string ValueTypeLabel(Type type)
+        {
+            if (type == typeof(float)) return "float";
+            if (type == typeof(int)) return "int";
+            if (type == typeof(bool)) return "bool";
+            return type.Name;
         }
 
         private VisualElement BuildNodeList(SerializedProperty list, string title, IReadOnlyList<Type> types, Action rebuild)
@@ -146,7 +256,7 @@ namespace MondmadeVJ0.Editor
                 else if (type != null)
                 {
                     element.isExpanded = true;
-                    section.Add(new PropertyField(element));
+                    section.Add(BuildNodeContents(element, rebuild));
                 }
             }
             section.Add(CreateTypePickerButton("Add " + title.TrimEnd('s'), "Add " + title, types, type => AddNode(list.propertyPath, type, rebuild)));
@@ -428,6 +538,18 @@ namespace MondmadeVJ0.Editor
         }
 
         private static string ShortTypeName(Type type) => type.Name.Replace("`1", string.Empty);
+
+        private static IEnumerable<SerializedProperty> DirectChildren(SerializedProperty parent)
+        {
+            var iterator = parent.Copy();
+            var end = iterator.GetEndProperty();
+            var enter = true;
+            while (iterator.NextVisible(enter) && !SerializedProperty.EqualContents(iterator, end))
+            {
+                enter = false;
+                if (iterator.depth == parent.depth + 1) yield return iterator.Copy();
+            }
+        }
 
         private static Button CreateTypePickerButton(string buttonText, string title, IEnumerable<Type> types, Action<Type> selected)
         {

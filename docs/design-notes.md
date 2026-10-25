@@ -207,3 +207,9 @@ OSC受信Queueはpacket数8192件に加えて待機中addressの合計を524288 
 upstream OSC Jack 2.0.0の公開Getterはi/fを暗黙変換し、Type Tag自体を公開しないため、厳密な型検査には不足する。配布元はredmond418/OscJack forkとし、`OscDataHandle.GetElementTypeTag(index)`を追加した固定commit `7ef8fa692030079d2ad6d1a314680b96fbd9a328`を採用した。Runtime Adapterは型タグを厳密に検査する。UDP loopbackに加え、macOS universal Mono / IL2CPP Playerと別プロセスのOSC peer間で型付き送受信を確認した。実機の別PC・外部ネットワークでの受入は未実施。無関係な機能はforkへ追加しない。
 
 OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送4096件/frame・超過新規分棄却。自動echoは実装しない。同じRuntimeで入力→出力の同じendpoint / addressへの直接loopはValidation Error。別PCを跨ぐ構成のloopは自動検出できないため、送受信addressを分ける。外部Transport同期は`/mondmade/transport`へ`BPM(float), wholeBeat(float), fractionalBeat(float), running(float)`の4個のfを1パケットで30Hz以上で受信し、受信時刻を基準に同期する。wholeBeatは0〜16777215の整数、fractionalBeatは0以上1未満、runningは0/1とし、内部ではdoubleへ復元する。範囲外パケットは棄却する。送信側Clockとネットワーク遅延の絶対補償は行わず、D11と同じLost / 再取得規則を使う。
+
+## D21：型変換Sourceの入力とVector組立
+
+`MapValueSource<TIn, TOut>`のInputは、`TIn`を出力するSourceを内包する。Route間の接続ではなく、変換ツリー内の子Sourceである。Inspectorは`IValueSource<TIn>`を実装する型だけをInput候補にする。
+
+`FloatToVector2Source` / `FloatToVector3Source` / `FloatToVector4Source`はfloatを全成分へ複製する。Vectorの一成分だけをfloatで更新したい場合は`FloatToVectorNComponentSource`を使い、残りの固定値と更新軸を指定する。

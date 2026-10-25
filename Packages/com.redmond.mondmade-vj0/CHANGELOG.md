@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added compatible nested Source selection and property display for type-conversion Sources in the Route Inspector.
+- Made `FloatToVector2/3/4Source` copy the input float into every component; component replacement is available through `FloatToVector2/3/4ComponentSource`.
 - Split `RouteHost` into its own script asset so QuickStart scenes resolve the component in Player builds.
 - Bound OSC receive-queue and latest-message-cache memory use by packet count and address length.
 - Bound pooled Raw MIDI input buffers to 8 MiB across the normal and Clock queues.

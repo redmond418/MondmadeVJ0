@@ -8,10 +8,19 @@ namespace MondmadeVJ0
     public enum VectorComponent { X, Y, Z, W }
 
     [Serializable]
-    public abstract class MapValueSource<TIn, TOut> : RouteNode, IValueSource<TOut>
+    public abstract class MapValueSourceNode : RouteNode
+    {
+        public abstract Type InputValueType { get; }
+        public abstract Type OutputValueType { get; }
+    }
+
+    [Serializable]
+    public abstract class MapValueSource<TIn, TOut> : MapValueSourceNode, IValueSource<TOut>
     {
         [SerializeReference] private IValueSource<TIn> input;
         public IValueSource<TIn> Input { get => input; set => input = value; }
+        public override Type InputValueType => typeof(TIn);
+        public override Type OutputValueType => typeof(TOut);
         protected abstract TOut Convert(TIn value);
         protected virtual void Validate() { }
         public Observable<TOut> Build(RouteContext context)
@@ -130,6 +139,24 @@ namespace MondmadeVJ0
     [Serializable]
     public sealed class FloatToVector2Source : MapValueSource<float, Vector2>
     {
+        protected override Vector2 Convert(float value) => new Vector2(value, value);
+    }
+
+    [Serializable]
+    public sealed class FloatToVector3Source : MapValueSource<float, Vector3>
+    {
+        protected override Vector3 Convert(float value) => new Vector3(value, value, value);
+    }
+
+    [Serializable]
+    public sealed class FloatToVector4Source : MapValueSource<float, Vector4>
+    {
+        protected override Vector4 Convert(float value) => new Vector4(value, value, value, value);
+    }
+
+    [Serializable]
+    public sealed class FloatToVector2ComponentSource : MapValueSource<float, Vector2>
+    {
         [SerializeField] private Vector2 fixedComponents;
         [SerializeField] private VectorComponent component = VectorComponent.X;
         protected override Vector2 Convert(float value)
@@ -141,7 +168,7 @@ namespace MondmadeVJ0
     }
 
     [Serializable]
-    public sealed class FloatToVector3Source : MapValueSource<float, Vector3>
+    public sealed class FloatToVector3ComponentSource : MapValueSource<float, Vector3>
     {
         [SerializeField] private Vector3 fixedComponents;
         [SerializeField] private VectorComponent component = VectorComponent.X;
@@ -154,7 +181,7 @@ namespace MondmadeVJ0
     }
 
     [Serializable]
-    public sealed class FloatToVector4Source : MapValueSource<float, Vector4>
+    public sealed class FloatToVector4ComponentSource : MapValueSource<float, Vector4>
     {
         [SerializeField] private Vector4 fixedComponents;
         [SerializeField] private VectorComponent component = VectorComponent.X;

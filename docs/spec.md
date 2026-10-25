@@ -100,6 +100,8 @@ CoreがRuntime RootとClock / Transportの抽象契約を持ち、Integration Mo
 - 型変換：数値・Bool・Index Lookup・Vector抽出／組立・Float→Gradient Color
 - Transport / Lasp / OSC：各Serviceの通常Source
 
+型変換SourceのInputは、変換前の型を出力するSourceを内包する。`FloatToVector2Source` / `FloatToVector3Source` / `FloatToVector4Source`は入力floatを全成分へ複製する（例：`f`→`Vector3(f, f, f)`）。1成分だけを入力値で置換する場合は`FloatToVectorNComponentSource`を使い、固定成分と対象軸を指定する。InspectorはInput型に適合するSourceだけを選択肢に表示する。
+
 Float演算はAdd / Subtract / Multiply / Divide / Min / Max / Modulo / Power、Int演算はPowerを除く同系列。Compareは6種の比較とfloatのepsilon、SelectはCondition / True / Falseを持つ。MostRecentは最後に変更された入力を採用する。
 
 EnvelopeはStart / Peak / End、Attack / Hold / Release、AnimationCurve、Restart / Continue / IgnoreWhilePlaying、Seconds / Beatsを持つ。

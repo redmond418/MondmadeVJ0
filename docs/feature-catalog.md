@@ -115,6 +115,9 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 | `FloatToVector2Source` | 実装済み |
 | `FloatToVector3Source` | 実装済み |
 | `FloatToVector4Source` | 実装済み |
+| `FloatToVector2ComponentSource` | 実装済み |
+| `FloatToVector3ComponentSource` | 実装済み |
+| `FloatToVector4ComponentSource` | 実装済み |
 | `FloatToGradientColorSource` | 実装済み |
 
 ### Transport
