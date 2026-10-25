@@ -28,7 +28,7 @@ namespace MondmadeVJ0.Editor
             root.Add(validationPanel);
             root.Add(runtimePanel);
             root.Add(routeList);
-            root.Add(new Button(() => ShowTypeMenu(RouteTypes(), "Add route", type => AddRoute(type, Rebuild))) { text = "Add Route" });
+            root.Add(CreateTypePickerButton("Add Route", "Add route", RouteTypes(), type => AddRoute(type, Rebuild)));
 
             void Rebuild()
             {
@@ -55,7 +55,7 @@ namespace MondmadeVJ0.Editor
             {
                 var missing = string.IsNullOrEmpty(route.managedReferenceFullTypename) ? "Empty route entry" : "Missing managed-reference type: " + route.managedReferenceFullTypename;
                 card.Add(new HelpBox(missing + ". The serialized entry is preserved; choose a new type only if you intend to replace it.", HelpBoxMessageType.Warning));
-                var recovery = new Button(() => ShowTypeMenu(RouteTypes(), "Replace route", type => { route.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); })) { text = "Replace with route type…" };
+                var recovery = CreateTypePickerButton("Replace with route type…", "Replace route", RouteTypes(), type => { route.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); });
                 card.Add(recovery);
                 return card;
             }
@@ -100,18 +100,21 @@ namespace MondmadeVJ0.Editor
             row.style.alignItems = Align.Center;
             row.Add(new Label(title) { style = { minWidth = 85 } });
             if (nodeProperty?.managedReferenceValue == null)
-                row.Add(new Button(() => ShowTypeMenu(types, "Add " + title, type => { nodeProperty.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); })) { text = "Add " + title });
+                row.Add(CreateTypePickerButton("Add " + title, "Add " + title, types, type => { nodeProperty.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); }));
             else
             {
                 row.Add(new Label(ShortTypeName(nodeProperty.managedReferenceValue.GetType())) { style = { flexGrow = 1 } });
                 row.Add(new Button(() => CopyNode(nodeProperty)) { text = "Copy" });
                 row.Add(new Button(() => PasteNode(nodeProperty, rebuild)) { text = "Paste" });
-                row.Add(new Button(() => ShowTypeMenu(types, "Change " + title, type => { nodeProperty.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); })) { text = "Change" });
+                row.Add(CreateTypePickerButton("Change", "Change " + title, types, type => { nodeProperty.managedReferenceValue = Activator.CreateInstance(type); ApplyAndRebuild(rebuild); }));
                 row.Add(new Button(() => { nodeProperty.managedReferenceValue = null; ApplyAndRebuild(rebuild); }) { text = "Remove" });
             }
             section.Add(row);
             if (nodeProperty?.managedReferenceValue != null)
+            {
+                nodeProperty.isExpanded = true;
                 section.Add(new PropertyField(nodeProperty));
+            }
             else if (!string.IsNullOrEmpty(nodeProperty?.managedReferenceFullTypename))
                 section.Add(new HelpBox("Missing node type preserved: " + nodeProperty.managedReferenceFullTypename, HelpBoxMessageType.Warning));
             return section;
@@ -141,9 +144,12 @@ namespace MondmadeVJ0.Editor
                 if (type == null && !string.IsNullOrEmpty(element.managedReferenceFullTypename))
                     section.Add(new HelpBox("Missing type preserved: " + element.managedReferenceFullTypename, HelpBoxMessageType.Warning));
                 else if (type != null)
+                {
+                    element.isExpanded = true;
                     section.Add(new PropertyField(element));
+                }
             }
-            section.Add(new Button(() => ShowTypeMenu(types, "Add " + title, type => AddNode(list.propertyPath, type, rebuild))) { text = "Add " + title.TrimEnd('s') });
+            section.Add(CreateTypePickerButton("Add " + title.TrimEnd('s'), "Add " + title, types, type => AddNode(list.propertyPath, type, rebuild)));
             return section;
         }
 
@@ -423,35 +429,36 @@ namespace MondmadeVJ0.Editor
 
         private static string ShortTypeName(Type type) => type.Name.Replace("`1", string.Empty);
 
-        private static void ShowTypeMenu(IEnumerable<Type> types, string title, Action<Type> selected)
+        private static Button CreateTypePickerButton(string buttonText, string title, IEnumerable<Type> types, Action<Type> selected)
         {
-            RouteNodeTypePickerWindow.Open(title, types.OrderBy(value => value.Name, StringComparer.Ordinal).ToArray(), selected);
+            var sortedTypes = types.OrderBy(value => value.Name, StringComparer.Ordinal).ToArray();
+            var button = new Button { text = buttonText };
+            button.clicked += () => RouteNodeTypePickerPopup.Open(button.worldBound, title, sortedTypes, selected);
+            return button;
         }
     }
 
-    internal sealed class RouteNodeTypePickerWindow : EditorWindow
+    internal sealed class RouteNodeTypePickerPopup : PopupWindowContent
     {
-        private string pickerTitle;
-        private Type[] types = Array.Empty<Type>();
-        private Action<Type> selected;
+        private readonly string pickerTitle;
+        private readonly Type[] types;
+        private readonly Action<Type> selected;
         private string search = string.Empty;
         private Vector2 scroll;
 
-        public static void Open(string title, Type[] types, Action<Type> selected)
+        private RouteNodeTypePickerPopup(string title, Type[] types, Action<Type> selected)
         {
-            var window = CreateInstance<RouteNodeTypePickerWindow>();
-            window.pickerTitle = title;
-            window.types = types ?? Array.Empty<Type>();
-            window.selected = selected;
-            window.titleContent = new GUIContent(title);
-            window.minSize = new Vector2(340f, 320f);
-            var main = EditorGUIUtility.GetMainWindowPosition();
-            window.position = new Rect(main.x + (main.width - 380f) * 0.5f, main.y + (main.height - 460f) * 0.5f, 380f, 460f);
-            window.ShowUtility();
-            window.Focus();
+            pickerTitle = title;
+            this.types = types ?? Array.Empty<Type>();
+            this.selected = selected;
         }
 
-        private void OnGUI()
+        public static void Open(Rect activatorRect, string title, Type[] types, Action<Type> selected)
+            => UnityEditor.PopupWindow.Show(activatorRect, new RouteNodeTypePickerPopup(title, types, selected));
+
+        public override Vector2 GetWindowSize() => new Vector2(380f, 460f);
+
+        public override void OnGUI(Rect rect)
         {
             EditorGUILayout.LabelField(pickerTitle, EditorStyles.boldLabel);
             search = EditorGUILayout.TextField("Search", search);
@@ -463,7 +470,7 @@ namespace MondmadeVJ0.Editor
             {
                 if (!GUILayout.Button(type.Name, EditorStyles.miniButton)) continue;
                 selected?.Invoke(type);
-                Close();
+                editorWindow.Close();
                 GUIUtility.ExitGUI();
             }
             if (filtered.Length == 0) EditorGUILayout.HelpBox("No matching types.", MessageType.Info);

@@ -102,7 +102,8 @@ namespace MondmadeVJ0
     [Serializable]
     public abstract class RouteNode
     {
-        [SerializeField] private string nodeId = Guid.NewGuid().ToString("N");
+        // Stable internal identity for node-scoped state, traces, and diagnostics; users do not configure it.
+        [SerializeField, HideInInspector] private string nodeId = Guid.NewGuid().ToString("N");
         public string NodeId => nodeId;
 
         public void RegenerateId() => nodeId = Guid.NewGuid().ToString("N");

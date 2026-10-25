@@ -77,6 +77,23 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void RouteInspectorShowsNewSourceModifierAndOutputPropertiesExpanded()
+        {
+            host.AddRoute(CreateFloatRoute());
+
+            var inspector = editor.CreateInspectorGUI();
+            var routeProperty = editor.serializedObject.FindProperty("routes").GetArrayElementAtIndex(0);
+            var sourceProperty = routeProperty.FindPropertyRelative("source");
+            var modifiers = routeProperty.FindPropertyRelative("modifiers");
+            var outputs = routeProperty.FindPropertyRelative("outputs");
+
+            Assert.That(inspector, Is.Not.Null);
+            Assert.That(sourceProperty.isExpanded, Is.True);
+            Assert.That(modifiers.GetArrayElementAtIndex(0).isExpanded, Is.True);
+            Assert.That(outputs.GetArrayElementAtIndex(0).isExpanded, Is.True);
+        }
+
+        [Test]
         public void RouteAndNodeCopyPastePreserveValuesAndRegenerateStableIds()
         {
             var route = CreateFloatRoute();
