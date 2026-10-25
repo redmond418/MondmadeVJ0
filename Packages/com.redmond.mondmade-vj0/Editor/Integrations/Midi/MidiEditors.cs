@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using RtMidi;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace MondmadeVJ0.Editor
@@ -169,8 +170,20 @@ namespace MondmadeVJ0.Editor
             if (GUILayout.Button("Learn selected control"))
             {
                 var hubs = UnityEngine.Object.FindObjectsByType<MidiHub>(FindObjectsSortMode.None);
-                if (hubs.Length == 0) EditorUtility.DisplayDialog("MIDI Learn", "Add a MidiHub to a Runtime and enter Play mode before learning.", "OK");
-                else MidiLearnWindow.OpenProfile(profile, learnControlIndex, hubs[0]);
+                MidiHub matchingHub = null;
+                foreach (var candidate in hubs)
+                {
+                    foreach (var surface in candidate.Surfaces)
+                    {
+                        if (surface?.Profile != profile) continue;
+                        matchingHub = candidate;
+                        break;
+                    }
+                    if (matchingHub != null) break;
+                }
+                if (matchingHub == null)
+                    EditorUtility.DisplayDialog("MIDI Learn", "Add this profile to a MidiHub in MondmadeVJ0Runtime.Modules. Start listening in the Learn window, then enter Play mode.", "OK");
+                else MidiLearnWindow.OpenProfile(profile, learnControlIndex, matchingHub);
             }
         }
     }
@@ -305,14 +318,32 @@ namespace MondmadeVJ0.Editor
 
     public sealed class MidiLearnWindow : EditorWindow
     {
+        [SerializeField]
         private MidiHub hub;
+        [SerializeField]
         private string surfaceId;
+        [SerializeField]
         private UnityEngine.Object targetObject;
+        [SerializeField]
         private string propertyPath;
+        [SerializeField]
         private MidiSurfaceProfile profile;
+        [SerializeField]
         private int profileControlIndex = -1;
+        [SerializeField]
+        private bool startOnPlay;
+        [NonSerialized]
         private bool listening;
+        [NonSerialized]
+        private MidiHub listeningHub;
+        [SerializeField]
         private string lastMessage = "Select a surface and start listening.";
+
+        private void OnEnable()
+        {
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            if (startOnPlay && Application.isPlaying) StartListening();
+        }
 
         public static void OpenReference(UnityEngine.Object owner, string path, MidiHub sourceHub, string selectedSurface)
         {
@@ -340,15 +371,36 @@ namespace MondmadeVJ0.Editor
             window.Show();
         }
 
-        private void OnDisable() => StopListening();
+        private void OnDisable()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            StopListening(cancelPending: !EditorApplication.isPlayingOrWillChangePlaymode);
+        }
 
         private void OnGUI()
         {
-            hub = (MidiHub)EditorGUILayout.ObjectField("MidiHub", hub, typeof(MidiHub), true);
-            if (hub == null) return;
+            var selectedHub = (MidiHub)EditorGUILayout.ObjectField("MidiHub", hub, typeof(MidiHub), true);
+            if (selectedHub != hub)
+            {
+                StopListening();
+                hub = selectedHub;
+                surfaceId = null;
+            }
+            if (hub == null)
+            {
+                EditorGUILayout.HelpBox("Select a MidiHub configured in MondmadeVJ0Runtime.Modules.", MessageType.Warning);
+                return;
+            }
             var surfaces = new List<MidiSurfaceInstance>();
-            foreach (var surface in hub.Surfaces) if (surface?.Profile != null) surfaces.Add(surface);
-            if (surfaces.Count == 0) { EditorGUILayout.HelpBox("The selected MidiHub has no configured surface.", MessageType.Warning); return; }
+            foreach (var surface in hub.Surfaces)
+                if (surface?.Profile != null && (profile == null || surface.Profile == profile)) surfaces.Add(surface);
+            if (surfaces.Count == 0)
+            {
+                EditorGUILayout.HelpBox(profile == null
+                    ? "The selected MidiHub has no configured surface."
+                    : "No configured surface on this MidiHub uses the selected profile.", MessageType.Warning);
+                return;
+            }
             var labels = new string[surfaces.Count];
             var selected = 0;
             for (var i = 0; i < surfaces.Count; i++)
@@ -363,30 +415,66 @@ namespace MondmadeVJ0.Editor
             else EditorGUILayout.LabelField("Route reference", targetObject == null ? "Not assigned" : propertyPath);
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (!listening && GUILayout.Button("Start listening")) StartListening();
-                if (listening && GUILayout.Button("Cancel")) StopListening();
+                if (listening || (!Application.isPlaying && startOnPlay))
+                {
+                    if (GUILayout.Button("Cancel")) StopListening();
+                }
+                else if (GUILayout.Button(Application.isPlaying ? "Start listening" : "Start on Play"))
+                {
+                    StartListening();
+                }
             }
-            EditorGUILayout.HelpBox(listening ? "Press or move the control you want to assign." : lastMessage, MessageType.Info);
+            var statusMessage = listening
+                ? "Press or move the control you want to assign."
+                : !Application.isPlaying && startOnPlay
+                    ? "Armed. Enter Play mode; MIDI Learn will start automatically."
+                    : !Application.isPlaying
+                        ? "MIDI input is available in Play mode. Click Start on Play, then enter Play mode."
+                        : lastMessage;
+            EditorGUILayout.HelpBox(statusMessage, MessageType.Info);
         }
 
         private void StartListening()
         {
-            StopListening();
-            if (hub == null) return;
-            hub.ControlChanged += OnControlChanged;
-            if (profile != null) hub.RawInputObserved += OnRawInput;
+            StopListening(cancelPending: false);
+            if (hub == null) { lastMessage = "Select a MidiHub before listening."; Repaint(); return; }
+            if (!Application.isPlaying)
+            {
+                startOnPlay = true;
+                lastMessage = "Armed. Enter Play mode to start MIDI Learn.";
+                Repaint();
+                return;
+            }
+            startOnPlay = false;
+            listeningHub = hub;
+            listeningHub.ControlChanged += OnControlChanged;
+            if (profile != null) listeningHub.RawInputObserved += OnRawInput;
             listening = true;
             lastMessage = "Waiting for a MIDI message.";
+            Repaint();
         }
 
-        private void StopListening()
+        private void StopListening(bool cancelPending = true)
         {
-            if (hub != null)
+            if (listeningHub != null)
             {
-                hub.ControlChanged -= OnControlChanged;
-                hub.RawInputObserved -= OnRawInput;
+                listeningHub.ControlChanged -= OnControlChanged;
+                listeningHub.RawInputObserved -= OnRawInput;
             }
+            listeningHub = null;
             listening = false;
+            if (cancelPending) startOnPlay = false;
+            Repaint();
+        }
+
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.EnteredPlayMode && startOnPlay) StartListening();
+            else if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                StopListening();
+                lastMessage = "Play mode ended. Start listening again when ready.";
+            }
         }
 
         private void OnControlChanged(MidiControlChange change)
@@ -398,26 +486,34 @@ namespace MondmadeVJ0.Editor
             serialized.Update();
             var property = serialized.FindProperty(propertyPath);
             if (property == null) { lastMessage = "The target property is no longer available."; StopListening(); Repaint(); return; }
+            var learnedSurface = property.FindPropertyRelative("surfaceInstanceId");
+            var learnedControl = property.FindPropertyRelative("controlId");
+            if (learnedSurface == null || learnedControl == null)
+            { lastMessage = "The target MIDI reference fields are no longer available."; StopListening(); Repaint(); return; }
             Undo.RecordObject(targetObject, "Learn MIDI control");
-            property.FindPropertyRelative("surfaceInstanceId").stringValue = change.Reference.SurfaceInstanceId;
-            property.FindPropertyRelative("controlId").stringValue = change.Reference.ControlId;
+            learnedSurface.stringValue = change.Reference.SurfaceInstanceId;
+            learnedControl.stringValue = change.Reference.ControlId;
             serialized.ApplyModifiedProperties();
             EditorUtility.SetDirty(targetObject);
             lastMessage = $"Assigned {change.Reference.ControlId}.";
             StopListening();
+            InternalEditorUtility.RepaintAllViews();
             Repaint();
         }
 
         private void OnRawInput(MidiRawMessage message)
         {
             if (!listening || message.SurfaceInstanceId != surfaceId || profile == null || profileControlIndex < 0) return;
+            if (profileControlIndex >= profile.Controls.Count || profile.Find(profile.Controls[profileControlIndex].id) == null)
+            { lastMessage = "The selected profile control is no longer available."; StopListening(); Repaint(); return; }
             Undo.RecordObject(profile, "Learn MIDI address");
-            if (!hub.TrySetLearnedAddress(message.SurfaceInstanceId, profile.Controls[profileControlIndex].id, message.AddressType, message.Channel, message.Number))
+            if (listeningHub == null || !listeningHub.TrySetLearnedAddress(message.SurfaceInstanceId, profile.Controls[profileControlIndex].id, message.AddressType, message.Channel, message.Number))
             { lastMessage = "The selected logical control is no longer present on this surface."; StopListening(); Repaint(); return; }
             EditorUtility.SetDirty(profile);
             AssetDatabase.SaveAssets();
             lastMessage = $"Learned {message.AddressType}, channel {message.Channel + 1}, number {message.Number}.";
             StopListening();
+            InternalEditorUtility.RepaintAllViews();
             Repaint();
         }
     }

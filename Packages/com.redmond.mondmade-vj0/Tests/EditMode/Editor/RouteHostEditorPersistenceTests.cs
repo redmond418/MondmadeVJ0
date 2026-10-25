@@ -117,7 +117,7 @@ namespace MondmadeVJ0.Tests
             routes = editor.serializedObject.FindProperty("routes");
             var modifiers = routes.GetArrayElementAtIndex(0).FindPropertyRelative("modifiers");
             Invoke("CopyNode", modifiers.GetArrayElementAtIndex(0));
-            Invoke("PasteNodeAt", "routes.Array.data[0].modifiers", 0, null);
+            Invoke("PasteNodeAt", "routes.Array.data[0].modifiers", 0, new[] { typeof(AddFloatModifier) }, null);
 
             pastedRoute = (FloatRoute)host.Routes[0];
             Assert.That(pastedRoute.Modifiers.Count, Is.EqualTo(1));
@@ -293,6 +293,28 @@ namespace MondmadeVJ0.Tests
 
             Assert.That(buttons.Any(button => button.text == "Add Input"), Is.True,
                 "Inherited SerializeReference input lists should have a compatible Add picker.");
+        }
+
+        [Test]
+        public void RouteInspectorExposesModifiersBetweenMapSourceInputAndConversion()
+        {
+            var source = new FloatToVector3Source { Input = new ConstantFloatSource { Value = 0.5f } };
+            var route = new Vector3Route();
+            route.Configure("A21 pre-conversion modifiers", source);
+            host.AddRoute(route);
+
+            var inspector = editor.CreateInspectorGUI();
+            Assert.That(inspector.Query<Button>().ToList().Any(button => button.text == "Add Input Modifier"), Is.True,
+                "A map Source should offer modifiers compatible with its input value type.");
+
+            source.InputModifiers.Add(new CurveFloatModifier());
+            editor.serializedObject.Update();
+            inspector = editor.CreateInspectorGUI();
+            var propertyPaths = inspector.Query<PropertyField>().ToList()
+                .Select(field => field.bindingPath)
+                .ToList();
+            Assert.That(propertyPaths, Does.Contain("routes.Array.data[0].source.inputModifiers.Array.data[0].curve"),
+                "Input modifier settings should remain editable on the conversion Source.");
         }
 
         [Test]

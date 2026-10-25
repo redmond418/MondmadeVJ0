@@ -488,6 +488,28 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void MapValueSourceAppliesInputModifiersBeforeConverting()
+        {
+            var source = new FloatToVector3Source { Input = new ConstantFloatSource { Value = 0.5f } };
+            var curve = new CurveFloatModifier();
+            SetField(curve, "curve", new AnimationCurve(
+                new Keyframe(0f, 0f),
+                new Keyframe(0.5f, 0.8f),
+                new Keyframe(1f, 1f)));
+            source.InputModifiers.Add(curve);
+            var context = Context();
+
+            try
+            {
+                var value = Collect(source.Build(context)).Single();
+                Assert.That(value.x, Is.EqualTo(0.8f).Within(0.0001f));
+                Assert.That(value.y, Is.EqualTo(0.8f).Within(0.0001f));
+                Assert.That(value.z, Is.EqualTo(0.8f).Within(0.0001f));
+            }
+            finally { context.Scope.Dispose(); }
+        }
+
+        [Test]
         public void StatefulStepAndEnvelopeEvaluateOneTransitionForThreeOutputs()
         {
             var stepTrigger = new TestTriggerSource();

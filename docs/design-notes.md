@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-24（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。ローカル受入範囲A01〜A24は検証済み。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
+更新日：2026-10-26（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。ローカル受入範囲A01〜A24は検証済み。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
 
 ## 採用済みの判断
 
@@ -211,5 +211,7 @@ OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送40
 ## D21：型変換Sourceの入力とVector組立
 
 `MapValueSource<TIn, TOut>`のInputは、`TIn`を出力するSourceを内包する。Route間の接続ではなく、変換ツリー内の子Sourceである。Inspectorは`IValueSource<TIn>`を実装する型だけをInput候補にする。
+
+各Map Sourceは`TIn`型のInput Modifiersを持つ。内包したInput Sourceの後、`Convert`の前に順番に適用するため、floatをVectorへ変換する前にCurve / Clampなどのfloat Modifierを挿入できる。Route全体のModifiersは変換後の`TOut`型に対して従来どおり適用する。
 
 `FloatToVector2Source` / `FloatToVector3Source` / `FloatToVector4Source`はfloatを全成分へ複製する。Vectorの一成分だけをfloatで更新したい場合は`FloatToVectorNComponentSource`を使い、残りの固定値と更新軸を指定する。

@@ -22,7 +22,6 @@ namespace MondmadeVJ0.Editor
         public override VisualElement CreateInspectorGUI()
         {
             var root = new VisualElement();
-            var routes = serializedObject.FindProperty("routes");
             var routeList = new VisualElement();
             var runtimePanel = new IMGUIContainer(DrawRuntimeStatus);
             var validationPanel = new IMGUIContainer(DrawValidation);
@@ -35,16 +34,21 @@ namespace MondmadeVJ0.Editor
             void Rebuild()
             {
                 serializedObject.UpdateIfRequiredOrScript();
+                routeList.Unbind();
                 routeList.Clear();
+                var routes = serializedObject.FindProperty("routes");
                 for (var index = 0; index < routes.arraySize; index++)
                 {
                     var routeProperty = routes.GetArrayElementAtIndex(index);
                     routeList.Add(BuildRouteCard(routeProperty, index, Rebuild));
                 }
+                routeList.Bind(serializedObject);
+                validationPanel.MarkDirtyRepaint();
+                runtimePanel.MarkDirtyRepaint();
             }
 
-            Rebuild();
             root.Bind(serializedObject);
+            Rebuild();
             return root;
         }
 
@@ -555,7 +559,7 @@ namespace MondmadeVJ0.Editor
         {
             serializedObject.Update();
             var list = serializedObject.FindProperty("routes");
-            list.DeleteArrayElementAtIndex(index);
+            DeleteManagedReferenceListElement(list, index);
             ApplyAndRebuild(rebuild);
         }
 
@@ -617,8 +621,20 @@ namespace MondmadeVJ0.Editor
         private void DeleteNode(string path, int index, Action rebuild)
         {
             serializedObject.Update();
-            serializedObject.FindProperty(path).DeleteArrayElementAtIndex(index);
+            DeleteManagedReferenceListElement(serializedObject.FindProperty(path), index);
             ApplyAndRebuild(rebuild);
+        }
+
+        private static void DeleteManagedReferenceListElement(SerializedProperty list, int index)
+        {
+            if (list == null || !list.isArray || index < 0 || index >= list.arraySize) return;
+
+            // DeleteArrayElementAtIndex can report an out-of-bounds access for
+            // SerializeReference elements after it has already removed them.
+            // Move the selected item to the tail, then resize the list once.
+            var lastIndex = list.arraySize - 1;
+            if (index != lastIndex) list.MoveArrayElement(index, lastIndex);
+            list.arraySize = lastIndex;
         }
 
         private void ApplyAndRebuild(Action rebuild)

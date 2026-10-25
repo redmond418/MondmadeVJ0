@@ -18,7 +18,9 @@ namespace MondmadeVJ0
     public abstract class MapValueSource<TIn, TOut> : MapValueSourceNode, IValueSource<TOut>
     {
         [SerializeReference] private IValueSource<TIn> input;
+        [SerializeReference] private System.Collections.Generic.List<IValueModifier<TIn>> inputModifiers = new System.Collections.Generic.List<IValueModifier<TIn>>();
         public IValueSource<TIn> Input { get => input; set => input = value; }
+        public System.Collections.Generic.IList<IValueModifier<TIn>> InputModifiers => inputModifiers;
         public override Type InputValueType => typeof(TIn);
         public override Type OutputValueType => typeof(TOut);
         protected abstract TOut Convert(TIn value);
@@ -27,7 +29,13 @@ namespace MondmadeVJ0
         {
             if (input == null) throw new InvalidOperationException($"{GetType().Name} input is missing.");
             Validate();
-            return input.Build(context).Select(Convert);
+            var stream = input.Build(context);
+            for (var i = 0; inputModifiers != null && i < inputModifiers.Count; i++)
+            {
+                var modifier = inputModifiers[i] ?? throw new InvalidOperationException($"{GetType().Name} input modifier {i} is missing.");
+                stream = modifier.Apply(stream, context) ?? throw new InvalidOperationException($"{GetType().Name} input modifier {i} returned a null stream.");
+            }
+            return stream.Select(Convert);
         }
     }
 
