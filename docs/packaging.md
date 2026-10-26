@@ -105,7 +105,7 @@ SetupはInput System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphから�
 
 Keijiroのscoped registryが不足していればProject Settingsの設定項目を案内する。OSC forkは固定commitのGit URLで導入し、同じIDのupstreamと二重登録しない。package.jsonのGit依存による自動解決は使わない。ユーザーのmanifestを文字列置換せず、既存registryと設定を保持する。
 
-導入後はHierarchyの`GameObject > Mondmade VJ0 > Runtime`から`MondmadeVJ0Runtime`付きGameObjectを作成し、必要Module・RouteHostをScene / Prefabへ配置する。自動的に全Sceneを変更したりSingletonを生成したりしない。R3、Unsafeと必要な外部ライブラリの導入は別途必要だが、MondmadeVJ0自身の登録・更新は1つで済む。
+導入後はHierarchyの`GameObject > Mondmade VJ0 > Runtime`からRuntimeテンプレートを作成する。`MondmadeVJ0Runtime`の子にTransport、導入済みのMIDI / OSC Module、OSC Transport Sync Adapter、RouteHostを作り、Runtimeの配列へ登録する。RouteHostには利用側のRouteを追加する。自動的に全Sceneを変更したりSingletonを生成したりしない。R3、Unsafeと必要な外部ライブラリの導入は別途必要だが、MondmadeVJ0自身の登録・更新は1つで済む。
 
 ## 開発用QuickStart
 

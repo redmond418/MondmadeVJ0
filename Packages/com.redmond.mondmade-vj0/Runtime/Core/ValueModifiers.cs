@@ -279,6 +279,98 @@ namespace MondmadeVJ0
         protected override Vector4 To4(object v) => ConvertIn((T)v);
         protected override object From4(Vector4 v) => ConvertOut(v);
     }
+
+    internal sealed class IntegratedVectorState { public Vector4 Current, Velocity; public bool Initialized; }
+
+    [Serializable]
+    public abstract class IntegrateVectorModifier<T> : VectorModifier<T>
+    {
+        [SerializeField] private ModifierClock clock;
+        protected abstract Vector4 InitialValue { get; }
+        protected abstract Vector4 ToVector(T value);
+        protected abstract T FromVector(Vector4 value);
+
+        protected override Vector4 ConvertIn(T value) => ToVector(value);
+        protected override T ConvertOut(Vector4 value) => FromVector(value);
+
+        public override Observable<T> Apply(Observable<T> source, RouteContext context)
+        {
+            if (context.FrameClock == null) throw new InvalidOperationException("Time-based modifiers require FrameClock.");
+            if (!ModifierStream.Finite(InitialValue)) throw new InvalidOperationException("Vector integral initial value must be finite.");
+            var state = context.GetNodeState(this, "integral-vector", () => new IntegratedVectorState { Current = InitialValue });
+            return Observable.Create<T>(observer =>
+            {
+                var disposables = new CompositeDisposable();
+                var emittedCurrent = false;
+                disposables.Add(SourceStream.Subscribe(source, value =>
+                {
+                    var velocity = ConvertIn(value);
+                    if (!ModifierStream.Finite(velocity))
+                    {
+                        context.Report("INVALID_VALUE", "Vector integral modifier ignored a non-finite velocity input.", this);
+                        return;
+                    }
+
+                    state.Velocity = Mask(velocity);
+                    if (!emittedCurrent)
+                    {
+                        state.Initialized = true;
+                        emittedCurrent = true;
+                        observer.OnNext(ConvertOut(state.Current));
+                    }
+                }, observer.OnErrorResume));
+
+                Action<double, double> update = (_, __) =>
+                {
+                    if (!state.Initialized) return;
+                    var delta = (float)ModifierStream.Delta(context, clock);
+                    if (!(delta > 0f) || !ModifierStream.Finite(delta)) return;
+
+                    var next = state.Current + state.Velocity * delta;
+                    if (!ModifierStream.Finite(next))
+                    {
+                        context.Report("INVALID_VALUE", "Vector integral modifier retained its last finite accumulated value.", this);
+                        return;
+                    }
+
+                    if (next.x == state.Current.x && next.y == state.Current.y && next.z == state.Current.z && next.w == state.Current.w) return;
+                    state.Current = next;
+                    observer.OnNext(ConvertOut(next));
+                };
+                context.FrameClock.Updated += update;
+                disposables.Add(Disposable.Create(() => context.FrameClock.Updated -= update));
+                return disposables;
+            });
+        }
+    }
+
+    [Serializable]
+    public sealed class IntegrateVector2Modifier : IntegrateVectorModifier<Vector2>
+    {
+        [SerializeField] private Vector2 initialValue;
+        protected override Vector4 InitialValue => new Vector4(initialValue.x, initialValue.y, 0f, 0f);
+        protected override Vector4 ToVector(Vector2 value) => new Vector4(value.x, value.y, 0f, 0f);
+        protected override Vector2 FromVector(Vector4 value) => new Vector2(value.x, value.y);
+    }
+
+    [Serializable]
+    public sealed class IntegrateVector3Modifier : IntegrateVectorModifier<Vector3>
+    {
+        [SerializeField] private Vector3 initialValue;
+        protected override Vector4 InitialValue => new Vector4(initialValue.x, initialValue.y, initialValue.z, 0f);
+        protected override Vector4 ToVector(Vector3 value) => new Vector4(value.x, value.y, value.z, 0f);
+        protected override Vector3 FromVector(Vector4 value) => new Vector3(value.x, value.y, value.z);
+    }
+
+    [Serializable]
+    public sealed class IntegrateVector4Modifier : IntegrateVectorModifier<Vector4>
+    {
+        [SerializeField] private Vector4 initialValue;
+        protected override Vector4 InitialValue => initialValue;
+        protected override Vector4 ToVector(Vector4 value) => value;
+        protected override Vector4 FromVector(Vector4 value) => value;
+    }
+
     [Serializable]
     public abstract class VectorAddModifier<T> : VectorModifier<T>
     {

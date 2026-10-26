@@ -23,7 +23,7 @@ https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmad
 "com.redmond.mondmade-vj0": "https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmade-vj0#main"
 ```
 
-`#main`は開発ブランチです。チームや本番環境では検証したrelease tagまたはcommit SHAへ置き換えてください。インストール後、`Tools > Mondmade VJ0 > Setup`を開き、R3と必須の推移依存を導入して必要なIntegrationを選びます。その後、Hierarchyの`GameObject > Mondmade VJ0 > Runtime`から`MondmadeVJ0Runtime`付きGameObjectを作り、必要なModule、`RouteHost`を配置します。Route InspectorでSource、Modifier、Outputを追加し、Play前ValidationとRuntime Monitorで設定と状態を確認します。
+`#main`は開発ブランチです。チームや本番環境では検証したrelease tagまたはcommit SHAへ置き換えてください。インストール後、`Tools > Mondmade VJ0 > Setup`を開き、R3と必須の推移依存を導入して必要なIntegrationを選びます。その後、Hierarchyの`GameObject > Mondmade VJ0 > Runtime`からRuntimeテンプレートを作成します。Transport、導入済みMIDI / OSC Module、OSC Transport Sync Adapter、RouteHostが子GameObjectとして作成・登録されます。Route InspectorでSource、Modifier、Outputを追加し、Play前ValidationとRuntime Monitorで設定と状態を確認します。
 
 APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../Assets/MondmadeVJ0.Dev/README.md)、機能一覧は[機能カタログ](../../docs/feature-catalog.md)、詳細契約は[仕様](../../docs/spec.md)と[設計判断](../../docs/design-notes.md)、依存導入は[パッケージ構成](../../docs/packaging.md)を参照してください。
 

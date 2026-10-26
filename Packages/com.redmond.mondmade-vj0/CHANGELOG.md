@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Add an Integrate Float modifier that accumulates velocity over FrameClock delta time, and add a GameObject menu command for creating a MondmadeVJ0Runtime object.
+- Add Float and Vector2/3/4 integrate modifiers that accumulate velocity over FrameClock delta time.
+- Expand the GameObject Runtime template with Transport, installed MIDI/OSC modules, OSC Transport Sync, and a RouteHost as child objects.
 - Show Base BPM and OSC port values as numeric fields instead of Range sliders.
 - Refresh Route Inspector contents after editor Undo and Redo operations.
 - Include the APC mini mk2 90-control Surface Profile as an importable package sample.

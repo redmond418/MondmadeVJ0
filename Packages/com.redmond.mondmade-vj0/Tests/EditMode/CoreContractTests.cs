@@ -457,6 +457,43 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void IntegrateVectorModifiersAccumulateEachComponent()
+        {
+            var vector2Context = Context();
+            var vector2Source = new Subject<Vector2>();
+            var vector2Modifier = new IntegrateVector2Modifier();
+            SetField(vector2Modifier, "initialValue", new Vector2(1f, 2f));
+            AssertVectorIntegration(vector2Modifier, vector2Context, vector2Source, new Vector2(2f, -1f), value =>
+            {
+                Assert.That(value.x, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(value.y, Is.EqualTo(1.5f).Within(0.0001f));
+            });
+
+            var vector3Context = Context();
+            var vector3Source = new Subject<Vector3>();
+            var vector3Modifier = new IntegrateVector3Modifier();
+            SetField(vector3Modifier, "initialValue", new Vector3(1f, 2f, 3f));
+            AssertVectorIntegration(vector3Modifier, vector3Context, vector3Source, new Vector3(2f, -1f, 0.5f), value =>
+            {
+                Assert.That(value.x, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(value.y, Is.EqualTo(1.5f).Within(0.0001f));
+                Assert.That(value.z, Is.EqualTo(3.25f).Within(0.0001f));
+            });
+
+            var vector4Context = Context();
+            var vector4Source = new Subject<Vector4>();
+            var vector4Modifier = new IntegrateVector4Modifier();
+            SetField(vector4Modifier, "initialValue", new Vector4(1f, 2f, 3f, 4f));
+            AssertVectorIntegration(vector4Modifier, vector4Context, vector4Source, new Vector4(2f, -1f, 0.5f, -2f), value =>
+            {
+                Assert.That(value.x, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(value.y, Is.EqualTo(1.5f).Within(0.0001f));
+                Assert.That(value.z, Is.EqualTo(3.25f).Within(0.0001f));
+                Assert.That(value.w, Is.EqualTo(3f).Within(0.0001f));
+            });
+        }
+
+        [Test]
         public void SecondsEnvelopeAdvancesAcrossLargeUnscaledFrameAndStopsAfterDisposal()
         {
             var context = Context();
@@ -801,6 +838,25 @@ namespace MondmadeVJ0.Tests
         }
 
         private RouteContext Context() => new RouteContext(runtime, host, state, new BindingScope(), Guid.NewGuid().ToString("N"));
+
+        private void AssertVectorIntegration<T>(IValueModifier<T> modifier, RouteContext context, Subject<T> source, T velocity, Action<T> assert)
+        {
+            try
+            {
+                var values = new List<T>();
+                using (modifier.Apply(source, context).Subscribe(values.Add))
+                {
+                    source.OnNext(velocity);
+                    Assert.That(values, Has.Count.EqualTo(1));
+                    testFrameClock.Advance(0.5d);
+                    assert(values[values.Count - 1]);
+                }
+            }
+            finally
+            {
+                context.Scope.Dispose();
+            }
+        }
 
         private static List<T> Collect<T>(Observable<T> source)
         {

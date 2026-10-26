@@ -222,6 +222,9 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 | `SmoothDampVectorModifier` | 実装済み |
 | `RemapVectorModifier` | 実装済み |
 | `AbsoluteVectorModifier` | 実装済み |
+| `IntegrateVector2Modifier` | 実装済み |
+| `IntegrateVector3Modifier` | 実装済み |
+| `IntegrateVector4Modifier` | 実装済み |
 
 ### Color
 
