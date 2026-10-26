@@ -81,6 +81,26 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void UndoAndRedoRebuildRouteInspectorAfterRouteStructureChanges()
+        {
+            host.AddRoute(CreateFloatRoute());
+            var inspector = editor.CreateInspectorGUI();
+            var routeList = inspector.ElementAt(3);
+
+            Assert.That(routeList.Children().Count(), Is.EqualTo(1));
+            Invoke("DuplicateRoute", 0, null);
+            Assert.That(host.Count, Is.EqualTo(2));
+
+            Undo.PerformUndo();
+            Assert.That(host.Count, Is.EqualTo(1));
+            Assert.That(routeList.Children().Count(), Is.EqualTo(1));
+
+            Undo.PerformRedo();
+            Assert.That(host.Count, Is.EqualTo(2));
+            Assert.That(routeList.Children().Count(), Is.EqualTo(2));
+        }
+
+        [Test]
         public void RouteInspectorShowsNewSourceModifierAndOutputPropertiesExpanded()
         {
             host.AddRoute(CreateFloatRoute());

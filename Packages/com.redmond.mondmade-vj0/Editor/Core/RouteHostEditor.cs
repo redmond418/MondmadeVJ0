@@ -18,6 +18,23 @@ namespace MondmadeVJ0.Editor
         private static string clipboardType;
         private static object clipboardReferenceSnapshot;
         private static readonly Dictionary<Type, bool> customPropertyDrawerCache = new Dictionary<Type, bool>();
+        private Action rebuildInspector;
+
+        private void OnEnable() => Undo.undoRedoPerformed += OnUndoRedoPerformed;
+
+        private void OnDisable()
+        {
+            Undo.undoRedoPerformed -= OnUndoRedoPerformed;
+            rebuildInspector = null;
+        }
+
+        private void OnUndoRedoPerformed()
+        {
+            if (target == null || rebuildInspector == null) return;
+            serializedObject.UpdateIfRequiredOrScript();
+            rebuildInspector();
+            Repaint();
+        }
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -47,6 +64,7 @@ namespace MondmadeVJ0.Editor
                 runtimePanel.MarkDirtyRepaint();
             }
 
+            rebuildInspector = Rebuild;
             root.Bind(serializedObject);
             Rebuild();
             return root;
