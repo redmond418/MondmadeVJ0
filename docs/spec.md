@@ -1,6 +1,6 @@
 # MondmadeVJ0 仕様
 
-更新日：2026-10-24（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。設計機能は実装済みで、宣言したローカル受入範囲A01〜A24を検証した。A14は累積期限ずれ上限5msで合格。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
+更新日：2026-10-27（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。今回追加したIntegrateFloatModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時の保持をEditModeテストで確認した。MondmadeVJ0RuntimeのGameObject作成メニュー登録もEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
 
 ## 1. 目的と完成範囲
 
@@ -106,7 +106,7 @@ Float演算はAdd / Subtract / Multiply / Divide / Min / Max / Modulo / Power、
 
 EnvelopeはStart / Peak / End、Attack / Hold / Release、AnimationCurve、Restart / Continue / IgnoreWhilePlaying、Seconds / Beatsを持つ。
 
-ModifierはFloatの演算・Range・Curve・DeadZone・Quantize・Smooth・AttackRelease・SlewRate・波形、Intの演算・Clamp・Wrap・Lookup、BoolのNot、Vectorの演算・Normalize・Magnitude制限・Smooth・Remap、ColorのMultiply・Intensity・Alpha・HSV、TriggerのCooldown・Delay・EveryNth・RandomChance・Gate・Quantize・Debounceを揃える。ColorにFloat入力を持たせない。
+ModifierはFloatの演算・Range・Curve・DeadZone・Quantize・Smooth・AttackRelease・SlewRate・積分・波形、Intの演算・Clamp・Wrap・Lookup、BoolのNot、Vectorの演算・Normalize・Magnitude制限・Smooth・Remap、ColorのMultiply・Intensity・Alpha・HSV、TriggerのCooldown・Delay・EveryNth・RandomChance・Gate・Quantize・Debounceを揃える。`IntegrateFloatModifier`は速度入力にdeltaTimeを掛けた値を累積する。ColorにFloat入力を持たせない。
 
 ## 6. Musical Transport
 

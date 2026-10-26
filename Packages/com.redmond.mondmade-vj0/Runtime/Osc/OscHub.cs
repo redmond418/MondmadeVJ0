@@ -15,9 +15,9 @@ namespace MondmadeVJ0
         internal const int InputQueueAddressCharacterCapacity = 512 * 1024;
         internal const int LatestMessageCacheCapacity = 8192;
         internal const int LatestMessageCacheCharacterCapacity = 256 * 1024;
-        [SerializeField, Range(1, 65535)] private int listenPort = 9000;
+        [SerializeField] private int listenPort = 9000;
         [SerializeField] private string destinationAddress = "127.0.0.1";
-        [SerializeField, Range(1, 65535)] private int destinationPort = 9001;
+        [SerializeField] private int destinationPort = 9001;
         private readonly ConcurrentQueue<OscPacket> inputQueue = new ConcurrentQueue<OscPacket>();
         private readonly Dictionary<string, LinkedListNode<OscPacket>> latestMessages = new Dictionary<string, LinkedListNode<OscPacket>>(StringComparer.Ordinal);
         private readonly LinkedList<OscPacket> latestMessageRecency = new LinkedList<OscPacket>();

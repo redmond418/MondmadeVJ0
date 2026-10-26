@@ -407,6 +407,56 @@ namespace MondmadeVJ0.Tests
         }
 
         [Test]
+        public void IntegrateFloatAccumulatesVelocityOverDeltaTimeAndRetainsStateAcrossSubscriptions()
+        {
+            var context = Context();
+            var modifier = new IntegrateFloatModifier();
+            SetField(modifier, "initialValue", 1f);
+            var firstSource = new TestFloatSource();
+            var firstValues = new List<float>();
+            var firstSubscription = modifier.Apply(firstSource.Build(context), context).Subscribe(firstValues.Add);
+            try
+            {
+                firstSource.Emit(2f);
+                CollectionAssert.AreEqual(new[] { 1f }, firstValues);
+
+                testFrameClock.Advance(0.5d, 0.25d);
+                Assert.That(firstValues[firstValues.Count - 1], Is.EqualTo(1.5f).Within(0.0001f));
+                firstSource.Emit(4f);
+                Assert.That(firstValues[firstValues.Count - 1], Is.EqualTo(1.5f).Within(0.0001f), "Changing velocity must not reset or immediately change the accumulated value.");
+
+                testFrameClock.Advance(0.1d, 0.25d);
+                Assert.That(firstValues[firstValues.Count - 1], Is.EqualTo(2.5f).Within(0.0001f), "The default unscaled clock must use unscaled delta time.");
+                firstSubscription.Dispose();
+
+                var secondSource = new TestFloatSource();
+                var secondValues = new List<float>();
+                var secondSubscription = modifier.Apply(secondSource.Build(context), context).Subscribe(secondValues.Add);
+                try
+                {
+                    secondSource.Emit(-2f);
+                    CollectionAssert.AreEqual(new[] { 2.5f }, secondValues, "A new subscription must begin with the retained integral value.");
+                    testFrameClock.Advance(0.1d, 0.25d);
+                    Assert.That(secondValues[secondValues.Count - 1], Is.EqualTo(2f).Within(0.0001f));
+
+                    var countAfterDispose = secondValues.Count;
+                    secondSubscription.Dispose();
+                    testFrameClock.Advance(1d);
+                    Assert.That(secondValues, Has.Count.EqualTo(countAfterDispose), "A disposed modifier must stop updating from FrameClock.");
+                }
+                finally
+                {
+                    secondSubscription.Dispose();
+                }
+            }
+            finally
+            {
+                firstSubscription.Dispose();
+                context.Scope.Dispose();
+            }
+        }
+
+        [Test]
         public void SecondsEnvelopeAdvancesAcrossLargeUnscaledFrameAndStopsAfterDisposal()
         {
             var context = Context();

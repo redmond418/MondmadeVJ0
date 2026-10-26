@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-26（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。ローカル受入範囲A01〜A24は検証済み。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
+更新日：2026-10-27（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のIntegrateFloatModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューをEditor上で確認した。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
 
 ## 採用済みの判断
 
@@ -12,6 +12,9 @@
 | ToggleはStateful Source、型変換もSource | 9・12・15章。古い案のToggle Modifierを採用しない |
 | Runtime MIDI Learn・動的Binding・ノード編集・中央Parameter Registryを外す | ユーザーによるOmochworlDの位置付け修正と最終設計1・4・49章 |
 | Editor MIDI Learnは含める | 49・61章 |
+| IntegrateFloatModifierは入力速度にFrameClockのdeltaTimeを掛けて積算する。既定は初期値0・Unscaled Clockで、Disable / 再BindをまたいでRoute Node状態を保持する | 今回のユーザー指定 |
+| GameObject作成メニューからMondmadeVJ0Runtime付きGameObjectを作成する | 今回のユーザー指定 |
+| Base BPMとOSCの各PortはInspectorでRangeスライダーを使わず数値入力にする | 今回のユーザー指定 |
 | 全機能一式を完成要件とする | 最後のユーザー指定と61〜65章 |
 | CoreにUniTask・LitMotionを必須化しない | 25・60章 |
 
@@ -80,7 +83,7 @@ ColorはHDR値を保持し、Alphaを変えるModifier以外で暗黙Clampしな
 
 ## D08：Envelope・平滑化・時間処理
 
-秒単位の既定ClockはUnscaled、拍単位はEffective Beat Position。SmoothはSource初期値から始め、入力が止まってもFrameClockで追従する。時間定数0は即時反映、負値はValidation Error。指数平滑は`1 - exp(-dt / tau)`、AttackReleaseは上昇／下降に別tau、SlewRateは1秒あたりの最大変化量とする。
+秒単位の既定ClockはUnscaled、拍単位はEffective Beat Position。SmoothはSource初期値から始め、入力が止まってもFrameClockで追従する。時間定数0は即時反映、負値はValidation Error。指数平滑は`1 - exp(-dt / tau)`、AttackReleaseは上昇／下降に別tau、SlewRateは1秒あたりの最大変化量とする。IntegrateFloatModifierは最新の入力を速度として保持し、各FrameClock更新で`accumulated += velocity * deltaTime`する。設定できる初期積算値は有限値とし、既定ClockはUnscaled。積算値はNode状態として再Bind時も保持し、明示Reset Stateで初期化する。
 
 EnvelopeのRestartはStartへ戻しAttackを再開、Continueは現在出力をAttack開始値としてPeakへ指定Attack時間で進め直す。IgnoreWhilePlayingはAttack / Hold / Release中の入力を無視する。Attack / Releaseは各区間0〜1でCurveを評価、0時間区間は直ちに通過する。Pulse再Triggerは終了期限を延長する。
 

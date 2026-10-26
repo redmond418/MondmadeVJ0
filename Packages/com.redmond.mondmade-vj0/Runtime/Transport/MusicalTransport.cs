@@ -10,7 +10,7 @@ namespace MondmadeVJ0
     [DisallowMultipleComponent]
     public sealed class MusicalTransport : MonoBehaviour, IRuntimeModule, IMusicalTransport, IExternalMidiClock, IExternalTransportClock
     {
-        [SerializeField, Range(30f, 300f)] private double baseBpm = 120d;
+        [SerializeField] private double baseBpm = 120d;
         [SerializeField, Min(0.0001f)] private double multiplier = 1d;
         [SerializeField, Min(1)] private int beatsPerBar = 4;
         [SerializeField] private int beatUnit = 4;

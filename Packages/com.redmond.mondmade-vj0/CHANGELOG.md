@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an Integrate Float modifier that accumulates velocity over FrameClock delta time, and add a GameObject menu command for creating a MondmadeVJ0Runtime object.
+- Show Base BPM and OSC port values as numeric fields instead of Range sliders.
 - Refresh Route Inspector contents after editor Undo and Redo operations.
 - Include the APC mini mk2 90-control Surface Profile as an importable package sample.
 - Route Inspector now recursively displays parameters and compatible nested Source pickers across Sources, Modifiers, and Outputs, including inherited and list-based references, while preserving specialized PropertyDrawers.

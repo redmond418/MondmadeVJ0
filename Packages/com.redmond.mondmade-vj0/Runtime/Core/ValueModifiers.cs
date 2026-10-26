@@ -109,6 +109,64 @@ namespace MondmadeVJ0
     }
 
     internal sealed class TemporalFloatState { public float Current, Target, Velocity; public bool Initialized; }
+    internal sealed class IntegratedFloatState { public float Current, Velocity; public bool Initialized; }
+
+    [Serializable]
+    public sealed class IntegrateFloatModifier : RouteNode, IValueModifier<float>
+    {
+        [SerializeField] private float initialValue;
+        [SerializeField] private ModifierClock clock;
+
+        public Observable<float> Apply(Observable<float> source, RouteContext context)
+        {
+            if (context.FrameClock == null) throw new InvalidOperationException("Time-based modifiers require FrameClock.");
+            if (!ModifierStream.Finite(initialValue)) throw new InvalidOperationException("Integral initial value must be finite.");
+            var state = context.GetNodeState(this, "integral", () => new IntegratedFloatState { Current = initialValue });
+            return Observable.Create<float>(observer =>
+            {
+                var disposables = new CompositeDisposable();
+                var emittedCurrent = false;
+                disposables.Add(SourceStream.Subscribe(source, value =>
+                {
+                    if (!ModifierStream.Finite(value))
+                    {
+                        context.Report("INVALID_VALUE", "Integral modifier ignored a non-finite velocity input.", this);
+                        return;
+                    }
+
+                    state.Velocity = value;
+                    if (!emittedCurrent)
+                    {
+                        state.Initialized = true;
+                        emittedCurrent = true;
+                        observer.OnNext(state.Current);
+                    }
+                }, observer.OnErrorResume));
+
+                Action<double, double> update = (_, __) =>
+                {
+                    if (!state.Initialized) return;
+                    var delta = (float)ModifierStream.Delta(context, clock);
+                    if (!(delta > 0f) || !ModifierStream.Finite(delta)) return;
+
+                    var next = state.Current + state.Velocity * delta;
+                    if (!ModifierStream.Finite(next))
+                    {
+                        context.Report("INVALID_VALUE", "Integral modifier retained its last finite accumulated value.", this);
+                        return;
+                    }
+
+                    if (next == state.Current) return;
+                    state.Current = next;
+                    observer.OnNext(next);
+                };
+                context.FrameClock.Updated += update;
+                disposables.Add(Disposable.Create(() => context.FrameClock.Updated -= update));
+                return disposables;
+            });
+        }
+    }
+
     internal static class TemporalFloat
     {
         public static Observable<float> Build(Observable<float> source, RouteContext context, RouteNode node, ModifierClock clock, Func<TemporalFloatState, float, float, float> step)

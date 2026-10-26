@@ -186,6 +186,7 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 | `ExponentialSmoothFloatModifier` | 実装済み |
 | `AttackReleaseFloatModifier` | 実装済み |
 | `SlewRateFloatModifier` | 実装済み |
+| `IntegrateFloatModifier` | 実装済み |
 | `WaveShapeFloatModifier` | 実装済み |
 
 ### Int
