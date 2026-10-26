@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh Route Inspector contents after editor Undo and Redo operations.
+- Include the APC mini mk2 90-control Surface Profile as an importable package sample.
 - Route Inspector now recursively displays parameters and compatible nested Source pickers across Sources, Modifiers, and Outputs, including inherited and list-based references, while preserving specialized PropertyDrawers.
 - Made `FloatToVector2/3/4Source` copy the input float into every component; component replacement is available through `FloatToVector2/3/4ComponentSource`.
 - Split `RouteHost` into its own script asset so QuickStart scenes resolve the component in Player builds.

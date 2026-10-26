@@ -10,5 +10,12 @@
   "dependencies": {
     "com.cysharp.r3": "1.3.0",
     "com.github-glitchenzo.nugetforunity": "4.5.0"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "APC mini mk2 Surface Profile",
+      "description": "90 logical controls for the AKAI APC mini mk2.",
+      "path": "Samples~/APC mini mk2"
+    }
+  ]
 }

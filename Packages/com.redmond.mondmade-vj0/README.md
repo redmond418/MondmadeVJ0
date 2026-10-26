@@ -27,6 +27,10 @@ https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmad
 
 APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../Assets/MondmadeVJ0.Dev/README.md)、機能一覧は[機能カタログ](../../docs/feature-catalog.md)、詳細契約は[仕様](../../docs/spec.md)と[設計判断](../../docs/design-notes.md)、依存導入は[パッケージ構成](../../docs/packaging.md)を参照してください。
 
+## APC mini mk2 Profileの利用
+
+UPM packageには、APC mini mk2用のSurface Profileを含めています。先にSetupからMIDI Integrationの依存を導入し、Package ManagerでMondmade VJ0を選んで**Samples**から**APC mini mk2 Surface Profile**をimportしてください。Profileはvelocity pad 64個、Track Button 8個、Scene Button 8個、Shift、Fader 9個の計90 Controlを定義します。Padはchannelを限定せずNote 0–63、Track / Scene / Shiftはchannel 0のNote 100–107 / 112–119 / 122、Faderはchannel 0のCC 48–56を使います。`MidiHub`で接続デバイスのInput / Output port ordinalを指定してください。
+
 ## Verification status
 
 Unity 6000.3.8f1のStage ProjectではEditMode 255/255、通常PlayMode 12/12が通過しました（Explicit probe 7件は通常実行でskip）。実装検証対象commit `b170336c3dd842077aca4d337a97c9c129c37b8e` のInput System / MIDI / OSC構成の隔離Git UPM consumerでもEditMode 191 passed / 2 skipped、PlayMode 12 passed / 6 Explicit skipped、universal macOS Mono Player buildを確認しました。source commit `215b48c` のuniversal IL2CPP Playerもx86_64 / arm64両方で起動し、AOT accessorの実値、stripping後の動作、RtMidi接続状態を確認しています。Windows x64 Mono cross-buildの記録はありますが、Windows上での実行は今回の受入範囲外です。

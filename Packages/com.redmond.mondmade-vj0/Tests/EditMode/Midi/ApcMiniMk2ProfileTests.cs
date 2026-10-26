@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -63,6 +64,31 @@ namespace MondmadeVJ0.Tests
                 Assert.That(control, Is.Not.Null, $"Pad [{x},{y}] must exist.");
                 Assert.That(control.inputNumber, Is.EqualTo(note), $"Pad [{x},{y}] input note.");
                 Assert.That(control.outputNumber, Is.EqualTo(note), $"Pad [{x},{y}] output note.");
+            }
+        }
+
+        [Test]
+        public void ApcProfileSampleIsIncludedInThePackage()
+        {
+            var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(ApcMiniMk2ProfileTests).Assembly);
+            Assert.That(package, Is.Not.Null);
+
+            var samplePath = Path.Combine(package.resolvedPath, "Samples~", "APC mini mk2", "APC-mini-mk2-QuickStart.asset");
+            Assert.That(File.Exists(samplePath), Is.True, "The APC mini mk2 profile must ship as an importable package sample.");
+            var packageManifest = File.ReadAllText(Path.Combine(package.resolvedPath, "package.json"));
+            Assert.That(packageManifest, Does.Contain("APC mini mk2 Surface Profile"));
+            Assert.That(packageManifest, Does.Contain("Samples~/APC mini mk2"));
+            var sampleContents = File.ReadAllText(samplePath);
+            Assert.That(sampleContents.Split(new[] { "  - id: " }, StringSplitOptions.None).Length - 1, Is.EqualTo(90));
+            Assert.That(sampleContents, Does.Contain("  - id: pad_7_7"));
+            Assert.That(sampleContents, Does.Contain("  - id: fader_9"));
+
+            const string developmentAssetPath = "Assets/MondmadeVJ0.Dev/Midi/APC-mini-mk2-QuickStart.asset";
+            if (File.Exists(developmentAssetPath))
+            {
+                var normalizedSample = System.Text.RegularExpressions.Regex.Replace(sampleContents.Replace("\r\n", "\n"), @"(?m)[ \t]+$", string.Empty);
+                var normalizedDevelopmentAsset = System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(developmentAssetPath).Replace("\r\n", "\n"), @"(?m)[ \t]+$", string.Empty);
+                Assert.That(normalizedSample, Is.EqualTo(normalizedDevelopmentAsset), "The package sample and development Scene profile must stay in sync.");
             }
         }
 

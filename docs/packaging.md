@@ -38,6 +38,7 @@ MondmadeVJ0/
 │   │ └ Integrations/               # Integration別のEditor asmdef
 │   ├ Tests/EditMode/                # Core / Editor / MIDI / OSC / Transport tests
 │   ├ Tests/PlayMode/                # Runtime lifecycle / APC hardware tests
+│   ├ Samples~/APC mini mk2/         # APC mini mk2 Surface Profile
 │   ├ Documentation~/               # package内で配布する追加資料（任意）
 │   ├ README.md
 │   ├ CHANGELOG.md
@@ -108,7 +109,9 @@ Keijiroのscoped registryが不足していればProject Settingsの設定項目
 
 ## 開発用QuickStart
 
-`Assets/MondmadeVJ0.Dev/Scenes/APC-mini-mk2-QuickStart.unity`はAPC mini mk2を使う結合検証Scene。`Assets/MondmadeVJ0.Dev/Midi/APC-mini-mk2-QuickStart.asset`は90個のLogical Controlを持つProfile。Scene内のRuntimeにTransport、MIDI、OSC、OSC Transport Sync Moduleを登録してある。Play時にMidiHubのInput / Output ordinalが現在のPCのデバイス列挙と一致していることを確認する。
+APC mini mk2用の90 Logical Control ProfileはUPM packageの`Samples~/APC mini mk2`に同梱し、Package Managerから**APC mini mk2 Surface Profile**としてimportできる。開発用QuickStart Sceneにも同じProfileを置く。
+
+`Assets/MondmadeVJ0.Dev/Scenes/APC-mini-mk2-QuickStart.unity`はAPC mini mk2を使う結合検証Scene。`Assets/MondmadeVJ0.Dev/Midi/APC-mini-mk2-QuickStart.asset`はScene用のProfile複製。Scene内のRuntimeにTransport、MIDI、OSC、OSC Transport Sync Moduleを登録してある。Play時にMidiHubのInput / Output ordinalが現在のPCのデバイス列挙と一致していることを確認する。
 
 1. Sceneを開き、InspectorでSurface ProfileとPort ordinalを確認する。
 2. Playし、Runtime MonitorでMidiHubのStatusが`Connected`になることを確認する。
