@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-24（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の全機能を実装し、宣言した受入範囲のA01〜A24をローカルで検証した。D01〜D20の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
+更新日：2026-10-27（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の全機能を実装し、宣言した受入範囲のA01〜A24をローカルで検証した。D01〜D22の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。今回追加したAPC mini mk2 SimulatorのMidi Editor test assembly 9件もWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
 
 ## 実装作業
 
@@ -58,6 +58,7 @@
 - [x] 型別Node検索・選択、Route要約、複製、Copy / Paste、並べ替え、Disable / DeleteのCore Inspector
 - [x] Animator / VFX / Shader / Volume / Component Memberの候補選択UIとIL2CPP accessor生成
 - [x] ProfileのControl候補とEditor MIDI Learn
+- [x] APC mini mk2 Simulator：Pad / Button / Faderの仮想入力、Route LED表示、Edit Modeローカル確認
 - [x] Play前Validation、InspectorのValid / Warning / Error、Route名付き診断。原文第53章のSource / Output / Target / VFX / Animator / Shader / MIDI Control / Stable ID / Composite / Signal cycle / RangeをStageで検証
 - [x] Runtime MonitorにSource Raw→各Modifier→Final→Output履歴、MIDI論理 / Raw / LED出力履歴、Transport Tap / Clock履歴を実装。Runtimeあたり各4096件の履歴、詳細追跡は最大32 Route。Performance MonitorはRoute処理 / Frame callback時間、Route / Source / Modifier / MIDI / OSC件数・毎秒率を表示。Releaseはcaptureを既定無効にする
 - [x] D19：処理中の失敗隔離、ログ抑制、観測コストと合格目標を確定

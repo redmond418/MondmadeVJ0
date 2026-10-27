@@ -383,6 +383,36 @@ namespace MondmadeVJ0
                 ? control.State : default;
         }
 
+#if UNITY_EDITOR
+        internal bool QueueEditorInput(MidiControlReference reference, float normalizedValue)
+        {
+            if (!initialized || !controls.TryGetValue(Key(reference.SurfaceInstanceId, reference.ControlId), out var control)) return false;
+            var definition = control.Definition;
+            var value = definition.inputAddressType == MidiAddressType.PitchBend
+                ? Mathf.Clamp(normalizedValue, -1f, 1f)
+                : Mathf.Clamp01(normalizedValue);
+            if (definition.inputAddressType == MidiAddressType.PitchBend)
+            {
+                var rawPitch = Mathf.Clamp(Mathf.RoundToInt(value * 8192f + 8192f), 0, 16383);
+                value = (rawPitch - 8192) / 8192f;
+            }
+            else value = Mathf.Round(value * 127f) / 127f;
+            var number = definition.inputAddressType is MidiAddressType.PitchBend or MidiAddressType.ChannelPressure
+                ? 0
+                : definition.inputNumber;
+            var channel = definition.channel >= 0 ? definition.channel : 0;
+            Enqueue(new InputPacket(reference.SurfaceInstanceId, definition.inputAddressType, channel, number,
+                value, 0, Stopwatch.GetTimestamp(), null, 0), clock: false);
+            return true;
+        }
+
+        internal MidiLedStyle GetEditorLedStyle(MidiControlReference reference)
+        {
+            var key = Key(reference.SurfaceInstanceId, reference.ControlId);
+            return controls.ContainsKey(key) && !panicLatched ? ResolveLayer(key) : MidiLedStyle.Off;
+        }
+#endif
+
         public bool ValidateReference(MidiControlReference reference) => controls.ContainsKey(Key(reference.SurfaceInstanceId, reference.ControlId));
 
         public Observable<MidiControlState> Observe(MidiControlReference reference)

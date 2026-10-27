@@ -220,3 +220,9 @@ OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送40
 各Map Sourceは`TIn`型のInput Modifiersを持つ。内包したInput Sourceの後、`Convert`の前に順番に適用するため、floatをVectorへ変換する前にCurve / Clampなどのfloat Modifierを挿入できる。Route全体のModifiersは変換後の`TOut`型に対して従来どおり適用する。
 
 `FloatToVector2Source` / `FloatToVector3Source` / `FloatToVector4Source`はfloatを全成分へ複製する。Vectorの一成分だけをfloatで更新したい場合は`FloatToVectorNComponentSource`を使い、残りの固定値と更新軸を指定する。
+
+## D22：APC mini mk2 Editor Simulator
+
+APC mini mk2 Simulatorは既存の`MidiHub`とSurface Profileを使い、コントロール入力をMidiHubのMain Thread Queueへ追加する。Play ModeはScene RuntimeのHubを使うため、Source / Route / LED Outputが物理入力と同じ処理契約を通る。ボタンはMouse Down / Mouse Upを別イベントにし、Faderと7-bit MIDI値の量子化も適用する。
+
+Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専用のProduct Nameとポート未割当を設定する。物理Input / Outputを開かず、Routeなしで入力状態とローカルLED色を確認できる。RouteからのLED FeedbackはPlay ModeでScene HubのDesired状態を表示する。仮想Surface追加はUndo可能なScene変更で、Miniの物理Portへ誤接続しないよう専用Product Nameと未割当のMIDI Portを保存する。

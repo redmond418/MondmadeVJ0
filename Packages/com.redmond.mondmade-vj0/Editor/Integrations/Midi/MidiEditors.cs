@@ -29,6 +29,7 @@ namespace MondmadeVJ0.Editor
                 if (GUILayout.Button("Create APC mini mk2 Profile")) CreateProfile();
                 if (GUILayout.Button("Add APC mini mk2 Surface")) AddApcSurface();
             }
+            if (GUILayout.Button("Open APC mini mk2 Simulator")) MidiSurfaceSimulatorWindow.Open((MidiHub)target);
             DrawPortList("Input", inputPorts);
             DrawPortList("Output", outputPorts);
 
