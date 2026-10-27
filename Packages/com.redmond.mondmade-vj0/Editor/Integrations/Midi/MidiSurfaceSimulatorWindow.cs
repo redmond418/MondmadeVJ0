@@ -13,6 +13,8 @@ namespace MondmadeVJ0.Editor
         private const string ApcProductName = "APC mini mk2";
         private const float GridCellSize = 34f;
         private const float GridGutter = 8f;
+        private const float FaderSliderHeight = 118f;
+        private const float FaderCellHeight = 152f;
         private static readonly string[] LedColorNames = { "Off", "Red", "Amber", "Green", "Cyan", "Blue", "Magenta", "White" };
         private static readonly Color[] LedColors =
         {
@@ -199,20 +201,22 @@ namespace MondmadeVJ0.Editor
                 for (var i = 0; i < 9; i++)
                 {
                     var fader = profile.Find($"fader_{i + 1}");
-                    if (fader == null) { GUILayout.Space(40f); continue; }
-                    using (new EditorGUILayout.VerticalScope(GUILayout.Width(GridCellSize)))
-                    {
-                        var reference = new MidiControlReference(surfaceId, fader.id);
-                        var state = activeHub.GetState(reference);
-                        var range = fader.maximum - fader.minimum;
-                        var normalized = Mathf.Abs(range) < 0.00001f ? 0f : Mathf.Clamp01((state.Value - fader.minimum) / range);
-                        var sliderRect = GUILayoutUtility.GetRect(28f, 118f, GUILayout.Width(GridCellSize), GUILayout.Height(118f));
-                        EditorGUI.DrawRect(sliderRect, new Color(0.12f, 0.13f, 0.15f));
-                        var next = GUI.VerticalSlider(new Rect(sliderRect.x + 4f, sliderRect.y + 5f, sliderRect.width - 8f, sliderRect.height - 10f), normalized, 1f, 0f);
-                        if (!Mathf.Approximately(next, normalized)) QueueInput(activeHub, fader, next);
-                        EditorGUILayout.LabelField(i == 8 ? "M" : (i + 1).ToString(), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(GridCellSize));
-                        EditorGUILayout.LabelField(normalized.ToString("0.00"), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(GridCellSize));
-                    }
+                    var cellRect = GUILayoutUtility.GetRect(GridCellSize, FaderCellHeight,
+                        GUILayout.Width(GridCellSize), GUILayout.Height(FaderCellHeight));
+                    if (fader == null) continue;
+
+                    var reference = new MidiControlReference(surfaceId, fader.id);
+                    var state = activeHub.GetState(reference);
+                    var range = fader.maximum - fader.minimum;
+                    var normalized = Mathf.Abs(range) < 0.00001f ? 0f : Mathf.Clamp01((state.Value - fader.minimum) / range);
+                    var sliderRect = new Rect(cellRect.x, cellRect.y, cellRect.width, FaderSliderHeight);
+                    EditorGUI.DrawRect(sliderRect, new Color(0.12f, 0.13f, 0.15f));
+                    var next = GUI.VerticalSlider(new Rect(sliderRect.x + 4f, sliderRect.y + 5f, sliderRect.width - 8f, sliderRect.height - 10f), normalized, 1f, 0f);
+                    if (!Mathf.Approximately(next, normalized)) QueueInput(activeHub, fader, next);
+
+                    var labelY = sliderRect.yMax + 2f;
+                    EditorGUI.LabelField(new Rect(cellRect.x, labelY, cellRect.width, 16f), i == 8 ? "M" : (i + 1).ToString(), EditorStyles.centeredGreyMiniLabel);
+                    EditorGUI.LabelField(new Rect(cellRect.x, labelY + 16f, cellRect.width, 16f), normalized.ToString("0.00"), EditorStyles.centeredGreyMiniLabel);
                     if (i == 7) GUILayout.Space(GridGutter);
                 }
             }
