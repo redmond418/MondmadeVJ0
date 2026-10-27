@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Add an APC mini mk2 Editor simulator for virtual Pad, Button, Fader, and LED feedback testing without a physical controller.
+- Add an APC mini mk2 Editor simulator for virtual Pad, Button, Fader, LED feedback, and MIDI Learn testing without a physical controller.
 - Add Float and Vector2/3/4 integrate modifiers that accumulate velocity over FrameClock delta time.
 - Expand the GameObject Runtime template with Transport, installed MIDI/OSC modules, OSC Transport Sync, and a RouteHost as child objects.
 - Show Base BPM and OSC port values as numeric fields instead of Range sliders.

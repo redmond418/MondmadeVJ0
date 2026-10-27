@@ -223,6 +223,6 @@ OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送40
 
 ## D22：APC mini mk2 Editor Simulator
 
-APC mini mk2 Simulatorは既存の`MidiHub`とSurface Profileを使い、コントロール入力をMidiHubのMain Thread Queueへ追加する。Play ModeはScene RuntimeのHubを使うため、Source / Route / LED Outputが物理入力と同じ処理契約を通る。ボタンはMouse Down / Mouse Upを別イベントにし、Faderと7-bit MIDI値の量子化も適用する。
+APC mini mk2 Simulatorは既存の`MidiHub`とSurface Profileを使い、コントロール入力をMidiHubのMain Thread Queueへ追加する。Play ModeはScene RuntimeのHubを使うため、Source / Route / LED Outputが物理入力と同じ処理契約を通る。ボタンはMouse Down / Mouse Upを別イベントにし、Faderと7-bit MIDI値の量子化も適用する。表示はPadの右にScene Launch、下にTrack Button、その下にFaderを配置してグリッドを合わせ、右下列にShiftとMaster Faderを置く。
 
-Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専用のProduct Nameとポート未割当を設定する。物理Input / Outputを開かず、Routeなしで入力状態とローカルLED色を確認できる。RouteからのLED FeedbackはPlay ModeでScene HubのDesired状態を表示する。仮想Surface追加はUndo可能なScene変更で、Miniの物理Portへ誤接続しないよう専用Product Nameと未割当のMIDI Portを保存する。
+Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専用のProduct Nameとポート未割当を設定する。物理Input / Outputを開かず、Routeなしで入力状態とローカルLED色を確認できる。Editor限定の入力通知をMidi Learnへ中継し、仮想操作でRoute Control ReferenceとProfile Addressを学習できる。RouteからのLED FeedbackはPlay ModeでScene HubのDesired状態を表示する。仮想Surface追加はUndo可能なScene変更で、Miniの物理Portへ誤接続しないよう専用Product Nameと未割当のMIDI Portを保存する。

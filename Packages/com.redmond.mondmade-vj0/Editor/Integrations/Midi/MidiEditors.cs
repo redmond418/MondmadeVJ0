@@ -459,6 +459,11 @@ namespace MondmadeVJ0.Editor
                 listeningHub.ControlChanged += OnControlChanged;
                 if (profile != null) listeningHub.RawInputObserved += OnRawInput;
                 listening = true;
+                if (!Application.isPlaying)
+                {
+                    MidiHub.EditorControlChanged += OnEditorControlChanged;
+                    MidiHub.EditorRawInputObserved += OnEditorRawInputObserved;
+                }
                 lastMessage = "Waiting for a MIDI message.";
             }
             catch (Exception exception)
@@ -524,6 +529,8 @@ namespace MondmadeVJ0.Editor
                 listeningHub.ControlChanged -= OnControlChanged;
                 listeningHub.RawInputObserved -= OnRawInput;
             }
+            MidiHub.EditorControlChanged -= OnEditorControlChanged;
+            MidiHub.EditorRawInputObserved -= OnEditorRawInputObserved;
             listeningHub = null;
             listening = false;
             EditorApplication.update -= PumpEditorInput;
@@ -596,6 +603,18 @@ namespace MondmadeVJ0.Editor
             StopListening();
             InternalEditorUtility.RepaintAllViews();
             Repaint();
+        }
+
+        private void OnEditorControlChanged(MidiHub source, MidiControlChange change)
+        {
+            if (!listening || Application.isPlaying || source == listeningHub) return;
+            OnControlChanged(change);
+        }
+
+        private void OnEditorRawInputObserved(MidiHub source, MidiRawMessage message)
+        {
+            if (!listening || Application.isPlaying || source == listeningHub || profile == null) return;
+            OnRawInput(message);
         }
     }
 

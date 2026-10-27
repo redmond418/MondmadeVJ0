@@ -11,6 +11,8 @@ namespace MondmadeVJ0.Editor
     {
         private const string ApcDriverId = "apc-mini-mk2";
         private const string ApcProductName = "APC mini mk2";
+        private const float GridCellSize = 34f;
+        private const float GridGutter = 8f;
         private static readonly string[] LedColorNames = { "Off", "Red", "Amber", "Green", "Cyan", "Blue", "Magenta", "White" };
         private static readonly Color[] LedColors =
         {
@@ -116,10 +118,8 @@ namespace MondmadeVJ0.Editor
             if (Application.isPlaying && string.Equals(hub.GetSurfaceStatus(surfaceId), "Not initialized", StringComparison.Ordinal))
                 EditorGUILayout.HelpBox("Add this MidiHub to MondmadeVJ0Runtime.Modules to send simulator input through scene Routes.", MessageType.Warning);
 
-            DrawSceneButtons(activeHub, selectedSurface.Profile);
-            EditorGUILayout.Space(3f);
             DrawPadGrid(activeHub, selectedSurface.Profile);
-            EditorGUILayout.Space(6f);
+            DrawTrackButtons(activeHub, selectedSurface.Profile);
             DrawFaders(activeHub, selectedSurface.Profile);
             EditorGUILayout.Space(6f);
             DrawOutputPreview(selectedSurface.Profile);
@@ -149,58 +149,45 @@ namespace MondmadeVJ0.Editor
             DisposeEditorHub();
         }
 
-        private void DrawSceneButtons(MidiHub activeHub, MidiSurfaceProfile profile)
+        private void DrawPadGrid(MidiHub activeHub, MidiSurfaceProfile profile)
         {
-            var shift = profile.Find("shift");
-            using (new EditorGUILayout.HorizontalScope())
+            EditorGUILayout.LabelField("PAD MATRIX   /   SCENE LAUNCH", EditorStyles.miniBoldLabel);
+            for (var y = 7; y >= 0; y--)
             {
-                GUILayout.Space(1f);
-                if (shift != null)
-                    DrawMomentaryButton(activeHub, shift, new GUIContent("SHIFT"), new Vector2(54f, 28f));
-                GUILayout.Space(5f);
-                EditorGUILayout.LabelField("SCENE LAUNCH", EditorStyles.miniBoldLabel, GUILayout.Width(90f));
-                for (var i = 0; i < 8; i++)
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    var scene = profile.Find($"scene_{i + 1}");
-                    if (scene == null) { GUILayout.Space(38f); continue; }
-                    DrawMomentaryButton(activeHub, scene, new GUIContent((i + 1).ToString()), new Vector2(34f, 28f));
+                    for (var x = 0; x < 8; x++)
+                    {
+                        var pad = profile.Find($"pad_{x}_{y}");
+                        if (pad == null) { GUILayout.Space(GridCellSize); continue; }
+                        DrawMomentaryButton(activeHub, pad, new GUIContent($"{x + 1},{y + 1}"), new Vector2(GridCellSize, GridCellSize));
+                    }
+
+                    GUILayout.Space(GridGutter);
+                    var scene = profile.Find($"scene_{y + 1}");
+                    if (scene == null) GUILayout.Space(GridCellSize);
+                    else DrawMomentaryButton(activeHub, scene, new GUIContent((y + 1).ToString()), new Vector2(GridCellSize, GridCellSize));
                 }
-                GUILayout.FlexibleSpace();
             }
         }
 
-        private void DrawPadGrid(MidiHub activeHub, MidiSurfaceProfile profile)
+        private void DrawTrackButtons(MidiHub activeHub, MidiSurfaceProfile profile)
         {
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.LabelField("TRACK BUTTONS / SHIFT", EditorStyles.miniBoldLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
-                using (new EditorGUILayout.VerticalScope())
+                for (var i = 0; i < 8; i++)
                 {
-                    for (var y = 7; y >= 0; y--)
-                    {
-                        using (new EditorGUILayout.HorizontalScope())
-                        {
-                            for (var x = 0; x < 8; x++)
-                            {
-                                var pad = profile.Find($"pad_{x}_{y}");
-                                if (pad == null) { GUILayout.Space(34f); continue; }
-                                DrawMomentaryButton(activeHub, pad, new GUIContent($"{x + 1},{y + 1}"), new Vector2(34f, 34f));
-                            }
-                        }
-                    }
+                    var track = profile.Find($"track_{i + 1}");
+                    if (track == null) GUILayout.Space(GridCellSize);
+                    else DrawMomentaryButton(activeHub, track, new GUIContent((i + 1).ToString()), new Vector2(GridCellSize, GridCellSize));
                 }
-
-                GUILayout.Space(8f);
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(48f)))
-                {
-                    EditorGUILayout.LabelField("TRACK", EditorStyles.miniBoldLabel, GUILayout.Height(18f));
-                    for (var y = 7; y >= 0; y--)
-                    {
-                        var trackIndex = 8 - y;
-                        var track = profile.Find($"track_{trackIndex}");
-                        if (track == null) { GUILayout.Space(34f); continue; }
-                        DrawMomentaryButton(activeHub, track, new GUIContent(trackIndex.ToString()), new Vector2(42f, 34f));
-                    }
-                }
+                GUILayout.Space(GridGutter);
+                var shift = profile.Find("shift");
+                if (shift != null)
+                    DrawMomentaryButton(activeHub, shift, new GUIContent("S", "Shift"), new Vector2(GridCellSize, GridCellSize));
+                else GUILayout.Space(GridCellSize);
             }
         }
 
@@ -213,21 +200,21 @@ namespace MondmadeVJ0.Editor
                 {
                     var fader = profile.Find($"fader_{i + 1}");
                     if (fader == null) { GUILayout.Space(40f); continue; }
-                    using (new EditorGUILayout.VerticalScope(GUILayout.Width(40f)))
+                    using (new EditorGUILayout.VerticalScope(GUILayout.Width(GridCellSize)))
                     {
                         var reference = new MidiControlReference(surfaceId, fader.id);
                         var state = activeHub.GetState(reference);
                         var range = fader.maximum - fader.minimum;
                         var normalized = Mathf.Abs(range) < 0.00001f ? 0f : Mathf.Clamp01((state.Value - fader.minimum) / range);
-                        var sliderRect = GUILayoutUtility.GetRect(28f, 118f, GUILayout.Width(34f), GUILayout.Height(118f));
+                        var sliderRect = GUILayoutUtility.GetRect(28f, 118f, GUILayout.Width(GridCellSize), GUILayout.Height(118f));
                         EditorGUI.DrawRect(sliderRect, new Color(0.12f, 0.13f, 0.15f));
                         var next = GUI.VerticalSlider(new Rect(sliderRect.x + 4f, sliderRect.y + 5f, sliderRect.width - 8f, sliderRect.height - 10f), normalized, 1f, 0f);
                         if (!Mathf.Approximately(next, normalized)) QueueInput(activeHub, fader, next);
-                        EditorGUILayout.LabelField(i == 8 ? "MASTER" : (i + 1).ToString(), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(40f));
-                        EditorGUILayout.LabelField(normalized.ToString("0.00"), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(40f));
+                        EditorGUILayout.LabelField(i == 8 ? "M" : (i + 1).ToString(), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(GridCellSize));
+                        EditorGUILayout.LabelField(normalized.ToString("0.00"), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(GridCellSize));
                     }
+                    if (i == 7) GUILayout.Space(GridGutter);
                 }
-                GUILayout.FlexibleSpace();
             }
         }
 

@@ -113,6 +113,45 @@ namespace MondmadeVJ0.Tests
                 "A successful Learn should close its temporary editor listener.");
         }
 
+        [Test]
+        public void SimulatorInputCanBeLearnedInEditMode()
+        {
+            var route = new FloatRoute();
+            route.Configure("MIDI Learn assignment", new MidiAbsoluteFloatSource());
+            host.AddRoute(route);
+            var surfaceId = hub.Surfaces[0].InstanceId;
+            SetField(window, "hub", hub);
+            SetField(window, "targetObject", host);
+            SetField(window, "propertyPath", "routes.Array.data[0].source.control");
+            SetField(window, "surfaceId", surfaceId);
+            Invoke(window, "StartListening");
+
+            var simulationObject = new GameObject("MIDI Simulator Learn Source");
+            SceneManager.MoveGameObjectToScene(simulationObject, previewScene);
+            var simulationHub = simulationObject.AddComponent<MidiHub>();
+            EditorUtility.CopySerialized(hub, simulationHub);
+            var services = new RuntimeServices();
+            try
+            {
+                simulationHub.Initialize(services);
+                var reference = new MidiControlReference(surfaceId, "fader");
+                Assert.That(simulationHub.QueueEditorInput(reference, 0.75f), Is.True);
+                simulationHub.DrainInputQueue(services, 16);
+
+                var serialized = new SerializedObject(host);
+                serialized.Update();
+                var learned = serialized.FindProperty("routes.Array.data[0].source.control");
+                Assert.That(learned.FindPropertyRelative("surfaceInstanceId").stringValue, Is.EqualTo(surfaceId));
+                Assert.That(learned.FindPropertyRelative("controlId").stringValue, Is.EqualTo("fader"));
+                Assert.That(GetField(window, "lastMessage"), Is.EqualTo("Assigned fader."));
+            }
+            finally
+            {
+                simulationHub.Shutdown(services);
+                UnityEngine.Object.DestroyImmediate(simulationObject);
+            }
+        }
+
         private static void Invoke(object target, string name, params object[] arguments)
         {
             var method = target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);

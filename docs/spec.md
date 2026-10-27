@@ -170,7 +170,7 @@ Audio Sourceに平滑化を内蔵せずModifierを接続する。Property候補�
 
 InspectorはRoute要約と折りたたみ詳細、型に合うSource / Modifier / Outputの検索・追加、RouteとNodeのCopy / Paste、Route複製・並べ替え・無効化・削除を提供する。
 
-APC mini mk2 Simulatorは8×8 Pad、Track Button、Scene Launch、Shift、9 FaderのEditorWindowを提供する。Play Modeの仮想操作はMidiHubの通常入力Queueへ入り、SceneのRouteとLED Feedbackを通る。Edit Modeは物理MIDIポートを開かない一時MidiHubを使い、入力状態とLED色を単体でプレビューできる。MidiHubへ仮想Surfaceを追加すると、物理Controllerがなくても次回Play ModeからRouteを含めて試せる。
+APC mini mk2 Simulatorは8×8 Pad、右側のScene Launch、下側のTrack Buttonと9 Fader、ShiftのEditorWindowを提供する。Play Modeの仮想操作はMidiHubの通常入力Queueへ入り、SceneのRouteとLED Feedbackを通る。Edit Modeは物理MIDIポートを開かない一時MidiHubを使い、入力状態とLED色を単体でプレビューできる。Edit Mode MIDI LearnもSimulatorの仮想入力を受け取り、RouteのControl ReferenceやProfileのMIDI Addressを学習できる。MidiHubへ仮想Surfaceを追加すると、物理Controllerがなくても次回Play ModeからRouteを含めて試せる。
 
 Play前のValidationは未設定Source / Output、Null Target、対象Propertyの不存在・型不一致、MIDI Controlの不存在、Stable ID重複、Compositeの接続不良、Signal循環、無効Rangeを検出し、Valid / Warning / Errorを一覧表示する。
 

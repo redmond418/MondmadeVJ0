@@ -113,6 +113,10 @@ namespace MondmadeVJ0
         private int queuedRawBytes;
         private Action<MidiControlChange>[] controlChangedCallbacks = Array.Empty<Action<MidiControlChange>>();
         private Action<MidiRawMessage>[] rawInputCallbacks = Array.Empty<Action<MidiRawMessage>>();
+#if UNITY_EDITOR
+        internal static event Action<MidiHub, MidiControlChange> EditorControlChanged;
+        internal static event Action<MidiHub, MidiRawMessage> EditorRawInputObserved;
+#endif
         private long droppedNormal, droppedClock, sequence;
         private bool initialized, panicLatched;
         private double nextScanTime;
@@ -697,7 +701,11 @@ namespace MondmadeVJ0
         private void ProcessControl(InputPacket packet)
         {
             if (!surfaceRuntime.TryGetValue(packet.SurfaceId, out var surface)) return;
-            InvokeRawInputObserved(new MidiRawMessage(packet.SurfaceId, packet.AddressType, packet.Channel, packet.Number, packet.Value));
+            var rawMessage = new MidiRawMessage(packet.SurfaceId, packet.AddressType, packet.Channel, packet.Number, packet.Value);
+            InvokeRawInputObserved(rawMessage);
+#if UNITY_EDITOR
+            InvokeEditorRawInputObserved(rawMessage);
+#endif
             foreach (var definition in surface.Instance.Profile.Controls)
             {
                 if (definition == null || definition.inputAddressType != packet.AddressType || (definition.channel >= 0 && definition.channel != packet.Channel)) continue;
@@ -727,8 +735,35 @@ namespace MondmadeVJ0
                 services?.RecordMidiLogical(packet.SurfaceId, surface.Instance.ProductName, definition.id, definition.label, packet.Channel,
                     state.Value, state.Velocity, state.Pressure, state.Pressed, change.PressedDown, change.Released);
                 InvokeControlChanged(change);
+#if UNITY_EDITOR
+                InvokeEditorControlChanged(change);
+#endif
             }
         }
+
+#if UNITY_EDITOR
+        private void InvokeEditorControlChanged(MidiControlChange change)
+        {
+            var callbacks = EditorControlChanged;
+            if (callbacks == null) return;
+            foreach (Action<MidiHub, MidiControlChange> callback in callbacks.GetInvocationList())
+            {
+                try { callback(this, change); }
+                catch (Exception exception) { services?.Report("MIDI_EDITOR_SUBSCRIBER", "An editor MIDI control subscriber failed.", nodeId: change.Reference.ControlId, exception: exception); }
+            }
+        }
+
+        private void InvokeEditorRawInputObserved(MidiRawMessage message)
+        {
+            var callbacks = EditorRawInputObserved;
+            if (callbacks == null) return;
+            foreach (Action<MidiHub, MidiRawMessage> callback in callbacks.GetInvocationList())
+            {
+                try { callback(this, message); }
+                catch (Exception exception) { services?.Report("MIDI_EDITOR_LEARN_SUBSCRIBER", "An editor raw MIDI subscriber failed.", nodeId: message.Number.ToString(), exception: exception); }
+            }
+        }
+#endif
 
         private static int DecodeRelative(int value, MidiRelativeMode mode) => mode switch
         {
