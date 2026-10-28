@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-28（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のFloat / Vector積分ModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューからQuickStart ModuleとRouteHostが登録されることをEditorで確認した。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
+更新日：2026-10-28（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D22はユーザーからの設計一任・指定を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のFloat / Vector積分ModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューからQuickStart ModuleとRouteHostが登録されることをEditorで確認した。2026-10-28に二画面出力D23を設計したが、実装と動作検証は未着手である。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
 
 ## 採用済みの判断
 
@@ -230,3 +230,52 @@ OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送40
 APC mini mk2 Simulatorは既存の`MidiHub`とSurface Profileを使い、コントロール入力をMidiHubのMain Thread Queueへ追加する。Play ModeはScene RuntimeのHubを使うため、Source / Route / LED Outputが物理入力と同じ処理契約を通る。ボタンはMouse Down / Mouse Upを別イベントにし、Faderと7-bit MIDI値の量子化も適用する。表示はPadの右にScene Launch、下にTrack Button、その下にFaderを配置してグリッドを合わせ、右下列にShiftとMaster Faderを置く。
 
 Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専用のProduct Nameとポート未割当を設定する。物理Input / Outputを開かず、Routeなしで入力状態とローカルLED色を確認できる。Editor限定の入力通知をMidi Learnへ中継し、仮想操作でRoute Control ReferenceとProfile Addressを学習できる。RouteからのLED FeedbackはPlay ModeでScene HubのDesired状態を表示する。仮想Surface追加はUndo可能なScene変更で、Miniの物理Portへ誤接続しないよう専用Product Nameと未割当のMIDI Portを保存する。
+
+## D23：二画面出力と共有テクスチャ
+
+### 目的と画面構成
+
+画面1・画面2はSceneを分ける意味ではなく、同一Playerが扱う操作表示と映像表示の役割である。画面1は主ディスプレイ（Unity Display 0）に固定し、操作用Canvas、出力先選択、出力プレビューを置く。画面2は接続済み副ディスプレイ（Unity Display 1〜7）のうち、画面1の`UnityEngine.UI.Dropdown`で選んだ1画面に実出力する。`TMP_Dropdown`ではなくuGUIの`Dropdown`を使う。画面1を副ディスプレイへ移動させず、Dropdownには物理名ではなくUnity Display番号と現在の解像度（例：`画面2 / Display 1 — 1920 × 1080`）を表示する。
+
+出力カメラは操作UIを含めないSceneの描画専用カメラとし、出力用Canvasは`Screen Space - Overlay`で構成する。出力用Canvasの全面`RawImage`だけを選択された画面へ表示する。操作Canvasも`Screen Space - Overlay`でDisplay 0に固定し、出力カメラのCulling Maskから操作用Layerを除外する。
+
+```text
+画面1: uGUI Dropdown ──選択Display index──▶ 出力Canvas.targetDisplay
+      出力プレビュー RawImage ◀┐
+      任意のRawImage群       ◀┼── 共有 RenderTexture
+画面2: 全面RawImage          ◀┘          ▲
+                                  出力カメラ.targetTexture
+```
+
+### Display選択と起動
+
+起動時に`Display.displays`から対象Displayを列挙し、接続済みの全副ディスプレイを起動時に一度だけ`Activate()`する。選択切替ではDisplayの再Activateをせず、出力Canvasの`targetDisplay`を切り替える。UnityではDisplay 0が主画面、副画面は1〜7であり、Activate後にDisplayを非Activateへ戻すAPIはないため、Dropdownから選べる画面は起動時に列挙された副画面に限定する。非選択の副画面には出力内容を表示しない。出力先変更は画面2の表示位置だけを切り替え、Routeや出力カメラの描画内容を再Bindしない。
+
+Dropdownは副画面のみを選択肢にするため、主画面の操作UIと実出力が重ならない。Inspectorに保存した優先Display indexが存在しない場合は最初の副画面を選ぶ。副画面がない場合はDropdownを無効化して状態を表示し、画面1のプレビューのみ利用可能にする。Displayの接続構成はPlayer起動時に取得するため、起動後に画面を接続・切断したときはアプリを再起動して選択肢を更新する。
+
+### 描画とTexture共有
+
+出力カメラの`targetTexture`に、選択Displayの`renderingWidth × renderingHeight`で作成したRuntime所有の`RenderTexture`を割り当てる。画面2の全面RawImage、画面1のプレビューRawImage、ユーザーが登録する任意のRawImageには同じTexture参照を設定し、カメラを複数回描画したりCPU readbackで画面を複製したりしない。Controllerは`OutputTexture`を公開し、`RegisterPreview(RawImage)` / `UnregisterPreview(RawImage)`で任意のuGUI RawImageを追加・解除できる。登録時点でTextureが作成済みなら即時に設定し、Textureの再作成時は登録先をすべて新しい参照へ更新する。出力カメラ自身がRenderTextureへ描くUI階層内のRawImageは再帰描画を防ぐため登録対象から除外してValidation Errorにする。各RawImageのRectに合わせた拡大縮小は表示側で行い、元Textureは画面2と同じピクセル寸法を維持する。
+
+`renderingWidth` / `renderingHeight`はDisplayのViewport描画解像度であり、native resolutionの`systemWidth` / `systemHeight`とは異なる場合がある。そのため、RTサイズは出力先の現在の描画解像度を正とし、選択変更時と描画寸法の変更時だけ差し替える。再生成時は新RTを先にCreateしてカメラ・各RawImageを新RTへ付け替えた後、旧RTをRelease / Destroyする。ModuleのShutdownではカメラとRawImageの参照を安全に戻し、Runtime所有RTを解放する。最大Texture寸法を超える、幅・高さが0、またはRT生成に失敗した場合は状態をErrorにして診断し、縮小Textureを黙って出力しない。
+
+### Runtime責務と依存
+
+`DisplayOutputModule : MonoBehaviour, IRuntimeModule`を設け、起動時列挙・副画面のActivate・Dropdown binding・RT生成と再生成・Texture共有・Display/RT状態を所有する。RuntimeのModule初期化でRoutesより先に初期化し、Tickで出力先の描画寸法を監視する。二画面出力はRoute型や`IValueOutput<T>`へ追加せず、既存Routeが出力カメラのSceneを制御する関係を維持する。
+
+Runtimeは`Packages/com.redmond.mondmade-vj0/Runtime/Display/`の独立`MondmadeVJ0.Display` assemblyへ置き、CoreとuGUIの`UnityEngine.UI`を参照する。Editor validatorは必須Camera / Canvas / Dropdown / RawImage参照、Overlay mode、Display 0 / 選択Display設定、RenderTextureへの再帰描画をPlay前に検証する。`com.unity.ugui` 2.xをVersion Defines / Define Constraintsで任意Integrationとして有効化し、Coreの必須依存にはしない。Unity標準のMulti-Display APIを利用し、追加のネイティブPluginは導入しない。
+
+### EditorとPlayerの差
+
+Unity Editorでは`Display.displays.Length`が実ディスプレイ数によらず1のため、Editor内では画面1プレビューのみを扱い、出力先Dropdownは「Editor Preview」として無効化する。Editor preview RTは主ディスプレイの描画寸法（取得できない場合はInspector設定のPreview Resolution）を使う。接続副画面の列挙、Display.Activate、画面2への実出力はStandalone Playerの受け入れで検証する。
+
+### Unity公式API契約
+
+- [Multi-display](https://docs.unity3d.com/6000.3/Documentation/Manual/MultiDisplay.html)：Desktopの複数Display、Activateの起動時呼出しと非Deactivate契約
+- [Display.displays](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Display-displays.html)：Player起動時の列挙とEditorで1件固定となる制約
+- [Display.Activate](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Display.Activate.html)：Display 0と副画面1〜7
+- [Display.renderingWidth](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Display-renderingWidth.html)：native解像度と異なる場合がある描画幅
+- [Canvas.targetDisplay](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Canvas-targetDisplay.html)：Overlay Canvasの出力Display選択
+- [RenderTexture constructor](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/RenderTexture-ctor.html)：幅・高さ指定とTexture最大寸法
+- [uGUI RawImage](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/UnityEngine.UI.RawImage.html)：uGUIにTextureを表示
+- [uGUI Dropdown](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/UnityEngine.UI.Dropdown.html)：画面1の画面選択UI

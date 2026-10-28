@@ -1,6 +1,6 @@
 # MondmadeVJ0 仕様
 
-更新日：2026-10-28（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
+更新日：2026-10-28（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。2026-10-28に二画面出力をD23として設計に追加したが、実装・動作検証は未着手でA25は未検証。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
 
 ## 1. 目的と完成範囲
 
@@ -12,7 +12,7 @@ Input / Time → Source → Modifiers → Route State → Outputs
                                                 └ MIDI LED Feedback
 ```
 
-完成範囲にはCore、8種類のRoute、Composite、Shared Signal、FrameClock、Transport、Tap、Subdivision、Quantization、MIDI Clock入出力、Input System、MIDI Surface、APC mini mk2 / Generic Driver、LED Layer、再接続、Editor MIDI Learn、OSC入出力、Lasp、各Unity Output、Inspector、Validation、各Monitorをすべて含む。実装順序は完成範囲を縮小するものではない。
+完成範囲にはCore、8種類のRoute、Composite、Shared Signal、FrameClock、Transport、Tap、Subdivision、Quantization、MIDI Clock入出力、Input System、MIDI Surface、APC mini mk2 / Generic Driver、LED Layer、再接続、Editor MIDI Learn、OSC入出力、Lasp、各Unity Output、Inspector、Validation、各Monitorに加え、操作UI・プレビューを持つ画面1と実出力画面2の分離を含む。二画面出力はD23で設計し、A25で実装・動作検証する。実装順序は完成範囲を縮小するものではない。
 
 以下は本基盤の対象外とする。
 
@@ -165,6 +165,10 @@ Desired状態とLast Sent状態を比較し、変化時だけ送信する。同�
 | Lasp | Level / Band / Peak / Spectrum Bin、Threshold / Peak Trigger。BandはLow / Mid / High / Custom Hz、TriggerはThreshold / Hysteresis / Cooldown |
 
 Audio Sourceに平滑化を内蔵せずModifierを接続する。Property候補選択を基本とし、VFX・Shader・Animatorの文字列指定はFallback。UIntはInt入力の非負変換、TextureはIntから固定参照／配列Lookup、MatrixはVector3をTRSの1要素へ割当てて合成する。8 Route型を維持し、D15〜D17・D20の確定契約に従う。
+
+### 二画面表示と出力プレビュー（D23）
+
+画面1は主ディスプレイ上の操作用uGUIと出力プレビュー、画面2は選択した副ディスプレイ上の実出力を担当する。画面1のuGUI `Dropdown`で出力先を選ぶ。出力カメラは選択画面の描画幅・高さと同じ`RenderTexture`へ描画し、そのテクスチャを画面2の全面`RawImage`、画面1のプレビュー、登録された任意の`RawImage`で共有する。出力用カメラには操作UIを含めず、画面2には操作UIを表示しない。二画面機能の詳細・ライフサイクル・Editor制約は[設計判断D23](design-notes.md#d23-二画面出力と共有テクスチャ)に従う。
 
 ## 9. Editorと観測
 

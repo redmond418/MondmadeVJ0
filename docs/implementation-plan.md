@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-27（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の全機能を実装し、宣言した受入範囲のA01〜A24をローカルで検証した。D01〜D22の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2 SimulatorのMidi Editor test assembly 10件は、最終レイアウトとEdit Mode Learn経路を含めてWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
+更新日：2026-10-28（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の既存機能を実装し、従来の受入範囲A01〜A24をローカルで検証した。2026-10-28追加のD23 二画面出力は設計済み・未実装で、A25は未検証。D01〜D23の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2 SimulatorのMidi Editor test assembly 10件は、最終レイアウトとEdit Mode Learn経路を含めてWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
 
 ## 実装作業
 
@@ -52,6 +52,10 @@
 - [x] OSC Jack forkのType Tag取得API・固定commit・型棄却・4-float同期Adapter
 - [x] Lasp Level / Band / Peak / SpectrumとAudio Trigger
 - [x] D15〜D17・D20：UInt / Matrix / Textureの接続、資源所有権、IL2CPP accessor、Audio / OSC値の契約を確定
+- [x] D23：操作・プレビュー画面と副画面出力の責務、uGUI Dropdown選択、解像度連動RenderTexture、任意RawImage共有の設計を確定
+- [ ] `MondmadeVJ0.Display` optional Integrationを実装し、Player起動時のDisplay列挙 / Activate、出力Canvas切替、RenderTexture lifecycleと解像度更新を実装
+- [ ] uGUI Dropdownと任意RawImageの登録APIを接続し、Editor preview・no-secondary状態・診断を実装
+- [ ] `MondmadeVJ0.Display.Editor` validatorで必須参照、Canvas設定、Texture再帰描画を検出
 
 ### Editor・運用
 
@@ -94,6 +98,7 @@
 | A22 | Validation | 原文第53章の不正構成をすべて作り、Editor診断が該当Routeを指す |
 | A23 | Monitor | Raw→中間値→Final→Output、論理MIDI / Raw MIDI、Tap履歴・Clock、処理件数を照合。無効化時の計測コストも測定 |
 | A24 | 単一UPM・分離とPlayer | MondmadeVJ0をGit URL1つで導入し、Core必須依存のみ・一部外部依存あり・全依存ありの各構成でimport・Playerビルド。無効Integrationの欠落参照エラーがないこと、macOS arm64でnative MIDI・AOT accessor・strippingを検証。Windows x64 Mono cross-buildは確認済み。Windows上の実行・MIDI・IL2CPPは当面の受入対象外 |
+| A25 | 二画面出力 | 2画面以上を接続したStandalone Playerで起動し、画面1のDropdownが起動時に列挙した副画面と解像度を表示する。各選択先に画面2の全面出力だけが表示され、画面1の操作UIとプレビューは主画面に残る。出力カメラのRenderTextureが選択Displayの`renderingWidth × renderingHeight`と一致し、画面1のpreviewおよび任意に登録した複数RawImageが同一フレームの同一Textureを表示する。異解像度Displayへの切替・解像度変更後の再生成と参照更新、Displayなし・無効参照・RT割当失敗時の診断、Shutdown時の参照復元と資源解放を確認する。Unity Editorは複数Displayを列挙できないため、Editorではpreview-only動作を確認し、実出力はStandalone Playerで検証する |
 
 ## 現時点の検証結果
 
@@ -127,7 +132,7 @@
 | 全依存構成 | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存Git UPM consumerでEditMode 252/252、PlayMode 11 passed / 7 Explicit skipped。最新source commit `215b48c` を同期したStageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped、macOS universal IL2CPP Player buildが成功。macOS universal Mono Playerも別Stageでbuild済み。Windows上の実行・実機MIDI、Windows IL2CPPは今回の受入対象外 |
 | 検証済みSHA全依存Git UPM | 検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` の全依存consumerからEditMode 252/252、PlayMode 11 passed / 7 Explicit skippedとmacOS universal Mono / Windows x64 Mono Player buildを確認。macOS universal IL2CPP build・Player起動、AOT accessor、stripping、RtMidi接続は後続の現行source commit `215b48c` のStageで検証 |
 | MIDI / OSC部分構成 | 検証対象commitのInput System＋MIDI＋OSC構成（Lasp / Cinemachine / URP / VFX Graphなし）をGit UPM consumerで検証。EditMode 188 passed / 2 optional skipped、PlayMode 11 passed / 6 Explicit skipped |
-| ローカル完成判定 | 宣言したA01〜A24のローカル受入範囲を検証済み。A14送信側10分×3速度は累積ずれ≤5msで合格。外部受信機による実到着時刻は参考観測として未測定で送信側合格を妨げない。Windows上の実行・MIDI・IL2CPPと二台目APC mini mk2の物理確認は今回の受入対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続は完了 |
+| ローカル完成判定 | 従来のA01〜A24はローカル受入範囲を検証済み。2026-10-28追加のA25（二画面出力）は設計のみで未実装・未検証。A14送信側10分×3速度は累積ずれ≤5msで合格。外部受信機による実到着時刻は参考観測として未測定で送信側合格を妨げない。Windows上の実行・MIDI・IL2CPPと二台目APC mini mk2の物理確認は今回の受入対象外。APC mini mk2のA17実機Pad・USB切断 / 再接続は完了 |
 | リリース確認 | 公開HTTPS UPM導入は、現行commitをpushしrelease tagを作成する場合に、その後実施する。公開リポジトリへのpushとtag作成は未実施。これはローカルライブラリの実装・受入とは別の公開作業 |
 
 ### A20 OSCメモリ上限回帰
@@ -180,9 +185,9 @@ QuickStart Sceneの`RouteHost`はRuntime source file内の2つ目の`MonoBehavio
 
 配布Sceneへ追加しないStage専用AOT probeで`ComponentAccessorGenerator.Add`を用いて`Il2CppAotAccessorTarget.Gain`のfactory delegateを生成し、`ComponentMemberFloatOutput`経由でIL2CPP Player内の実値0.625を確認した。Unityのmanaged strippingを有効にしたbuildでも実行できた。RtMidiのネイティブportを含むPlayerはruntime logで`MONDMADE_IL2CPP_MIDI_STATUS=Connected`を報告した。別のA20 probeではmacOS universal Mono / IL2CPP Playerと別プロセスOSC peer間の型付き双方向送受信も確認済み。AOT結果は`MONDMADE_AOT_ACCESSOR_RESULT=Passed actual=0.625`。Artifacts: `/private/tmp/MondmadeVJ0-18d832c-macos-universal-il2cpp-aot.app`, build log `/private/tmp/MondmadeVJ0-aot-il2cpp-build-retry.log`, runtime log `/private/tmp/MondmadeVJ0-18d832c-il2cpp-aot-runtime.log`。
 
-Package source同期後のStage全テストはEditMode 255/255 passed、通常PlayMode 12/12 passed・7 Explicit skipped。XML: `/private/tmp/MondmadeVJ0-routehost-split-editmode.xml`, `/private/tmp/MondmadeVJ0-routehost-split-playmode.xml`。A24で定めたmacOS Player、native MIDI、AOT accessor、strippingのローカル確認は完了した。Windows上のPlayer実行は受入対象外。公開HTTPS UPM導入はpush・release tagを行う場合のリリース確認として扱う。
+Package source同期後のStage全テストはEditMode 255/255 passed、通常PlayMode 12/12 passed・7 Explicit skipped。XML: `/private/tmp/MondmadeVJ0-routehost-split-editmode.xml`, `/private/tmp/MondmadeVJ0-routehost-split-playmode.xml`。A24で定めたmacOS Player、native MIDI、AOT accessor、strippingのローカル確認は完了した。D23 / A25の二画面出力はこの検証には含まれない。Windows上のPlayer実行は受入対象外。公開HTTPS UPM導入はpush・release tagを行う場合のリリース確認として扱う。
 
-上記は検証した環境に限る。今回の受入範囲でAcceptance A01〜A24のローカル検証は完了している。公開HTTPS URL導入確認は公開push・release tagを行う場合のリリース確認として実施する。
+上記は検証した環境に限る。従来のAcceptance A01〜A24のローカル検証は完了している。追加したA25のローカル検証は未実施である。公開HTTPS URL導入確認は公開push・release tagを行う場合のリリース確認として実施する。
 
 ### A14計測点補正
 
