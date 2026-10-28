@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-27（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のFloat / Vector積分ModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューからQuickStart ModuleとRouteHostが登録されることをEditorで確認した。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
+更新日：2026-10-28（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D20はユーザーからの設計一任を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のFloat / Vector積分ModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューからQuickStart ModuleとRouteHostが登録されることをEditorで確認した。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
 
 ## 採用済みの判断
 
@@ -220,6 +220,8 @@ OSC callbackも所有buffer＋Main Thread Queueへ渡し、容量8192・配送40
 各Map Sourceは`TIn`型のInput Modifiersを持つ。内包したInput Sourceの後、`Convert`の前に順番に適用するため、floatをVectorへ変換する前にCurve / Clampなどのfloat Modifierを挿入できる。Route全体のModifiersは変換後の`TOut`型に対して従来どおり適用する。
 
 `FloatToVector2Source` / `FloatToVector3Source` / `FloatToVector4Source`はfloatを全成分へ複製する。Vectorの一成分だけをfloatで更新したい場合は`FloatToVectorNComponentSource`を使い、残りの固定値と更新軸を指定する。
+
+`FloatToIndexSource`は有限かつ厳密な昇順の閾値配列を持つ。入力floatが閾値以上になるたびにindexを1つ進め、配列の要素数以下のindexを返す。閾値が`[0.25, 0.5, 0.75]`なら、`0.25`ちょうどはindex 1、`0.5`ちょうどはindex 2となる。空配列は常に0を返し、NaN入力も0を返す。null配列、非有限値、重複または逆順の閾値はBuild時に拒否する。
 
 ## D22：APC mini mk2 Editor Simulator
 

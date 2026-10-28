@@ -72,6 +72,40 @@ namespace MondmadeVJ0
     }
 
     [Serializable]
+    public sealed class FloatToIndexSource : MapValueSource<float, int>
+    {
+        [SerializeField] private float[] thresholds = { 0.25f, 0.5f, 0.75f };
+
+        protected override int Convert(float value)
+        {
+            if (float.IsNaN(value)) return 0;
+
+            var low = 0;
+            var high = thresholds.Length;
+            while (low < high)
+            {
+                var middle = low + (high - low) / 2;
+                if (value >= thresholds[middle]) low = middle + 1;
+                else high = middle;
+            }
+            return low;
+        }
+
+        protected override void Validate()
+        {
+            if (thresholds == null) throw new InvalidOperationException("FloatToIndexSource thresholds cannot be null.");
+            for (var i = 0; i < thresholds.Length; i++)
+            {
+                var threshold = thresholds[i];
+                if (float.IsNaN(threshold) || float.IsInfinity(threshold))
+                    throw new InvalidOperationException("FloatToIndexSource thresholds must be finite and strictly increasing.");
+                if (i > 0 && threshold <= thresholds[i - 1])
+                    throw new InvalidOperationException("FloatToIndexSource thresholds must be finite and strictly increasing.");
+            }
+        }
+    }
+
+    [Serializable]
     public sealed class FloatToBoolSource : MapValueSource<float, bool>
     {
         [SerializeField] private float threshold = 0.5f;

@@ -452,6 +452,7 @@ namespace MondmadeVJ0.Editor
 
         private static string MapValueSourceDescription(MapValueSourceNode source)
         {
+            if (source is FloatToIndexSource) return "Returns the number of thresholds less than or equal to the input float. Thresholds must be finite and strictly increasing.";
             if (source is FloatToVector2Source) return "Copies each input float f to both components: Vector2(f, f).";
             if (source is FloatToVector3Source) return "Copies each input float f to all components: Vector3(f, f, f).";
             if (source is FloatToVector4Source) return "Copies each input float f to all components: Vector4(f, f, f, f).";

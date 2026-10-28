@@ -1,8 +1,8 @@
 # 標準機能カタログ
 
-更新日：2026-10-24（JST）。[移植元](reference/conversation-design.md)第62〜64章の全項目を収録する。**全項目が完成要件。** 下表はInspectorで選ぶRuntimeクラスの実装一覧であり、各クラスの独立した動作検証済みという意味ではない。各行の状態は実装状況だけを示し、動作契約と受け入れ結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-28（JST）。[移植元](reference/conversation-design.md)第62〜64章の全項目を収録する。**全項目が完成要件。** 下表はInspectorで選ぶRuntimeクラスの実装一覧であり、各クラスの独立した動作検証済みという意味ではない。各行の状態は実装状況だけを示し、動作契約と受け入れ結果は[実装・検証計画](implementation-plan.md)に記録する。
 
-VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSourceも`SignalFloatSource`等の具体型として実装した。表はInspectorで選択するC#型名を記載する。名称整理・Gradientの扱い・8 Route型とVFX Matrix / Texture / UIntの接続は[設計補足](design-notes.md)を参照する。Source 106、Modifier 51、Output 109の計266クラス名をRuntime宣言と照合済み。クラス数はSubsystem、Profile、Driver、Inspector、Monitor等を含まず、動作受け入れの代替にもならない。
+VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSourceも`SignalFloatSource`等の具体型として実装した。表はInspectorで選択するC#型名を記載する。名称整理・Gradientの扱い・8 Route型とVFX Matrix / Texture / UIntの接続は[設計補足](design-notes.md)を参照する。Source 107、Modifier 51、Output 109の計267クラス名をRuntime宣言と照合済み。クラス数はSubsystem、Profile、Driver、Inspector、Monitor等を含まず、動作受け入れの代替にもならない。
 
 ## Source
 
@@ -104,6 +104,7 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 | `BoolToFloatSource` | 実装済み |
 | `BoolToIntSource` | 実装済み |
 | `FloatToIntSource` | 実装済み |
+| `FloatToIndexSource` | 実装済み |
 | `FloatToBoolSource` | 実装済み |
 | `IndexToFloatSource` | 実装済み |
 | `IndexToIntSource` | 実装済み |
@@ -425,4 +426,4 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 
 ## 集計の読み方
 
-第62〜64章の設計一覧はSource 95項目、Modifier 48項目、Output 107項目。VectorやSignalのファミリーを具体型へ展開すると本表はSource 106クラス、Modifier 51クラス、Output 109クラスになる（計266クラス名）。Subsystem、Profile、Driver、Inspector、Monitor等は本表に含めず、[実装・検証チェックリスト](implementation-plan.md)で追跡する。本表の全クラス名がRuntime実装に存在することを照合した。
+第62〜64章の設計一覧はSource 95項目、Modifier 48項目、Output 107項目。VectorやSignalのファミリーを具体型へ展開し、型変換Sourceの追加を含めると本表はSource 107クラス、Modifier 51クラス、Output 109クラスになる（計267クラス名）。Subsystem、Profile、Driver、Inspector、Monitor等は本表に含めず、[実装・検証チェックリスト](implementation-plan.md)で追跡する。本表の全クラス名がRuntime実装に存在することを照合した。

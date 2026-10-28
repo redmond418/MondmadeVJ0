@@ -1,6 +1,6 @@
 # MondmadeVJ0 仕様
 
-更新日：2026-10-27（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
+更新日：2026-10-28（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
 
 ## 1. 目的と完成範囲
 
@@ -97,7 +97,7 @@ CoreがRuntime RootとClock / Transportの抽象契約を持ち、Integration Mo
 - MIDI：Absolute / Relative float、Velocity、Button Hold、Button Group Index、Press / Release Trigger。Toggleなどの論理状態を物理入力Sourceへ混在させない
 - Stateful：Toggle、SetReset、Pulse、Step、IncrementDecrement、TriggerValue、TriggeredRandom、SampleHold、TriggerEnvelope
 - Composite：Float / Int二項演算、Bool論理、Compare、Select、MostRecent、Trigger合成
-- 型変換：数値・Bool・Index Lookup・Vector抽出／組立・Float→Gradient Color
+- 型変換：数値・Bool・Float→Index（昇順閾値配列）・Index Lookup・Vector抽出／組立・Float→Gradient Color
 - Transport / Lasp / OSC：各Serviceの通常Source
 
 型変換SourceのInputは、変換前の型を出力するSourceを内包する。`FloatToVector2Source` / `FloatToVector3Source` / `FloatToVector4Source`は入力floatを全成分へ複製する（例：`f`→`Vector3(f, f, f)`）。1成分だけを入力値で置換する場合は`FloatToVectorNComponentSource`を使い、固定成分と対象軸を指定する。InspectorはInput型に適合するSourceだけを選択肢に表示する。
