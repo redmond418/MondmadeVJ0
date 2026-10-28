@@ -1952,11 +1952,18 @@ namespace MondmadeVJ0.Editor
                 if (!scene.isLoaded) continue;
                 foreach (var root in scene.GetRootGameObjects())
                     foreach (var host in root.GetComponentsInChildren<RouteHost>(true))
-                        foreach (var error in MondmadeVJ0Validation.Validate(host)) allErrors.Add(error);
+                        foreach (var error in MondmadeVJ0Validation.Validate(host))
+                            if (!IsIncompleteDraftIssue(error)) allErrors.Add(error);
             }
             if (allErrors.Count == 0) return;
             foreach (var error in allErrors) Debug.LogError("[MondmadeVJ0 Validation] " + error);
             EditorUtility.DisplayDialog("Mondmade VJ0 Validation", $"Found {allErrors.Count} route issue(s). Details are in the Console. Play mode will continue so existing projects can be diagnosed.", "OK");
         }
+
+        private static bool IsIncompleteDraftIssue(string error)
+            => error.EndsWith(": no Output is assigned.", StringComparison.Ordinal)
+                || error.EndsWith(": Source is not assigned.", StringComparison.Ordinal)
+                || error.EndsWith(": missing node or type.", StringComparison.Ordinal)
+                || error.IndexOf(": connected node '", StringComparison.Ordinal) >= 0;
     }
 }

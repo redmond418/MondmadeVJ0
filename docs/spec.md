@@ -172,7 +172,7 @@ InspectorはRoute要約と折りたたみ詳細、型に合うSource / Modifier 
 
 APC mini mk2 Simulatorは8×8 Pad、右側のScene Launch、下側のTrack Buttonと9 Fader、ShiftのEditorWindowを提供する。Play Modeの仮想操作はMidiHubの通常入力Queueへ入り、SceneのRouteとLED Feedbackを通る。Edit Modeは物理MIDIポートを開かない一時MidiHubを使い、入力状態とLED色を単体でプレビューできる。Edit Mode MIDI LearnもSimulatorの仮想入力を受け取り、RouteのControl ReferenceやProfileのMIDI Addressを学習できる。MidiHubへ仮想Surfaceを追加すると、物理Controllerがなくても次回Play ModeからRouteを含めて試せる。
 
-Play前のValidationは未設定Source / Output、Null Target、対象Propertyの不存在・型不一致、MIDI Controlの不存在、Stable ID重複、Compositeの接続不良、Signal循環、無効Rangeを検出し、Valid / Warning / Errorを一覧表示する。
+InspectorのValidationは未設定Source / Output、Null Target、対象Propertyの不存在・型不一致、MIDI Controlの不存在、Stable ID重複、Compositeの接続不良、Signal循環、無効Rangeを検出し、Valid / Warning / Errorを一覧表示する。Play開始時は未設定Source / Outputや未接続のSerializeReference入力を警告対象から除外し、編集中の仮構成でも確認ダイアログなしでPlay Modeへ入れる。他の構成エラーは引き続きPlay開始前に通知する。
 
 Runtime MonitorはSource Raw値、各Modifier中間値、Final値、Output状態。MIDI Monitorは論理Control / StyleとRaw Channel / Note / CC / Value。Transport MonitorはClock、BPM、Position / Phase、外部同期、Clock Stability、Tap履歴。Performance MonitorはRoute / Source / フレーム更新Node数、MIDI / OSC件数、処理時間を扱い、Editor / Development Buildで有効化できるようにする。
 
