@@ -1,6 +1,6 @@
 {
   "name": "com.redmond.mondmade-vj0",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "displayName": "Mondmade VJ0",
   "description": "Composable typed routing, transport, MIDI surfaces, and VJ outputs for Unity.",
   "unity": "6000.3",
