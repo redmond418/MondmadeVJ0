@@ -24,6 +24,7 @@ namespace MondmadeVJ0.Editor.Setup
         private const string LibsoundioUrl = "https://github.com/keijiro/jp.keijiro.libsoundio.git?path=/Packages/jp.keijiro.libsoundio#661056c56634384d81cb52a9b03fd34adb95c34d";
         private const string CinemachineId = "com.unity.cinemachine@3.1.6";
         private const string VfxGraphId = "com.unity.visualeffectgraph@17.3.0";
+        private const string UguiId = "com.unity.ugui@2.0.0";
         private static readonly string[] MidiPackages = { MinisUrl, RtMidiUrl };
         private static readonly string[] InputSystemPackages = { InputSystemId };
         private static readonly string[] UrpPackages = { UrpId };
@@ -31,6 +32,7 @@ namespace MondmadeVJ0.Editor.Setup
         private static readonly string[] LaspPackages = { LaspUrl, LibsoundioUrl };
         private static readonly string[] CinemachinePackages = { CinemachineId };
         private static readonly string[] VfxPackages = { VfxGraphId };
+        private static readonly string[] DisplayPackages = { UguiId };
         private static AddAndRemoveRequest request;
         private static string operation;
 
@@ -50,7 +52,7 @@ namespace MondmadeVJ0.Editor.Setup
             DrawR3Status();
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("Optional integrations", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("必要な外部Integrationだけ選択してください。Input SystemとURPも任意です。", MessageType.None);
+            EditorGUILayout.HelpBox("必要な外部Integrationだけ選択してください。Input System、URP、uGUIも任意です。", MessageType.None);
 
             var inputSystem = EditorPrefs.GetBool("MondmadeVJ0.Setup.InputSystem", false);
             var urp = EditorPrefs.GetBool("MondmadeVJ0.Setup.Urp", false);
@@ -59,6 +61,7 @@ namespace MondmadeVJ0.Editor.Setup
             var lasp = EditorPrefs.GetBool("MondmadeVJ0.Setup.Lasp", false);
             var cinemachine = EditorPrefs.GetBool("MondmadeVJ0.Setup.Cinemachine", false);
             var vfx = EditorPrefs.GetBool("MondmadeVJ0.Setup.Vfx", false);
+            var display = EditorPrefs.GetBool("MondmadeVJ0.Setup.Display", false);
             inputSystem = EditorGUILayout.ToggleLeft("Input System 1.18.0", inputSystem);
             urp = EditorGUILayout.ToggleLeft("Universal Render Pipeline 17.3.0", urp);
             midi = EditorGUILayout.ToggleLeft("MIDI (Minis 1.3.2 + RtMidi 2.2.0)", midi);
@@ -66,6 +69,7 @@ namespace MondmadeVJ0.Editor.Setup
             lasp = EditorGUILayout.ToggleLeft("Audio analysis (Lasp 2.1.8)", lasp);
             cinemachine = EditorGUILayout.ToggleLeft("Cinemachine 3.1.6", cinemachine);
             vfx = EditorGUILayout.ToggleLeft("VFX Graph 17.3.0", vfx);
+            display = EditorGUILayout.ToggleLeft("uGUI 2.0.0 (Display output)", display);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.InputSystem", inputSystem);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Urp", urp);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Midi", midi);
@@ -73,11 +77,12 @@ namespace MondmadeVJ0.Editor.Setup
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Lasp", lasp);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Cinemachine", cinemachine);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Vfx", vfx);
+            EditorPrefs.SetBool("MondmadeVJ0.Setup.Display", display);
 
             using (new EditorGUI.DisabledScope(request != null))
             {
                 if (GUILayout.Button("Install selected integrations"))
-                    InstallSelected(inputSystem, urp, midi, osc, lasp, cinemachine, vfx);
+                    InstallSelected(inputSystem, urp, midi, osc, lasp, cinemachine, vfx, display);
             }
 
             if (!string.IsNullOrEmpty(operation))
@@ -148,7 +153,7 @@ namespace MondmadeVJ0.Editor.Setup
                 throw new InvalidOperationException($"NuGetForUnity could not install {packageId} {version}.");
         }
 
-        private static void InstallSelected(bool inputSystem, bool urp, bool midi, bool osc, bool lasp, bool cinemachine, bool vfx)
+        private static void InstallSelected(bool inputSystem, bool urp, bool midi, bool osc, bool lasp, bool cinemachine, bool vfx, bool display)
         {
             var packages = new List<string>();
             if (inputSystem) packages.AddRange(InputSystemPackages);
@@ -158,6 +163,7 @@ namespace MondmadeVJ0.Editor.Setup
             if (lasp) packages.AddRange(LaspPackages);
             if (cinemachine) packages.AddRange(CinemachinePackages);
             if (vfx) packages.AddRange(VfxPackages);
+            if (display) packages.AddRange(DisplayPackages);
             if (packages.Count == 0)
             {
                 operation = "No optional integrations selected.";

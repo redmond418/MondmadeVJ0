@@ -1,0 +1,16 @@
+{
+  "name": "MondmadeVJ0.Display.Editor",
+  "rootNamespace": "MondmadeVJ0.Display.Editor",
+  "references": ["MondmadeVJ0.Display"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": ["MONDMADE_HAS_UGUI"],
+  "versionDefines": [
+    { "name": "com.unity.ugui", "expression": "[2.0.0,3.0.0)", "define": "MONDMADE_HAS_UGUI" }
+  ],
+  "noEngineReferences": false
+}

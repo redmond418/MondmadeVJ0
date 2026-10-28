@@ -1,6 +1,6 @@
 # MondmadeVJ0 仕様
 
-更新日：2026-10-28（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。2026-10-28に二画面出力をD23として設計に追加したが、実装・動作検証は未着手でA25は未検証。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
+更新日：2026-10-29（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。二画面出力D23のRuntime / Editor / SetupとEditor Preview検証を追加した。複数Displayを接続したStandalone PlayerのA25実出力受入は未実施である。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
 
 ## 1. 目的と完成範囲
 
