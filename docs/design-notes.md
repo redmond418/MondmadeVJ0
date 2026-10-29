@@ -235,12 +235,12 @@ Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専�
 
 ### 目的と画面構成
 
-画面1・画面2はSceneを分ける意味ではなく、同一Playerが扱う操作表示と映像表示の役割である。画面1は主ディスプレイ（Unity Display 0）に固定し、操作用Canvas、出力先選択、出力プレビューを置く。画面2は接続済み副ディスプレイ（Unity Display 1〜7）のうち、画面1の`UnityEngine.UI.Dropdown`で選んだ1画面に実出力する。`TMP_Dropdown`ではなくuGUIの`Dropdown`を使う。画面1を副ディスプレイへ移動させず、Dropdownには物理名ではなくUnity Display番号と現在の解像度（例：`画面2 / Display 1 — 1920 × 1080`）を表示する。
+画面1・画面2はSceneを分ける意味ではなく、同一Playerが扱う操作表示と映像表示の役割である。画面1は主ディスプレイ（Unity Display index 0）に固定し、操作用Canvas、出力先選択、出力プレビューを置く。画面2は接続済み副ディスプレイ（Unity Display index 1〜7）のうち、画面1の`TMP_Dropdown`で選んだ1画面に実出力する。Dropdownには物理名ではなくUnity Display番号と現在の解像度（例：`画面2 / Display 1 — 1920 × 1080`）を表示する。
 
-出力カメラは操作UIを含めないSceneの描画専用カメラとし、出力用Canvasは`Screen Space - Overlay`で構成する。出力用Canvasの全面`RawImage`だけを選択された画面へ表示する。操作Canvasも`Screen Space - Overlay`でDisplay 0に固定し、出力カメラのCulling Maskから操作用Layerを除外する。
+出力カメラ（`DisplayOutputModule.outputCamera`）はMainCameraにし、操作UIを含めないSceneを描画する。出力用Canvasは`Screen Space - Overlay`で構成し、全面`RawImage`だけを選択された画面へ表示する。操作Canvasも`Screen Space - Overlay`でDisplay index 0に固定し、出力カメラのCulling Maskから操作用Layerを除外する。EditorではUnityの表示制約に合わせて出力Canvasの`targetDisplay`をindex 1にし、Canvasを有効のままにする。GameビューのDisplay 2を選ぶと副画面向け映像を確認できる。
 
 ```text
-画面1: uGUI Dropdown ──選択Display index──▶ 出力Canvas.targetDisplay
+画面1: TMP_Dropdown ──選択Display index──▶ 出力Canvas.targetDisplay
       出力プレビュー RawImage ◀┐
       任意のRawImage群       ◀┼── 共有 RenderTexture
 画面2: 全面RawImage          ◀┘          ▲
@@ -251,11 +251,11 @@ Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専�
 
 起動時に`Display.displays`から対象Displayを列挙し、接続済みの全副ディスプレイを起動時に一度だけ`Activate()`する。選択切替ではDisplayの再Activateをせず、出力Canvasの`targetDisplay`を切り替える。UnityではDisplay 0が主画面、副画面は1〜7であり、Activate後にDisplayを非Activateへ戻すAPIはないため、Dropdownから選べる画面は起動時に列挙された副画面に限定する。非選択の副画面には出力内容を表示しない。出力先変更は画面2の表示位置だけを切り替え、Routeや出力カメラの描画内容を再Bindしない。
 
-Dropdownは副画面のみを選択肢にするため、主画面の操作UIと実出力が重ならない。Inspectorに保存した優先Display indexが存在しない場合は最初の副画面を選ぶ。副画面がない場合はDropdownを無効化して状態を表示し、画面1のプレビューのみ利用可能にする。Displayの接続構成はPlayer起動時に取得するため、起動後に画面を接続・切断したときはアプリを再起動して選択肢を更新する。
+Dropdownは副画面のみを選択肢にするため、主画面の操作UIと実出力が重ならない。Inspectorに保存した優先Display indexが存在しない場合は最初の副画面を選ぶ。Playerに副画面がない場合はDropdownを無効化し、出力Canvasを無効にして画面1のプレビューだけを利用可能にする。状態表示用Textは配置しない。Displayの接続構成はPlayer起動時に取得するため、起動後に画面を接続・切断したときはアプリを再起動して選択肢を更新する。
 
 ### 描画とTexture共有
 
-出力カメラの`targetTexture`に、選択Displayの`renderingWidth × renderingHeight`で作成したRuntime所有の`RenderTexture`を割り当てる。画面2の全面RawImage、画面1のプレビューRawImage、ユーザーが登録する任意のRawImageには同じTexture参照を設定し、カメラを複数回描画したりCPU readbackで画面を複製したりしない。Controllerは`OutputTexture`を公開し、`RegisterPreview(RawImage)` / `UnregisterPreview(RawImage)`で任意のuGUI RawImageを追加・解除できる。登録時点でTextureが作成済みなら即時に設定し、Textureの再作成時は登録先をすべて新しい参照へ更新する。出力カメラ自身がRenderTextureへ描くUI階層内のRawImageは再帰描画を防ぐため登録対象から除外してValidation Errorにする。各RawImageのRectに合わせた拡大縮小は表示側で行い、元Textureは画面2と同じピクセル寸法を維持する。
+出力カメラの`targetTexture`に、選択Displayの`renderingWidth × renderingHeight`で作成したRuntime所有の`RenderTexture`を割り当てる。画面2の全面RawImage、画面1のプレビューRawImage、ユーザーが登録する任意のRawImageには同じTexture参照を設定し、カメラを複数回描画したりCPU readbackで画面を複製したりしない。Controllerは`OutputTexture`を公開し、`RegisterPreview(RawImage)` / `UnregisterPreview(RawImage)`で任意のuGUI RawImageを追加・解除できる。登録時点でTextureが作成済みなら即時に設定し、Textureの再作成時は登録先をすべて新しい参照へ更新する。出力カメラ自身がRenderTextureへ描くUI階層内のRawImageは再帰描画を防ぐため登録対象から除外してValidation Errorにする。プレビューは既存RawImageの外枠サイズを保持する親Frame内に配置し、`AspectRatioFitter.FitInParent`でTextureの比率を保ちながら元RawImageの幅・高さ内に縮小する。RenderTexture自体は画面2と同じピクセル寸法を維持する。
 
 `renderingWidth` / `renderingHeight`はDisplayのViewport描画解像度であり、native resolutionの`systemWidth` / `systemHeight`とは異なる場合がある。そのため、RTサイズは出力先の現在の描画解像度を正とし、選択変更時と描画寸法の変更時だけ差し替える。再生成時は新RTを先にCreateしてカメラ・各RawImageを新RTへ付け替えた後、旧RTをRelease / Destroyする。ModuleのShutdownではカメラとRawImageの参照を安全に戻し、Runtime所有RTを解放する。最大Texture寸法を超える、幅・高さが0、またはRT生成に失敗した場合は状態をErrorにして診断し、縮小Textureを黙って出力しない。
 
@@ -263,11 +263,15 @@ Dropdownは副画面のみを選択肢にするため、主画面の操作UIと�
 
 `DisplayOutputModule : MonoBehaviour, IRuntimeModule`を設け、起動時列挙・副画面のActivate・Dropdown binding・RT生成と再生成・Texture共有・Display/RT状態を所有する。RuntimeのModule初期化でRoutesより先に初期化し、Tickで出力先の描画寸法を監視する。二画面出力はRoute型や`IValueOutput<T>`へ追加せず、既存Routeが出力カメラのSceneを制御する関係を維持する。
 
-Runtimeは`Packages/com.redmond.mondmade-vj0/Runtime/Display/`の独立`MondmadeVJ0.Display` assemblyへ置き、CoreとuGUIの`UnityEngine.UI`を参照する。Editor validatorは必須Camera / Canvas / Dropdown / RawImage参照、Overlay mode、Display 0 / 選択Display設定、RenderTextureへの再帰描画をPlay前に検証する。`com.unity.ugui` 2.xをVersion Defines / Define Constraintsで任意Integrationとして有効化し、Coreの必須依存にはしない。Unity標準のMulti-Display APIを利用し、追加のネイティブPluginは導入しない。
+Runtimeは`Packages/com.redmond.mondmade-vj0/Runtime/Display/`の独立`MondmadeVJ0.Display` assemblyへ置き、Core、uGUI、TextMeshProを参照する。Editor validatorは必須Camera / Canvas / TMP_Dropdown / RawImage参照、Overlay mode、操作Canvas index 0 / 出力Canvas設定、RenderTextureへの再帰描画をPlay前に検証する。`com.unity.ugui` 2.xをVersion Defines / Define Constraintsで任意Integrationとして有効化し、Coreの必須依存にはしない。Unity標準のMulti-Display APIを利用し、追加のネイティブPluginは導入しない。
 
 ### EditorとPlayerの差
 
-Unity Editorでは`Display.displays.Length`が実ディスプレイ数によらず1のため、Editor内では画面1プレビューのみを扱い、出力先Dropdownは「Editor Preview」として無効化する。Editor preview RTは主ディスプレイの描画寸法（取得できない場合はInspector設定のPreview Resolution）を使う。接続副画面の列挙、Display.Activate、画面2への実出力はStandalone Playerの受け入れで検証する。
+Unity Editorでは`Display.displays.Length`が実ディスプレイ数によらず1で、物理副画面を列挙できない。このためEditorでは`TMP_Dropdown`にEditor Previewの項目を表示したまま有効にし、出力Canvasを有効のままTarget Display index 1へ出す。GameビューでDisplay 2を選ぶと描画内容を確認できる。Editor preview RTはInspector設定のPreview Resolution（自動セットアップ時は1920×1080）を使う。PlayerではDropdownから検出済み副画面を選び、物理Displayへ出力する。接続副画面の列挙、Display.Activate、実出力はStandalone Playerで検証する。
+
+### 自動セットアップTool
+
+`Tools > Mondmade VJ0 > Display Output > Auto Setup`は、SceneのMainCameraを`DisplayOutputModule.outputCamera`に設定し、DisplayOutputModuleの追加・Runtimeへの登録、出力Canvasと全面RawImageの作成、既存の操作CanvasへのTMP_Dropdown配置を行う。Display index 0 / 1に対応するCulling MaskがNothingの空Cameraを2つ作成または再利用する。既存のプレビューRawImageは外枠サイズを維持するFrameで包み、出力比率に合わせて縮小表示する。操作Canvas、EventSystem、GraphicRaycasterがなければ補完し、旧Status TextがModuleに割り当てられていれば削除する。TMP Essentialsが未導入の場合は自動でImportしてからセットアップを続ける。
 
 ### Unity公式API契約
 
@@ -278,4 +282,4 @@ Unity Editorでは`Display.displays.Length`が実ディスプレイ数によら�
 - [Canvas.targetDisplay](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Canvas-targetDisplay.html)：Overlay Canvasの出力Display選択
 - [RenderTexture constructor](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/RenderTexture-ctor.html)：幅・高さ指定とTexture最大寸法
 - [uGUI RawImage](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/UnityEngine.UI.RawImage.html)：uGUIにTextureを表示
-- [uGUI Dropdown](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/UnityEngine.UI.Dropdown.html)：画面1の画面選択UI
+- [TMP_Dropdown](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/TMPro.TMP_Dropdown.html)：画面1の画面選択UI

@@ -1,7 +1,7 @@
 {
   "name": "MondmadeVJ0.Display",
   "rootNamespace": "MondmadeVJ0.Display",
-  "references": ["MondmadeVJ0.Core", "Unity.UGUI"],
+  "references": ["MondmadeVJ0.Core", "Unity.UGUI", "Unity.TextMeshPro"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

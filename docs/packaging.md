@@ -1,6 +1,6 @@
 # パッケージ構成と導入
 
-更新日：2026-10-29（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** 従来のローカル受入範囲A01〜A24は検証済み。二画面出力D23は任意IntegrationとしてRuntime / Editor / Setupを実装し、Editor Preview・Texture共有・復元のEditMode検証3件が通過した。macOS StandaloneOSX Player buildはerrors 0で成功し、`Samples~` folder metadataについて警告3件があった。複数Displayを接続したPlayerでの実出力受入A25は未実施である。実装検証対象commit `b170336c3dd842077aca4d337a97c9c129c37b8e` のInput System / MIDI / OSC構成の隔離Git UPM consumerでEditMode 191 passed / 2 skipped、PlayMode 12 passed / 6 Explicit skipped、universal macOS Mono Player buildを確認した。別のStageではsource commit `215b48c` に対するmacOS universal IL2CPP Player起動、AOT accessor、stripping、RtMidi接続状態も確認済み。A14送信側の10分×3速度は、累積ずれ上限をユーザー合意の5msへ改訂した基準で合格。APC mini mk2のA17実機Pad・USB切断 / 再接続と、A20 Background Music入力（2ch、8秒、2,984 normalized samples・peak 0.797）も確認済み。メモリ調査では持続的リークやメモリ不足を再現しておらず、追加調査は不要とした。Windows上でのPlayer実行は今回の受入対象外。公開HTTPS UPM導入確認は公開push・release tagを伴うリリース確認として扱い、まだ実施していない。詳細と証跡は[実装・検証計画](implementation-plan.md)を参照。
+更新日：2026-10-29（JST）。**UPMパッケージは1つに統合し、機能の分離は内部フォルダとasmdefで行う。** 従来のローカル受入範囲A01〜A24は検証済み。D23は任意IntegrationとしてRuntime / Editor / Setupを実装し、TMP_Dropdown・Display index 1へのEditorプレビュー・比率を保つプレビュー枠・自動セットアップToolを追加した。複数Displayを接続したPlayerでの実出力受入A25は未実施である。macOS StandaloneOSX Player buildはerrors 0で成功し、`Samples~` folder metadataについて警告3件があった。実装検証対象commit `b170336c3dd842077aca4d337a97c9c129c37b8e` のInput System / MIDI / OSC構成の隔離Git UPM consumerでEditMode 191 passed / 2 skipped、PlayMode 12 passed / 6 Explicit skipped、universal macOS Mono Player buildを確認した。別のStageではsource commit `215b48c` に対するmacOS universal IL2CPP Player起動、AOT accessor、stripping、RtMidi接続状態も確認済み。A14送信側の10分×3速度は、累積ずれ上限をユーザー合意の5msへ改訂した基準で合格。APC mini mk2のA17実機Pad・USB切断 / 再接続と、A20 Background Music入力（2ch、8秒、2,984 normalized samples・peak 0.797）も確認済み。メモリ調査では持続的リークやメモリ不足を再現しておらず、追加調査は不要とした。Windows上でのPlayer実行は今回の受入対象外。公開HTTPS UPM導入確認は公開push・release tagを伴うリリース確認として扱い、まだ実施していない。詳細と証跡は[実装・検証計画](implementation-plan.md)を参照。
 
 2026-10-24、検証対象commit `a99e571094e6b58fc9282208ae5e3366ecebf398` を指定した`git+file` UPM consumerで全依存・部分依存・Core必須依存のみを検証した。各依存構成の詳細とXML保存先は[実装・検証計画](implementation-plan.md#2026-10-24-検証対象commitのgit-upmplayer検証)を参照。全依存consumerからmacOS universal Mono PlayerとWindows x64 Mono Playerをbuildした。この当時のStageではIL2CPP dSYM生成がディスク不足で失敗したが、後続の現行source commitで再buildとPlayer起動に成功した（下記記録）。
 
@@ -32,7 +32,7 @@ MondmadeVJ0/
 │   │ ├ Rendering/
 │   │ ├ Cinemachine/
 │   │ ├ Video/
-│   │ ├ Display/                  # Multi-Display、uGUI Dropdown / RawImage共有
+│   │ ├ Display/                  # Multi-Display、TMP_Dropdown / RawImage共有
 │   │ └ Animator/
 │   ├ Editor/
 │   │ ├ Core/                       # 基本Inspector・Setup・Monitor
@@ -79,17 +79,17 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 ## 任意Integrationの有効化
 
-全Integrationのソースを同梱し、利用プロジェクトに外部依存が揃った機能だけをコンパイルする。Lasp / Cinemachine / VFX Graph / uGUI等をすべてpackage.jsonの必須依存にして自動導入する構成にはしない。二画面出力を使う利用者は、Tools > Mondmade VJ0 > Setupで「uGUI 2.0.0 (Display output)」を選択して導入する。uGUIを導入すると`MondmadeVJ0.Display`とEditor validatorが有効になる。依存がない構成でもCoreと他のIntegrationに未解決参照を残さない。
+全Integrationのソースを同梱し、利用プロジェクトに外部依存が揃った機能だけをコンパイルする。Lasp / Cinemachine / VFX Graph / uGUI等をすべてpackage.jsonの必須依存にして自動導入する構成にはしない。二画面出力を使う利用者は、Tools > Mondmade VJ0 > Setupで「uGUI 2.0.0 + TextMeshPro (Display output)」を選択して導入する。uGUI 2.0.0と同梱のTextMeshPro APIを使い、`MondmadeVJ0.Display`とEditor validatorを有効にする。依存がない構成でもCoreと他のIntegrationに未解決参照を残さない。
 
 各Integration asmdefに必要packageのVersion Definesと同じsymbolのDefine Constraintsを設定する。例：Cinemachineはcom.unity.cinemachineの `[3.1.6,4.0.0)` で `MONDMADE_HAS_CINEMACHINE` を定義し、そのsymbolをassemblyの制約にする。Displayはcom.unity.uguiの `[2.0.0,3.0.0)` で `MONDMADE_HAS_UGUI` を定義する。Editor / Testsも同条件、複数依存のMidiは全条件のANDとする。外部assemblyは名前で参照し、任意packageの不存在時に未解決GUIDを残さない。UnityはVersion DefinesのsymbolをDefine Constraintsに利用できる。[Unityの条件付きAssembly](https://docs.unity.com/en-us/engine/6000.7/manual/scripting/compilation-and-code-reload/script-compilation/assembly-definition-files/includes)
 
 ### Display IntegrationのScene設定
 
-操作画面用CanvasとそのUI階層を`UI` Layer（または`operatorUiLayerMask`へ含めたLayer）に設定し、Canvasは`Screen Space - Overlay` / Display 0にする。`Dropdown`、状態表示`Text`、プレビュー`RawImage`を配置する。操作Canvasには`GraphicRaycaster`、Sceneには`EventSystem`と`StandaloneInputModule`または`InputSystemUIInputModule`を置く。出力画面用Canvasも`Screen Space - Overlay`にし、全面Stretchの`RawImage`を配置する。出力専用Cameraは操作UIを含まないSceneを描画する。
+`Tools > Mondmade VJ0 > Display Output > Auto Setup`を実行すると、SceneのMainCameraを出力カメラとして設定し、DisplayOutputModuleの追加・Runtimeへの登録、出力Canvasと全面RawImageの作成、既存の操作CanvasへのTMP_Dropdown配置を行う。Display index 0 / 1用の空Camera（Culling Mask = Nothing）も2つ作成または再利用する。操作Canvas、EventSystem、GraphicRaycasterが不足していれば補完する。プレビューRawImageは元の枠をFrameとして保持し、その内側でRenderTextureの縦横比に合わせて小さく表示する。TMP EssentialsがなければToolがImportする。
 
-`DisplayOutputModule`をScene内のGameObjectへ追加し、出力Camera、出力Canvas、画面1のDropdown / 状態Text / プレビューRawImage、画面2のRawImageを割り当てる。GameObjectを`MondmadeVJ0Runtime.Modules`へ登録する。出力Cameraの操作UI Layer除外は`operatorUiLayerMask`で指定し、Play開始時にも適用する。Inspector validatorは必須参照、Overlay / Display設定、Dropdownの入力部品、出力RawImageの全面配置、操作UI Layer、EventSystemを診断する。
+手動で設定する場合は`DisplayOutputModule`をScene内のGameObjectへ追加し、MainCamera、出力Canvas、画面1のTMP_Dropdown / プレビューRawImage、画面2のRawImageを割り当てる。GameObjectを`MondmadeVJ0Runtime.Modules`へ登録する。操作Canvasは`Screen Space - Overlay` / Display index 0、Editorプレビュー中の出力Canvasは同じOverlay mode / Target Display index 1にする。出力Cameraの操作UI Layer除外は`operatorUiLayerMask`で指定し、Play開始時にも適用する。Inspector validatorは必須参照、Overlay / Display設定、TMP_Dropdownの入力部品、出力RawImageの全面配置、操作UI Layer、EventSystemを診断する。状態表示用Textは不要。
 
-他のuGUIプレビューへ映像を共有する場合は、`DisplayOutputModule.RegisterPreview(rawImage)`と`UnregisterPreview(rawImage)`を呼ぶ。登録先には同じ`OutputTexture`が設定され、Texture再生成時も一括更新される。`OutputTexture`はModule所有のため、利用側でRelease / Destroyしない。出力Canvas内や出力Cameraで描画されるCanvas上のRawImageは再帰描画を防ぐため登録できず、Runtime診断を記録する。Inspector validatorはシリアライズ済みの画面1プレビューを検証する。Unity EditorではPreview-only、複数画面の実出力はStandalone Playerで動作する。
+他のuGUIプレビューへ映像を共有する場合は、`DisplayOutputModule.RegisterPreview(rawImage)`と`UnregisterPreview(rawImage)`を呼ぶ。登録先には同じ`OutputTexture`が設定され、Texture再生成時も一括更新される。`OutputTexture`はModule所有のため、利用側でRelease / Destroyしない。出力Canvas内や出力Cameraで描画されるCanvas上のRawImageは再帰描画を防ぐため登録できず、Runtime診断を記録する。Inspector validatorはシリアライズ済みの画面1プレビューを検証する。Editorでは出力Canvasを有効にしてTarget Display index 1を使い、GameビューのDisplay 2で内容を確認する。Unity Editorは物理副画面の列挙と実出力に対応しないため、物理ディスプレイへの出力はStandalone Playerで検証する。
 
 互換範囲は採用基準版以上・次major未満を基本とし、URP / VFX Graphは17.3系列の `[17.3.0,17.4.0)` とする。範囲外はSetup Windowで非対応と表示してassemblyを無効にする。既存版を無断でdowngradeしない。
 

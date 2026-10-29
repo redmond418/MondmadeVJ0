@@ -16,7 +16,7 @@ namespace MondmadeVJ0.Display.Editor
             var issues = module.ValidateConfiguration();
             if (issues.Count == 0)
             {
-                EditorGUILayout.HelpBox("基本設定は有効です。Unity Editorではプレビューのみ、実出力はStandalone Playerで確認してください。", MessageType.Info);
+                EditorGUILayout.HelpBox("基本設定は有効です。EditorではTarget Display index 1のGameビューでプレビューできます。物理ディスプレイへの出力はStandalone Playerで確認してください。", MessageType.Info);
                 return;
             }
 

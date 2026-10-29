@@ -52,7 +52,7 @@ namespace MondmadeVJ0.Editor.Setup
             DrawR3Status();
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("Optional integrations", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("必要な外部Integrationだけ選択してください。Input System、URP、uGUIも任意です。", MessageType.None);
+            EditorGUILayout.HelpBox("必要な外部Integrationだけ選択してください。Input System、URP、uGUI / TextMeshProも任意です。", MessageType.None);
 
             var inputSystem = EditorPrefs.GetBool("MondmadeVJ0.Setup.InputSystem", false);
             var urp = EditorPrefs.GetBool("MondmadeVJ0.Setup.Urp", false);
@@ -69,7 +69,7 @@ namespace MondmadeVJ0.Editor.Setup
             lasp = EditorGUILayout.ToggleLeft("Audio analysis (Lasp 2.1.8)", lasp);
             cinemachine = EditorGUILayout.ToggleLeft("Cinemachine 3.1.6", cinemachine);
             vfx = EditorGUILayout.ToggleLeft("VFX Graph 17.3.0", vfx);
-            display = EditorGUILayout.ToggleLeft("uGUI 2.0.0 (Display output)", display);
+            display = EditorGUILayout.ToggleLeft("uGUI 2.0.0 + TextMeshPro (Display output)", display);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.InputSystem", inputSystem);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Urp", urp);
             EditorPrefs.SetBool("MondmadeVJ0.Setup.Midi", midi);

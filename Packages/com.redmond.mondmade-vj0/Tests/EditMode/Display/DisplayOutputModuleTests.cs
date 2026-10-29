@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using MondmadeVJ0.Display;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,10 +15,9 @@ namespace MondmadeVJ0.Tests.Display
         private DisplayOutputModule module;
         private Camera outputCamera;
         private Canvas outputCanvas;
-        private Dropdown dropdown;
+        private TMP_Dropdown dropdown;
         private RawImage outputImage;
         private RawImage previewImage;
-        private Text statusText;
         private Texture2D previousOutputTexture;
         private Texture2D previousPreviewTexture;
         private RuntimeServices services;
@@ -36,18 +36,17 @@ namespace MondmadeVJ0.Tests.Display
             operatorCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             operatorCanvas.targetDisplay = 0;
 
-            var dropdownObject = Own(new GameObject("Display Dropdown", typeof(RectTransform), typeof(Dropdown)));
+            var dropdownObject = Own(new GameObject("Display Dropdown", typeof(RectTransform), typeof(TMP_Dropdown)));
             dropdownObject.transform.SetParent(operatorCanvasObject.transform, false);
-            dropdown = dropdownObject.GetComponent<Dropdown>();
+            dropdown = dropdownObject.GetComponent<TMP_Dropdown>();
             dropdown.template = CreateRectChild(dropdownObject.transform, "Template");
-            dropdown.captionText = CreateTextChild(operatorCanvasObject.transform, "Caption");
-            dropdown.itemText = CreateTextChild(dropdown.template, "Item");
+            dropdown.captionText = CreateTmpTextChild(operatorCanvasObject.transform, "Caption");
+            dropdown.itemText = CreateTmpTextChild(dropdown.template, "Item");
             dropdown.itemText.gameObject.AddComponent<Toggle>();
             dropdown.template.gameObject.SetActive(false);
-            dropdown.options.Add(new Dropdown.OptionData("Original option"));
+            dropdown.options.Add(new TMP_Dropdown.OptionData("Original option"));
 
             previewImage = CreateRawImageChild(operatorCanvasObject.transform, "Preview");
-            statusText = CreateTextChild(operatorCanvasObject.transform, "Status");
             SetLayerRecursively(operatorCanvasObject.transform, LayerMask.NameToLayer("UI"));
 
             var outputCanvasObject = Own(new GameObject("Output Canvas", typeof(RectTransform), typeof(Canvas)));
@@ -75,7 +74,6 @@ namespace MondmadeVJ0.Tests.Display
             SetField(module, "displayDropdown", dropdown);
             SetField(module, "outputImage", outputImage);
             SetField(module, "previewImage", previewImage);
-            SetField(module, "statusText", statusText);
 
             services = new RuntimeServices();
         }
@@ -98,14 +96,20 @@ namespace MondmadeVJ0.Tests.Display
 
             Assert.That(module.State, Is.EqualTo(DisplayOutputState.EditorPreview));
             Assert.That(module.OutputTexture, Is.Not.Null);
-            var expectedWidth = UnityEngine.Display.displays[0].renderingWidth > 0 ? UnityEngine.Display.displays[0].renderingWidth : 1280;
-            var expectedHeight = UnityEngine.Display.displays[0].renderingHeight > 0 ? UnityEngine.Display.displays[0].renderingHeight : 720;
+            const int expectedWidth = 1280;
+            const int expectedHeight = 720;
             Assert.That(module.OutputTexture.width, Is.EqualTo(expectedWidth));
             Assert.That(module.OutputTexture.height, Is.EqualTo(expectedHeight));
             Assert.That(outputCamera.targetTexture, Is.SameAs(module.OutputTexture));
             Assert.That(outputImage.texture, Is.SameAs(module.OutputTexture));
             Assert.That(previewImage.texture, Is.SameAs(module.OutputTexture));
-            Assert.That(outputCanvas.enabled, Is.False);
+            Assert.That(outputCanvas.enabled, Is.True);
+            Assert.That(outputCanvas.targetDisplay, Is.EqualTo(1));
+            Assert.That(dropdown.interactable, Is.True);
+            var aspectFitter = previewImage.GetComponent<AspectRatioFitter>();
+            Assert.That(aspectFitter, Is.Not.Null);
+            Assert.That(aspectFitter.aspectMode, Is.EqualTo(AspectRatioFitter.AspectMode.FitInParent));
+            Assert.That(aspectFitter.aspectRatio, Is.EqualTo(expectedWidth / (float)expectedHeight).Within(0.001f));
 
             var extraCanvasObject = Own(new GameObject("Extra Preview Canvas", typeof(RectTransform), typeof(Canvas)));
             extraCanvasObject.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -170,11 +174,11 @@ namespace MondmadeVJ0.Tests.Display
             return child.GetComponent<RectTransform>();
         }
 
-        private static Text CreateTextChild(Transform parent, string name)
+        private static TextMeshProUGUI CreateTmpTextChild(Transform parent, string name)
         {
-            var child = new GameObject(name, typeof(RectTransform), typeof(Text));
+            var child = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             child.transform.SetParent(parent, false);
-            return child.GetComponent<Text>();
+            return child.GetComponent<TextMeshProUGUI>();
         }
 
         private static RawImage CreateRawImageChild(Transform parent, string name)

@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-29（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の既存機能を実装し、従来の受入範囲A01〜A24をローカルで検証した。D23二画面出力のRuntime / Editor / Setupを実装し、Editor Preview・Texture共有・復元のEditMode検証3件が通過した。最終コードのmacOS StandaloneOSX Player buildはerrors 0で成功し、`Samples~` folder metadataについて警告3件があった。複数Displayを接続したStandalone PlayerでのA25実出力は未検証のため、完成扱いにはしない。D01〜D23の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2 SimulatorのMidi Editor test assembly 10件は、最終レイアウトとEdit Mode Learn経路を含めてWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
+更新日：2026-10-29（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の既存機能を実装し、従来の受入範囲A01〜A24をローカルで検証した。D23二画面出力のRuntime / Editor / SetupにTMP_Dropdown、Display index 1へのEditorプレビュー、自動セットアップTool、比率を保つプレビュー枠を追加した。今回の変更はUnity Editorの再コンパイルで0 errors / 0 warningsを確認した。複数Displayを接続したStandalone PlayerでのA25実出力は未検証のため、完成扱いにはしない。D01〜D23の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2 SimulatorのMidi Editor test assembly 10件は、最終レイアウトとEdit Mode Learn経路を含めてWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
 
 ## 実装作業
 
@@ -52,11 +52,13 @@
 - [x] OSC Jack forkのType Tag取得API・固定commit・型棄却・4-float同期Adapter
 - [x] Lasp Level / Band / Peak / SpectrumとAudio Trigger
 - [x] D15〜D17・D20：UInt / Matrix / Textureの接続、資源所有権、IL2CPP accessor、Audio / OSC値の契約を確定
-- [x] D23：操作・プレビュー画面と副画面出力の責務、uGUI Dropdown選択、解像度連動RenderTexture、任意RawImage共有の設計を確定
+- [x] D23：操作・プレビュー画面と副画面出力の責務、TMP_Dropdown選択、解像度連動RenderTexture、任意RawImage共有、Editor PreviewのDisplay index 1を確定
 - [x] `MondmadeVJ0.Display` optional Integration：Player起動時のDisplay列挙 / Activate、出力Canvas切替、Display解像度に同期するRenderTexture lifecycleを実装
-- [x] uGUI Dropdown、画面1 Preview、複数任意RawImageの登録・解除、Editor preview・no-secondary状態・Runtime診断を実装
+- [x] TMP_Dropdown、画面1 Preview、複数任意RawImageの登録・解除、Editor index 1 preview・no-secondary状態・Runtime診断を実装
+- [x] Tools > Mondmade VJ0 > Display Output > Auto Setup：Module登録、MainCamera割当、出力Canvas、Display index 0 / 1用の空Camera、既存CanvasへのTMP_Dropdown配置を実装
+- [x] Preview RawImageの外枠を維持し、RenderTextureの縦横比に合わせて縮小表示
 - [x] `MondmadeVJ0.Display.Editor` validatorで必須参照、Canvas設定、Dropdown部品、EventSystem、Texture再帰描画を検出
-- [x] SetupからuGUI 2.0.0を任意導入できるようにし、Display Runtime / Editor / Tests asmdefを依存条件付きで追加
+- [x] SetupからuGUI + TextMeshPro 2.0.0を任意導入できるようにし、Display Runtime / Editor / Tests asmdefを依存条件付きで追加
 - [x] Editor Preview・Texture寸法・同一Texture共有・参照復元・再帰登録拒否のEditModeテストを実装
 - [ ] 複数Display接続Standalone PlayerでA25の出力先切替・異解像度更新・Displayなし・RT失敗を受入確認
 
@@ -101,7 +103,7 @@
 | A22 | Validation | 原文第53章の不正構成をすべて作り、Editor診断が該当Routeを指す |
 | A23 | Monitor | Raw→中間値→Final→Output、論理MIDI / Raw MIDI、Tap履歴・Clock、処理件数を照合。無効化時の計測コストも測定 |
 | A24 | 単一UPM・分離とPlayer | MondmadeVJ0をGit URL1つで導入し、Core必須依存のみ・一部外部依存あり・全依存ありの各構成でimport・Playerビルド。無効Integrationの欠落参照エラーがないこと、macOS arm64でnative MIDI・AOT accessor・strippingを検証。Windows x64 Mono cross-buildは確認済み。Windows上の実行・MIDI・IL2CPPは当面の受入対象外 |
-| A25 | 二画面出力 | 2画面以上を接続したStandalone Playerで起動し、画面1のDropdownが起動時に列挙した副画面と解像度を表示する。各選択先に画面2の全面出力だけが表示され、画面1の操作UIとプレビューは主画面に残る。出力カメラのRenderTextureが選択Displayの`renderingWidth × renderingHeight`と一致し、画面1のpreviewおよび任意に登録した複数RawImageが同一フレームの同一Textureを表示する。異解像度Displayへの切替・解像度変更後の再生成と参照更新、Displayなし・無効参照・RT割当失敗時の診断、Shutdown時の参照復元と資源解放を確認する。Unity Editorは複数Displayを列挙できないため、Editorではpreview-only動作を確認し、実出力はStandalone Playerで検証する |
+| A25 | 二画面出力 | 2画面以上を接続したStandalone Playerで起動し、画面1のTMP_Dropdownが起動時に列挙した副画面と解像度を表示する。各選択先に画面2の全面出力だけが表示され、画面1の操作UIとプレビューは主画面に残る。出力カメラのRenderTextureが選択Displayの`renderingWidth × renderingHeight`と一致し、画面1のpreviewおよび任意に登録した複数RawImageが同一フレームの同一Textureを表示する。異解像度Displayへの切替・解像度変更後の再生成と参照更新、Displayなし・無効参照・RT割当失敗時の診断、Shutdown時の参照復元と資源解放を確認する。Editorでは出力Canvasを無効にせずTarget Display index 1へ描画し、GameビューのDisplay 2で確認する。Editorの物理複数Display列挙と実出力はStandalone Playerで検証する |
 
 ## 現時点の検証結果
 
@@ -111,7 +113,7 @@
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
 | EditMode | Core契約、Transport、OSC Adapter、Editor Validationの原文53章全項目・VFX / Animator / Shader / MIDI参照・Component member型、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、共有MIDI出力workerの優先queue / LED coalescing / Clock metric / schedule世代破棄、時間Modifier、Quantize / Subdivision境界、Monitor履歴と計測コスト、RouteHost複製・Copy / Paste・Undo / Redo・Scene保存 / 再読込、Material / Volume clone leaseとTransform / Genericを含むOutput競合、Video prepare共有・Fault、Lasp値・周波数bin・Trigger状態、OSC型・queue・UDP loopback、Core / Unity / Audio、Animator / Cinemachine、OSC Output契約とDebug Outputのログを含む255 testsが255/255通過 |
-| D23 Display Output | Unity 6000.3.8f1 macOS arm64 Editorのlive recompileで0 errors / 0 warnings。`MondmadeVJ0.Display.Tests` EditMode 3/3 passed。最終コードのStandaloneOSX Player buildはerrors 0 / warnings 3で成功（警告は`Samples~` folder metadata）。Editor PreviewのRenderTexture寸法、camera / RawImageへの同一Texture設定、追加RawImage登録・解除、Shutdown時の参照復元、出力階層への再帰登録拒否を確認。複数Display接続Standalone PlayerのA25実出力は未確認 |
+| D23 Display Output | Unity Editorのlive recompileで0 errors / 0 warnings。過去の実装ではEditMode 3/3 passed、StandaloneOSX Player build errors 0 / warnings 3（`Samples~` folder metadata）を確認。今回のTMP_Dropdown・Editor Target Display index 1・自動セットアップTool変更に対してはテストを再実行していない。複数Display接続Standalone PlayerのA25実出力は未確認 |
 | A06 Route隔離 | Source.Buildで例外を投げるRouteだけがFaultedとなり、Route名付き診断を残し、同じRuntime上の正常Routeは初期値を出力してActiveを維持 |
 | A08 数値境界 | Negative Modulo / Lookup上下端 / 0除算 / NaN入力時の最終有限値保持を確認し、NaN設定をPlay前に報告 |
 | A03 単一評価 | StepとSeconds Envelopeを3 Outputへ接続し、各Trigger SourceのBuild 1回、全Outputで同一の状態遷移と値列を確認 |

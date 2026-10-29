@@ -1,7 +1,7 @@
 {
   "name": "MondmadeVJ0.Display.Editor",
   "rootNamespace": "MondmadeVJ0.Display.Editor",
-  "references": ["MondmadeVJ0.Display"],
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Display", "Unity.TextMeshPro"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

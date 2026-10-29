@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using UnityEngine.Serialization;
 
 namespace MondmadeVJ0.Display
 {
@@ -39,10 +42,11 @@ namespace MondmadeVJ0.Display
 
         [SerializeField] private Camera outputCamera;
         [SerializeField] private Canvas outputCanvas;
-        [SerializeField] private UnityEngine.UI.Dropdown displayDropdown;
+        [SerializeField] private TMP_Dropdown displayDropdown;
         [SerializeField] private UnityEngine.UI.RawImage outputImage;
         [SerializeField] private UnityEngine.UI.RawImage previewImage;
-        [SerializeField] private UnityEngine.UI.Text statusText;
+        [SerializeField, HideInInspector, FormerlySerializedAs("statusText")]
+        private UnityEngine.UI.Text legacyStatusText;
         [SerializeField, Range(1, 7)] private int preferredDisplayIndex = 1;
         [SerializeField] private LayerMask operatorUiLayerMask = 1 << 5;
         [SerializeField] private Vector2Int editorPreviewResolution = new Vector2Int(1280, 720);
@@ -52,6 +56,11 @@ namespace MondmadeVJ0.Display
 
         private RuntimeServices services;
         private RenderTexture outputTexture;
+        private AspectRatioFitter previewAspectFitter;
+        private AspectRatioFitter.AspectMode previousPreviewAspectMode;
+        private float previousPreviewAspectRatio;
+        private bool ownsPreviewAspectFitter;
+        private bool previewAspectStateCaptured;
         private RenderTexture previousCameraTargetTexture;
         private RenderTexture lastAssignedCameraTargetTexture;
         private Texture previousOutputImageTexture;
@@ -61,8 +70,7 @@ namespace MondmadeVJ0.Display
         private int previousCameraCullingMask;
         private bool previousDropdownInteractable;
         private int previousDropdownValue;
-        private List<UnityEngine.UI.Dropdown.OptionData> previousDropdownOptions;
-        private string previousStatusText;
+        private List<TMP_Dropdown.OptionData> previousDropdownOptions;
         private bool stateCaptured;
         private bool initializationAttempted;
         private bool initialized;
@@ -95,6 +103,11 @@ namespace MondmadeVJ0.Display
             initializationAttempted = true;
             services = runtimeServices;
             CapturePreviousState();
+            if (Application.isEditor && outputCanvas != null)
+            {
+                outputCanvas.targetDisplay = 1;
+                outputCanvas.enabled = true;
+            }
 
             var issues = ValidateConfiguration();
             var hasErrors = false;
@@ -117,6 +130,12 @@ namespace MondmadeVJ0.Display
             initialized = true;
             displayDropdown.onValueChanged.AddListener(OnDisplayDropdownChanged);
             outputCamera.cullingMask &= ~operatorUiLayerMask.value;
+            previewAspectFitter = previewImage.GetComponent<AspectRatioFitter>();
+            if (previewAspectFitter == null)
+            {
+                previewAspectFitter = previewImage.gameObject.AddComponent<AspectRatioFitter>();
+                ownsPreviewAspectFitter = true;
+            }
             if (!RegisterPreview(previewImage))
             {
                 SetError("画面1のプレビューRawImageを登録できませんでした。");
@@ -125,7 +144,7 @@ namespace MondmadeVJ0.Display
 
             if (Application.isEditor)
             {
-                ConfigurePreviewOnly(editorPreview: true);
+                ConfigureEditorSecondaryPreview();
                 return;
             }
 
@@ -156,12 +175,7 @@ namespace MondmadeVJ0.Display
                     currentHeight = height;
                     UpdateDropdownPreviewLabel(width, height);
                     if (EnsureTexture(width, height))
-                    {
                         State = editorPreviewMode ? DisplayOutputState.EditorPreview : DisplayOutputState.PreviewOnly;
-                        SetStatus(editorPreviewMode
-                            ? "Editor Previewのみ利用できます。実出力はStandalone Playerで確認してください。"
-                            : "副ディスプレイなし — プレビューのみ利用できます。");
-                    }
                 }
                 return;
             }
@@ -183,10 +197,7 @@ namespace MondmadeVJ0.Display
                 currentHeight = selectedDisplayHeight;
                 UpdateDisplayOptionLabel(selectedDisplayIndex, currentWidth, currentHeight);
                 if (EnsureTexture(currentWidth, currentHeight))
-                {
                     State = DisplayOutputState.Output;
-                    SetStatus($"出力中: {FormatDisplayLabel(selectedDisplayIndex, currentWidth, currentHeight)}");
-                }
             }
         }
 
@@ -217,8 +228,8 @@ namespace MondmadeVJ0.Display
                 if (outputImage != null && outputImage.texture == lastAssignedOutputImageTexture)
                     outputImage.texture = previousOutputImageTexture;
                 RestoreRegisteredPreviewTextures();
+                RestorePreviewAspectFitter();
                 RestoreDropdown();
-                if (statusText != null) statusText.text = previousStatusText;
             }
 
             services = null;
@@ -230,6 +241,9 @@ namespace MondmadeVJ0.Display
             currentWidth = currentHeight = 0;
             availableDisplayIndices.Clear();
             editorPreviewMode = false;
+            previewAspectFitter = null;
+            ownsPreviewAspectFitter = false;
+            previewAspectStateCaptured = false;
             State = DisplayOutputState.Uninitialized;
             statusMessage = "未初期化";
         }
@@ -283,18 +297,18 @@ namespace MondmadeVJ0.Display
             {
                 if (outputCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
                     AddIssue(issues, DisplayOutputIssueSeverity.Error, "出力CanvasはScreen Space - Overlayにしてください。");
-                if (!Application.isPlaying && outputCanvas.targetDisplay != 0)
-                    AddIssue(issues, DisplayOutputIssueSeverity.Error, "出力Canvasの初期Target DisplayはDisplay 0にしてください。");
+                if (!Application.isPlaying && outputCanvas.targetDisplay != 1)
+                    AddIssue(issues, DisplayOutputIssueSeverity.Error, "Editorプレビュー用の出力CanvasはTarget Display index 1にしてください。");
             }
 
             if (displayDropdown == null)
-                AddIssue(issues, DisplayOutputIssueSeverity.Error, "画面1のuGUI Dropdownが割り当てられていません。");
+                AddIssue(issues, DisplayOutputIssueSeverity.Error, "画面1のTMP_Dropdownが割り当てられていません。");
             else
             {
                 if (displayDropdown.template == null || displayDropdown.captionText == null || displayDropdown.itemText == null)
-                    AddIssue(issues, DisplayOutputIssueSeverity.Error, "DropdownのTemplate、Caption Text、Item Textを設定してください。");
+                    AddIssue(issues, DisplayOutputIssueSeverity.Error, "TMP_DropdownのTemplate、Caption Text、Item Textを設定してください。");
                 else if (displayDropdown.template.GetComponentInChildren<UnityEngine.UI.Toggle>(true) == null)
-                    AddIssue(issues, DisplayOutputIssueSeverity.Error, "Dropdown Template内にToggleを持つItemを設定してください。");
+                    AddIssue(issues, DisplayOutputIssueSeverity.Error, "TMP_Dropdown Template内にToggleを持つItemを設定してください。");
                 ValidateOperatorCanvas(issues, displayDropdown.GetComponentInParent<Canvas>(), "Dropdown");
             }
 
@@ -307,11 +321,6 @@ namespace MondmadeVJ0.Display
                 if (previewCanvas == outputCanvas)
                     AddIssue(issues, DisplayOutputIssueSeverity.Error, "プレビューRawImageは出力Canvasの外に配置してください。");
             }
-
-            if (statusText == null)
-                AddIssue(issues, DisplayOutputIssueSeverity.Error, "画面状態を表示するuGUI Textが割り当てられていません。");
-            else if (displayDropdown != null && statusText.GetComponentInParent<Canvas>() != displayDropdown.GetComponentInParent<Canvas>())
-                AddIssue(issues, DisplayOutputIssueSeverity.Error, "状態Textは画面1の操作Canvasに配置してください。");
 
             if (outputImage == null)
                 AddIssue(issues, DisplayOutputIssueSeverity.Error, "画面2のRawImageが割り当てられていません。");
@@ -379,11 +388,17 @@ namespace MondmadeVJ0.Display
             {
                 previousDropdownInteractable = displayDropdown.interactable;
                 previousDropdownValue = displayDropdown.value;
-                previousDropdownOptions = new List<UnityEngine.UI.Dropdown.OptionData>(displayDropdown.options.Count);
+                previousDropdownOptions = new List<TMP_Dropdown.OptionData>(displayDropdown.options.Count);
                 foreach (var option in displayDropdown.options)
-                    previousDropdownOptions.Add(new UnityEngine.UI.Dropdown.OptionData(option.text, option.image));
+                    previousDropdownOptions.Add(new TMP_Dropdown.OptionData(option.text, option.image, option.color));
             }
-            if (statusText != null) previousStatusText = statusText.text;
+            previewAspectFitter = previewImage != null ? previewImage.GetComponent<AspectRatioFitter>() : null;
+            if (previewAspectFitter != null)
+            {
+                previousPreviewAspectMode = previewAspectFitter.aspectMode;
+                previousPreviewAspectRatio = previewAspectFitter.aspectRatio;
+                previewAspectStateCaptured = true;
+            }
         }
 
         private void EnumerateAndActivateDisplays()
@@ -413,6 +428,27 @@ namespace MondmadeVJ0.Display
             }
         }
 
+        private void ConfigureEditorSecondaryPreview()
+        {
+            const int editorSecondaryDisplayIndex = 1;
+            previewOnly = true;
+            editorPreviewMode = true;
+            selectedDisplayIndex = editorSecondaryDisplayIndex;
+            currentWidth = editorPreviewResolution.x;
+            currentHeight = editorPreviewResolution.y;
+            outputCanvas.targetDisplay = editorSecondaryDisplayIndex;
+            outputCanvas.enabled = true;
+            displayDropdown.ClearOptions();
+            displayDropdown.AddOptions(new List<TMP_Dropdown.OptionData>
+            {
+                new TMP_Dropdown.OptionData($"{FormatDisplayLabel(editorSecondaryDisplayIndex, currentWidth, currentHeight)} — Editor Preview")
+            });
+            displayDropdown.SetValueWithoutNotify(0);
+            displayDropdown.interactable = true;
+            if (EnsureTexture(currentWidth, currentHeight))
+                State = DisplayOutputState.EditorPreview;
+        }
+
         private void ConfigurePreviewOnly(bool editorPreview)
         {
             previewOnly = true;
@@ -422,25 +458,22 @@ namespace MondmadeVJ0.Display
             displayDropdown.ClearOptions();
             GetPreviewDimensions(out currentWidth, out currentHeight);
             var label = editorPreview
-                ? $"Editor Preview — {currentWidth} × {currentHeight}"
+                ? $"{FormatDisplayLabel(1, currentWidth, currentHeight)} — Editor Preview"
                 : $"副ディスプレイなし — Preview {currentWidth} × {currentHeight}";
-            displayDropdown.AddOptions(new List<UnityEngine.UI.Dropdown.OptionData> { new UnityEngine.UI.Dropdown.OptionData(label) });
+            displayDropdown.AddOptions(new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData(label) });
             displayDropdown.SetValueWithoutNotify(0);
-            displayDropdown.interactable = false;
+            displayDropdown.interactable = editorPreview;
             if (EnsureTexture(currentWidth, currentHeight))
-            {
                 State = editorPreview ? DisplayOutputState.EditorPreview : DisplayOutputState.PreviewOnly;
-                SetStatus(editorPreview ? "Editor Previewのみ利用できます。実出力はStandalone Playerで確認してください。" : "副ディスプレイなし — プレビューのみ利用できます。");
-            }
         }
 
         private void ConfigureDisplayOptions()
         {
-            var options = new List<UnityEngine.UI.Dropdown.OptionData>(availableDisplayIndices.Count);
+            var options = new List<TMP_Dropdown.OptionData>(availableDisplayIndices.Count);
             foreach (var displayIndex in availableDisplayIndices)
             {
                 TryGetDisplayDimensions(displayIndex, out var width, out var height);
-                options.Add(new UnityEngine.UI.Dropdown.OptionData(FormatDisplayLabel(displayIndex, width, height)));
+                options.Add(new TMP_Dropdown.OptionData(FormatDisplayLabel(displayIndex, width, height)));
             }
             displayDropdown.ClearOptions();
             displayDropdown.AddOptions(options);
@@ -467,10 +500,7 @@ namespace MondmadeVJ0.Display
             outputCanvas.targetDisplay = selectedDisplayIndex;
             outputCanvas.enabled = true;
             if (EnsureTexture(currentWidth, currentHeight))
-            {
                 State = DisplayOutputState.Output;
-                SetStatus($"出力中: {FormatDisplayLabel(selectedDisplayIndex, currentWidth, currentHeight)}");
-            }
         }
 
         private bool EnsureTexture(int width, int height)
@@ -523,6 +553,7 @@ namespace MondmadeVJ0.Display
             outputImage.texture = replacement;
             lastAssignedOutputImageTexture = replacement;
             AssignTextureToRegisteredPreviews(replacement);
+            UpdatePreviewAspectRatio(width, height);
             if (oldTexture != null) DestroyTexture(oldTexture);
             NotifyOutputTextureChanged(replacement);
             return true;
@@ -634,6 +665,13 @@ namespace MondmadeVJ0.Display
 
         private void GetPreviewDimensions(out int width, out int height)
         {
+            if (editorPreviewMode)
+            {
+                width = editorPreviewResolution.x;
+                height = editorPreviewResolution.y;
+                return;
+            }
+
             var displays = UnityEngine.Display.displays;
             if (displays != null && displays.Length > 0 && displays[0].renderingWidth > 0 && displays[0].renderingHeight > 0)
             {
@@ -673,7 +711,7 @@ namespace MondmadeVJ0.Display
         {
             if (displayDropdown == null || displayDropdown.options.Count == 0) return;
             displayDropdown.options[0].text = editorPreviewMode
-                ? $"Editor Preview — {width} × {height}"
+                ? $"{FormatDisplayLabel(1, width, height)} — Editor Preview"
                 : $"副ディスプレイなし — Preview {width} × {height}";
             displayDropdown.RefreshShownValue();
         }
@@ -729,7 +767,27 @@ namespace MondmadeVJ0.Display
         private void SetStatus(string message)
         {
             statusMessage = message;
-            if (statusText != null) statusText.text = message;
+        }
+
+        private void UpdatePreviewAspectRatio(int width, int height)
+        {
+            if (previewAspectFitter == null || width <= 0 || height <= 0) return;
+            previewAspectFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            previewAspectFitter.aspectRatio = width / (float)height;
+        }
+
+        private void RestorePreviewAspectFitter()
+        {
+            if (previewAspectFitter != null && previewAspectStateCaptured)
+            {
+                previewAspectFitter.aspectMode = previousPreviewAspectMode;
+                previewAspectFitter.aspectRatio = previousPreviewAspectRatio;
+            }
+            if (previewAspectFitter != null && ownsPreviewAspectFitter)
+            {
+                if (Application.isPlaying) Destroy(previewAspectFitter);
+                else DestroyImmediate(previewAspectFitter);
+            }
         }
 
         private void Report(string code, string message)

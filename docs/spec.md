@@ -1,6 +1,6 @@
 # MondmadeVJ0 仕様
 
-更新日：2026-10-29（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。二画面出力D23のRuntime / Editor / SetupとEditor Preview検証を追加した。複数Displayを接続したStandalone PlayerのA25実出力受入は未実施である。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
+更新日：2026-10-29（JST）。[会話の最終設計](reference/conversation-design.md)全65章を実装仕様として整理した。現状は[プロジェクト調査](project-audit.md)、クラス一覧は[機能カタログ](feature-catalog.md)、詳細契約は[設計判断](design-notes.md)、配置・導入は[パッケージ構成](packaging.md)を参照する。従来のローカル受入範囲A01〜A24は検証済み。D23はTMP_Dropdown、Display index 1へのEditorプレビュー、自動セットアップTool、比率を保つプレビュー枠を追加した。複数Displayを接続したStandalone PlayerのA25実出力受入は未実施である。今回追加したFloat / Vector積分ModifierはUnity Editorでコンパイルし、速度×Unscaled deltaTimeの積算・再Bind時のFloat状態保持をEditModeテストで確認した。Runtime作成メニューからQuickStart ModuleとRouteHostが子オブジェクトとして登録されることもEditorで確認した。Windows上でのPlayer実行は今回の受入対象外。現行commitをpush・release tagした後の公開HTTPS UPM導入確認はリリース作業に属し、ローカル機能完成とは分けて扱う。
 
 ## 1. 目的と完成範囲
 
@@ -168,7 +168,7 @@ Audio Sourceに平滑化を内蔵せずModifierを接続する。Property候補�
 
 ### 二画面表示と出力プレビュー（D23）
 
-画面1は主ディスプレイ上の操作用uGUIと出力プレビュー、画面2は選択した副ディスプレイ上の実出力を担当する。画面1のuGUI `Dropdown`で出力先を選ぶ。出力カメラは選択画面の描画幅・高さと同じ`RenderTexture`へ描画し、そのテクスチャを画面2の全面`RawImage`、画面1のプレビュー、登録された任意の`RawImage`で共有する。出力用カメラには操作UIを含めず、画面2には操作UIを表示しない。二画面機能の詳細・ライフサイクル・Editor制約は[設計判断D23](design-notes.md#d23-二画面出力と共有テクスチャ)に従う。
+画面1は主ディスプレイ上の操作用uGUIと出力プレビュー、画面2は選択した副ディスプレイ上の実出力を担当する。画面1の`TMP_Dropdown`で出力先を選ぶ。出力カメラは選択画面の描画幅・高さと同じ`RenderTexture`へ描画し、そのテクスチャを画面2の全面`RawImage`、画面1のプレビュー、登録された任意の`RawImage`で共有する。プレビューは元のRawImageの枠内にアスペクト比を保って表示する。Editorでは出力Canvasを無効にせずTarget Display index 1へ出し、GameビューのDisplay 2で確認する。物理ディスプレイへの出力はStandalone Playerで行う。二画面機能の詳細・ライフサイクル・Editor制約は[設計判断D23](design-notes.md#d23-二画面出力と共有テクスチャ)に従う。
 
 ## 9. Editorと観測
 
