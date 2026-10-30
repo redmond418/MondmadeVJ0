@@ -247,8 +247,6 @@ Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専�
                                   出力カメラ.targetTexture
 ```
 
-実行時は出力Canvasを専用の `Screen Space - Camera` に切り替え、出力先Displayへ描画する。操作画面用の空Cameraを最後に描画し、URPのOverlay UI描画先を主画面に固定する。これらのCameraはModuleが所有し、Shutdownで破棄してCanvasの元設定を復元する。複数画面のPlayer実機での検証は必要。
-
 ### Display選択と起動
 
 起動時に`Display.displays`から対象Displayを列挙し、接続済みの全副ディスプレイを起動時に一度だけ`Activate()`する。選択切替ではDisplayの再Activateをせず、出力Canvasの`targetDisplay`を切り替える。UnityではDisplay 0が主画面、副画面は1〜7であり、Activate後にDisplayを非Activateへ戻すAPIはないため、Dropdownから選べる画面は起動時に列挙された副画面に限定する。非選択の副画面には出力内容を表示しない。出力先変更は画面2の表示位置だけを切り替え、Routeや出力カメラの描画内容を再Bindしない。
