@@ -50,6 +50,53 @@ namespace MondmadeVJ0
         public static float PingPong(float value, float length) => length - Mathf.Abs(Repeat(value, length * 2f) - length);
     }
 
+    [Serializable]
+    public abstract class GateValueModifierBase : RouteNode
+    {
+        [SerializeReference] protected IValueSource<bool> gate;
+    }
+
+    [Serializable]
+    public abstract class GateValueModifier<T> : GateValueModifierBase, IValueModifier<T>
+    {
+        public Observable<T> Apply(Observable<T> source, RouteContext context)
+        {
+            if (gate == null) throw new InvalidOperationException("Gate value modifier requires a Bool source.");
+            var gateStream = gate.Build(context);
+            return Observable.Create<T>(observer =>
+            {
+                var subscriptions = new CompositeDisposable();
+                var hasValue = false;
+                var latestValue = default(T);
+                var gateOpen = false;
+
+                subscriptions.Add(SourceStream.Subscribe(source, value =>
+                {
+                    latestValue = value;
+                    hasValue = true;
+                    if (gateOpen) observer.OnNext(value);
+                }, observer.OnErrorResume));
+
+                subscriptions.Add(SourceStream.Subscribe(gateStream, value =>
+                {
+                    var wasOpen = gateOpen;
+                    gateOpen = value;
+                    if (!wasOpen && gateOpen && hasValue) observer.OnNext(latestValue);
+                }, observer.OnErrorResume));
+
+                return subscriptions;
+            });
+        }
+    }
+
+    [Serializable] public sealed class GateFloatModifier : GateValueModifier<float> { }
+    [Serializable] public sealed class GateIntModifier : GateValueModifier<int> { }
+    [Serializable] public sealed class GateBoolModifier : GateValueModifier<bool> { }
+    [Serializable] public sealed class GateVector2Modifier : GateValueModifier<Vector2> { }
+    [Serializable] public sealed class GateVector3Modifier : GateValueModifier<Vector3> { }
+    [Serializable] public sealed class GateVector4Modifier : GateValueModifier<Vector4> { }
+    [Serializable] public sealed class GateColorModifier : GateValueModifier<Color> { }
+
     [Serializable] public sealed class AddFloatModifier : RouteNode, IValueModifier<float> { [SerializeField] private float amount; public Observable<float> Apply(Observable<float> s, RouteContext c) => ModifierStream.Map(s, c, this, x => x + amount, ModifierStream.Finite); }
     [Serializable] public sealed class MultiplyFloatModifier : RouteNode, IValueModifier<float> { [SerializeField] private float factor = 1f; public Observable<float> Apply(Observable<float> s, RouteContext c) => ModifierStream.Map(s, c, this, x => x * factor, ModifierStream.Finite); }
     [Serializable]
