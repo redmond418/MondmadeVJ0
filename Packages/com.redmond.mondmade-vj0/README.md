@@ -8,6 +8,7 @@ Inspectorで組み立てる型安全なVJ制御Route基盤。Core、Musical Tran
 - R3 NuGet 1.3.0とSystem.Runtime.CompilerServices.Unsafe 6.0.0（同梱Setupから導入）
 - Coreで使うUnity Audio module。Animator / Video出力には対応するUnity標準module
 - Input System、URP、MIDI、OSC、Lasp、Cinemachine、VFX Graphの各Integrationは任意
+- TextMeshProでBPMを表示する場合はuGUI 2.0.0 + TextMeshProが必要（任意）
 
 ## Setup
 
@@ -26,6 +27,10 @@ https://github.com/redmond418/MondmadeVJ0.git?path=/Packages/com.redmond.mondmad
 `#main`は開発ブランチです。チームや本番環境では検証したrelease tagまたはcommit SHAへ置き換えてください。インストール後、`Tools > Mondmade VJ0 > Setup`を開き、R3と必須の推移依存を導入して必要なIntegrationを選びます。その後、Hierarchyの`GameObject > Mondmade VJ0 > Runtime`からRuntimeテンプレートを作成します。Transport、導入済みMIDI / OSC Module、OSC Transport Sync Adapter、RouteHostが子GameObjectとして作成・登録されます。Route InspectorでSource、Modifier、Outputを追加し、Play前ValidationとRuntime Monitorで設定と状態を確認します。
 
 APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../Assets/MondmadeVJ0.Dev/README.md)、機能一覧は[機能カタログ](../../docs/feature-catalog.md)、詳細契約は[仕様](../../docs/spec.md)と[設計判断](../../docs/design-notes.md)、依存導入は[パッケージ構成](../../docs/packaging.md)を参照してください。
+
+## Transport BPMのTextMeshPro表示
+
+`Tools > Mondmade VJ0 > Setup`から「uGUI 2.0.0 + TextMeshPro (Display output / BPM text)」を導入し、TMPテキストと同じGameObjectに`TransportBpmText`を追加します。Transport欄へSceneの`MusicalTransport`を割り当てると、倍率を含む有効BPMを`120 BPM`形式で表示します。Text欄を空にした場合は同じGameObjectのTextMeshProテキストを自動取得します。
 
 ## APC mini mk2 Profileの利用
 

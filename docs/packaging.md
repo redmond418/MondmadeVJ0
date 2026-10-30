@@ -23,7 +23,7 @@ MondmadeVJ0/
 │   ├ package.json
 │   ├ Runtime/
 │   │ ├ Core/                       # 独立asmdef、Route・Signal・Root等
-│   │ ├ Transport/
+│   │ ├ Transport/                   # Transport。TextMeshPro連携は任意asmdef
 │   │ ├ InputSystem/
 │   │ ├ Midi/
 │   │ ├ Osc/
@@ -62,6 +62,7 @@ package IDは `com.redmond.mondmade-vj0`。namespace / assemblyのprefixは `Mon
 | --- | --- | --- |
 | Core | MondmadeVJ0.Core | Route、Source / Modifier、Signal、Clock契約、Root、Unity Object / Transform / AudioSource出力。R3 1.3.0本体、com.cysharp.r3 1.3.0、System.Runtime.CompilerServices.Unsafe 6.0.0、Unity Audio module |
 | Transport | MondmadeVJ0.Transport | Core、Transport、Grid / Quantize、Tap。Coreのinterfaceを実装 |
+| Transport/TextMeshPro | MondmadeVJ0.Transport.TextMeshPro | Core、Transport、uGUI 2.x / TextMeshPro。`TransportBpmText`が有効BPMをTMP_Textへ表示する任意Integration |
 | InputSystem | MondmadeVJ0.InputSystem | Core、com.unity.inputsystem 1.18.0 |
 | Midi | MondmadeVJ0.Midi | Core、Minis 1.3.2、RtMidi 2.2.0、Input System。Raw Clock連携はCoreのinterface経由 |
 | Osc | MondmadeVJ0.Osc | Core、OSC Jack 2.0.0ベースのredmond418 fork。D20のType Tag APIを追加したcommitへ固定 |
@@ -79,15 +80,19 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 ## 任意Integrationの有効化
 
-全Integrationのソースを同梱し、利用プロジェクトに外部依存が揃った機能だけをコンパイルする。Lasp / Cinemachine / VFX Graph / uGUI等をすべてpackage.jsonの必須依存にして自動導入する構成にはしない。二画面出力を使う利用者は、Tools > Mondmade VJ0 > Setupで「uGUI 2.0.0 + TextMeshPro (Display output)」を選択して導入する。uGUI 2.0.0と同梱のTextMeshPro APIを使い、`MondmadeVJ0.Display`とEditor validatorを有効にする。依存がない構成でもCoreと他のIntegrationに未解決参照を残さない。
+全Integrationのソースを同梱し、利用プロジェクトに外部依存が揃った機能だけをコンパイルする。Lasp / Cinemachine / VFX Graph / uGUI等をすべてpackage.jsonの必須依存にして自動導入する構成にはしない。二画面出力またはBPMテキスト表示を使う利用者は、Tools > Mondmade VJ0 > Setupで「uGUI 2.0.0 + TextMeshPro (Display output / BPM text)」を選択して導入する。uGUI 2.0.0と同梱のTextMeshPro APIを使い、`MondmadeVJ0.Display`と`MondmadeVJ0.Transport.TextMeshPro`を有効にする。依存がない構成でもCoreと他のIntegrationに未解決参照を残さない。
 
-各Integration asmdefに必要packageのVersion Definesと同じsymbolのDefine Constraintsを設定する。例：Cinemachineはcom.unity.cinemachineの `[3.1.6,4.0.0)` で `MONDMADE_HAS_CINEMACHINE` を定義し、そのsymbolをassemblyの制約にする。Displayはcom.unity.uguiの `[2.0.0,3.0.0)` で `MONDMADE_HAS_UGUI` を定義する。Editor / Testsも同条件、複数依存のMidiは全条件のANDとする。外部assemblyは名前で参照し、任意packageの不存在時に未解決GUIDを残さない。UnityはVersion DefinesのsymbolをDefine Constraintsに利用できる。[Unityの条件付きAssembly](https://docs.unity.com/en-us/engine/6000.7/manual/scripting/compilation-and-code-reload/script-compilation/assembly-definition-files/includes)
+各Integration asmdefに必要packageのVersion Definesと同じsymbolのDefine Constraintsを設定する。例：Cinemachineはcom.unity.cinemachineの `[3.1.6,4.0.0)` で `MONDMADE_HAS_CINEMACHINE` を定義し、そのsymbolをassemblyの制約にする。DisplayとTransport/TextMeshProはcom.unity.uguiの `[2.0.0,3.0.0)` で `MONDMADE_HAS_UGUI` を定義する。Editor / Testsも同条件、複数依存のMidiは全条件のANDとする。外部assemblyは名前で参照し、任意packageの不存在時に未解決GUIDを残さない。UnityはVersion DefinesのsymbolをDefine Constraintsに利用できる。[Unityの条件付きAssembly](https://docs.unity.com/en-us/engine/6000.7/manual/scripting/compilation-and-code-reload/script-compilation/assembly-definition-files/includes)
 
 ### Display IntegrationのScene設定
 
 `Tools > Mondmade VJ0 > Display Output > Auto Setup`を実行すると、SceneのMainCameraを出力カメラとして設定し、DisplayOutputModuleの追加・Runtimeへの登録、出力Canvasと全面RawImageの作成、既存の操作CanvasへのTMP_Dropdown配置を行う。Display index 0 / 1用の空Camera（Culling Mask = Nothing）も2つ作成または再利用する。操作Canvas、EventSystem、GraphicRaycasterが不足していれば補完する。プレビューRawImageは元の枠をFrameとして保持し、その内側でRenderTextureの縦横比に合わせて小さく表示する。TMP EssentialsがなければToolがImportする。
 
 手動で設定する場合は`DisplayOutputModule`をScene内のGameObjectへ追加し、MainCamera、出力Canvas、画面1のTMP_Dropdown / プレビューRawImage、画面2のRawImageを割り当てる。GameObjectを`MondmadeVJ0Runtime.Modules`へ登録する。操作Canvasは`Screen Space - Overlay` / Display index 0、Editorプレビュー中の出力Canvasは同じOverlay mode / Target Display index 1にする。出力Cameraの操作UI Layer除外は`operatorUiLayerMask`で指定し、Play開始時にも適用する。Inspector validatorは必須参照、Overlay / Display設定、TMP_Dropdownの入力部品、出力RawImageの全面配置、操作UI Layer、EventSystemを診断する。状態表示用Textは不要。
+
+### Transport BPMのTMP表示
+
+既存のTextMeshProテキストと同じGameObjectに`TransportBpmText`を追加し、Transport欄へSceneの`MusicalTransport`を割り当てる。Text欄は未指定なら同じGameObjectの`TMP_Text`を使う。有効BPM（`EffectiveBpm`）を最大小数2桁で`120 BPM`の形式に表示し、Transport未指定時は`-- BPM`を表示する。
 
 他のuGUIプレビューへ映像を共有する場合は、`DisplayOutputModule.RegisterPreview(rawImage)`と`UnregisterPreview(rawImage)`を呼ぶ。登録先には同じ`OutputTexture`が設定され、Texture再生成時も一括更新される。`OutputTexture`はModule所有のため、利用側でRelease / Destroyしない。出力Canvas内や出力Cameraで描画されるCanvas上のRawImageは再帰描画を防ぐため登録できず、Runtime診断を記録する。Inspector validatorはシリアライズ済みの画面1プレビューを検証する。Editorでは出力Canvasを有効にしてTarget Display index 1を使い、GameビューのDisplay 2で内容を確認する。Unity Editorは物理副画面の列挙と実出力に対応しないため、物理ディスプレイへの出力はStandalone Playerで検証する。
 
