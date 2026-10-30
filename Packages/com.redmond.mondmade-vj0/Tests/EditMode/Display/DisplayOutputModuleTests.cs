@@ -104,7 +104,13 @@ namespace MondmadeVJ0.Tests.Display
             Assert.That(outputImage.texture, Is.SameAs(module.OutputTexture));
             Assert.That(previewImage.texture, Is.SameAs(module.OutputTexture));
             Assert.That(outputCanvas.enabled, Is.True);
-            Assert.That(outputCanvas.targetDisplay, Is.EqualTo(1));
+            Assert.That(outputCanvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceCamera));
+            Assert.That(outputCanvas.worldCamera, Is.Not.Null);
+            Assert.That(outputCanvas.worldCamera.targetDisplay, Is.EqualTo(1));
+            var operatorSurface = GameObject.Find("MondmadeVJ0 Operator Surface").GetComponent<Camera>();
+            Assert.That(operatorSurface.targetDisplay, Is.EqualTo(0));
+            Assert.That(operatorSurface.depth, Is.GreaterThan(outputCanvas.worldCamera.depth));
+            Assert.That(outputCanvas.worldCamera.depth, Is.GreaterThan(outputCamera.depth));
             Assert.That(dropdown.interactable, Is.True);
             var aspectFitter = previewImage.GetComponent<AspectRatioFitter>();
             Assert.That(aspectFitter, Is.Not.Null);
@@ -129,6 +135,10 @@ namespace MondmadeVJ0.Tests.Display
             Assert.That(outputImage.texture, Is.SameAs(previousOutputTexture));
             Assert.That(previewImage.texture, Is.SameAs(previousPreviewTexture));
             Assert.That(outputCanvas.enabled, Is.True);
+            Assert.That(outputCanvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
+            Assert.That(outputCanvas.worldCamera, Is.Null);
+            Assert.That(GameObject.Find("MondmadeVJ0 Operator Surface"), Is.Null);
+            Assert.That(GameObject.Find("MondmadeVJ0 Output Surface"), Is.Null);
             Assert.That(module.OutputTexture, Is.Null);
         }
 

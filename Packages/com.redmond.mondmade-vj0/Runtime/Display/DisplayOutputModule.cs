@@ -56,6 +56,11 @@ namespace MondmadeVJ0.Display
 
         private RuntimeServices services;
         private RenderTexture outputTexture;
+        private Camera displaySurfaceCamera;
+        private Camera operatorSurfaceCamera;
+        private RenderMode previousOutputCanvasRenderMode;
+        private Camera previousOutputCanvasWorldCamera;
+        private float previousOutputCanvasPlaneDistance;
         private AspectRatioFitter previewAspectFitter;
         private AspectRatioFitter.AspectMode previousPreviewAspectMode;
         private float previousPreviewAspectRatio;
@@ -128,6 +133,7 @@ namespace MondmadeVJ0.Display
             }
 
             initialized = true;
+            ConfigureSurfaceCameras();
             displayDropdown.onValueChanged.AddListener(OnDisplayDropdownChanged);
             outputCamera.cullingMask &= ~operatorUiLayerMask.value;
             previewAspectFitter = previewImage.GetComponent<AspectRatioFitter>();
@@ -222,6 +228,9 @@ namespace MondmadeVJ0.Display
                 }
                 if (outputCanvas != null)
                 {
+                    outputCanvas.renderMode = previousOutputCanvasRenderMode;
+                    outputCanvas.worldCamera = previousOutputCanvasWorldCamera;
+                    outputCanvas.planeDistance = previousOutputCanvasPlaneDistance;
                     outputCanvas.enabled = previousOutputCanvasEnabled;
                     outputCanvas.targetDisplay = previousOutputCanvasTargetDisplay;
                 }
@@ -232,6 +241,10 @@ namespace MondmadeVJ0.Display
                 RestoreDropdown();
             }
 
+            DestroySurfaceCamera(displaySurfaceCamera);
+            DestroySurfaceCamera(operatorSurfaceCamera);
+            displaySurfaceCamera = null;
+            operatorSurfaceCamera = null;
             services = null;
             initialized = false;
             initializationAttempted = false;
@@ -375,6 +388,9 @@ namespace MondmadeVJ0.Display
             stateCaptured = true;
             if (outputCanvas != null)
             {
+                previousOutputCanvasRenderMode = outputCanvas.renderMode;
+                previousOutputCanvasWorldCamera = outputCanvas.worldCamera;
+                previousOutputCanvasPlaneDistance = outputCanvas.planeDistance;
                 previousOutputCanvasEnabled = outputCanvas.enabled;
                 previousOutputCanvasTargetDisplay = outputCanvas.targetDisplay;
             }
@@ -399,6 +415,45 @@ namespace MondmadeVJ0.Display
                 previousPreviewAspectRatio = previewAspectFitter.aspectRatio;
                 previewAspectStateCaptured = true;
             }
+        }
+
+        // URP draws overlay UI for the final screen camera. Keep that camera on the
+        // operator display and render the output canvas explicitly on its own camera.
+        private void ConfigureSurfaceCameras()
+        {
+            var maxDepth = 0f;
+            foreach (var camera in Camera.allCameras)
+                if (camera != null && camera.depth > maxDepth) maxDepth = camera.depth;
+
+            displaySurfaceCamera = CreateSurfaceCamera("MondmadeVJ0 Output Surface", maxDepth + 1f);
+            displaySurfaceCamera.cullingMask = 1 << outputImage.gameObject.layer;
+            operatorSurfaceCamera = CreateSurfaceCamera("MondmadeVJ0 Operator Surface", maxDepth + 2f);
+            operatorSurfaceCamera.targetDisplay = 0;
+            operatorSurfaceCamera.clearFlags = CameraClearFlags.Depth;
+            outputCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+            outputCanvas.worldCamera = displaySurfaceCamera;
+            outputCanvas.planeDistance = 1f;
+        }
+
+        private static Camera CreateSurfaceCamera(string name, float depth)
+        {
+            var camera = new GameObject(name).AddComponent<Camera>();
+            camera.depth = depth;
+            camera.cullingMask = 0;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
+            camera.orthographic = true;
+            camera.nearClipPlane = 0.1f;
+            camera.farClipPlane = 10f;
+            return camera;
+        }
+
+        private static void DestroySurfaceCamera(Camera camera)
+        {
+            if (camera == null) return;
+            camera.enabled = false;
+            if (Application.isPlaying) Destroy(camera.gameObject);
+            else DestroyImmediate(camera.gameObject);
         }
 
         private void EnumerateAndActivateDisplays()
@@ -436,6 +491,7 @@ namespace MondmadeVJ0.Display
             selectedDisplayIndex = editorSecondaryDisplayIndex;
             currentWidth = editorPreviewResolution.x;
             currentHeight = editorPreviewResolution.y;
+            displaySurfaceCamera.targetDisplay = editorSecondaryDisplayIndex;
             outputCanvas.targetDisplay = editorSecondaryDisplayIndex;
             outputCanvas.enabled = true;
             displayDropdown.ClearOptions();
@@ -454,6 +510,7 @@ namespace MondmadeVJ0.Display
             previewOnly = true;
             editorPreviewMode = editorPreview;
             selectedDisplayIndex = -1;
+            displaySurfaceCamera.enabled = false;
             outputCanvas.enabled = false;
             displayDropdown.ClearOptions();
             GetPreviewDimensions(out currentWidth, out currentHeight);
@@ -497,6 +554,7 @@ namespace MondmadeVJ0.Display
 
             selectedDisplayIndex = availableDisplayIndices[optionIndex];
             TryGetDisplayDimensions(selectedDisplayIndex, out currentWidth, out currentHeight);
+            displaySurfaceCamera.targetDisplay = selectedDisplayIndex;
             outputCanvas.targetDisplay = selectedDisplayIndex;
             outputCanvas.enabled = true;
             if (EnsureTexture(currentWidth, currentHeight))
