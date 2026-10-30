@@ -247,6 +247,8 @@ Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専�
                                   出力カメラ.targetTexture
 ```
 
+macOS・Unity 6000.3.8f1 / URP 17.3.0では、Render Graphが画面ごとのCameraTargetを汎用バックバッファとして扱い、Display 0の映像が副画面へ混入することを実機で確認した。Display OutputのmacOS URP Fixは、EmbedしたURPのRender Graphで各Displayのcolor / depth bufferと描画解像度を明示する。macOS Playerに限定した条件付き修正で、Render Graphを有効にする。試作Playerでは2画面が正常に表示され、RenderPass寸法エラーも発生しなかった。利用手順と更新時の注意は[パッケージ構成](packaging.md#display-integrationのscene設定)を参照。
+
 ### Display選択と起動
 
 起動時に`Display.displays`から対象Displayを列挙し、接続済みの全副ディスプレイを起動時に一度だけ`Activate()`する。選択切替ではDisplayの再Activateをせず、出力Canvasの`targetDisplay`を切り替える。UnityではDisplay 0が主画面、副画面は1〜7であり、Activate後にDisplayを非Activateへ戻すAPIはないため、Dropdownから選べる画面は起動時に列挙された副画面に限定する。非選択の副画面には出力内容を表示しない。出力先変更は画面2の表示位置だけを切り替え、Routeや出力カメラの描画内容を再Bindしない。

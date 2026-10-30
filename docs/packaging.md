@@ -85,7 +85,7 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 ### Display IntegrationのScene設定
 
-Unity 6000.3.8f1のURP Render Graphは副画面バックバッファの寸法を主画面の `Screen.width` / `Screen.height` として扱うため、異なる解像度のマルチディスプレイでは描画が破綻する場合がある。回避策として、利用プロジェクトの Project Settings > Player > Scripting Define Symbols に `URP_COMPATIBILITY_MODE` を追加し、Project Settings > Graphics > URP Global Settings > Render Graph で Compatibility Mode を有効にして、Playerを再ビルドする。この設定はプロジェクト全体に影響し、Render Graph専用のRenderer Featureとは互換性を確認する必要がある。Unityの修正後は実機で再検証してから解除する。
+macOSで複数Displayを使う場合、Unity 6000.3.8f1 / URP 17.3ではディスプレイごとのバックバッファを明示する修正が必要。`Tools > Mondmade VJ0 > Display Output > Apply macOS URP Fix`を実行するとURP 17.3.xをプロジェクトへEmbedし、macOS Player向けに各Displayのcolor / depth bufferと描画寸法を指定してRender Graphを有効にする。Auto SetupもmacOS Standaloneが選択されている場合に実行する。パッチ前のURPソースが想定と異なる場合は書き換えずにConsoleへエラーを出す。EmbedしたURPはプロジェクト側の依存であり、パッケージキャッシュではない。Render Graph専用でないRenderer Featureには互換性確認が必要。URPを更新またはEmbedを削除した後、別の利用プロジェクトやクローンでは同じメニューを再実行する。 このリポジトリでは生成されたEmbed済みURPをGit管理しない。Build Settingsに登録されたSceneにDisplayOutputModuleがあるmacOSビルドは、パッチとRender Graph設定を検査し、未適用ならビルドを中止する。独自スクリプトから別のSceneを渡してビルドする場合も事前に同メニューを実行する。
 
 `Tools > Mondmade VJ0 > Display Output > Auto Setup`を実行すると、SceneのMainCameraを出力カメラとして設定し、DisplayOutputModuleの追加・Runtimeへの登録、出力Canvasと全面RawImageの作成、既存の操作CanvasへのTMP_Dropdown配置を行う。Display index 0 / 1用の空Camera（Culling Mask = Nothing）も2つ作成または再利用する。操作Canvas、EventSystem、GraphicRaycasterが不足していれば補完する。プレビューRawImageは元の枠をFrameとして保持し、その内側でRenderTextureの縦横比に合わせて小さく表示する。TMP EssentialsがなければToolがImportする。
 
