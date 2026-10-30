@@ -85,6 +85,8 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 ### Display IntegrationのScene設定
 
+Unity 6000.3.8f1のURP Render Graphは副画面バックバッファの寸法を主画面の `Screen.width` / `Screen.height` として扱うため、異なる解像度のマルチディスプレイでは描画が破綻する場合がある。回避策として、利用プロジェクトの Project Settings > Player > Scripting Define Symbols に `URP_COMPATIBILITY_MODE` を追加し、Project Settings > Graphics > URP Global Settings > Render Graph で Compatibility Mode を有効にして、Playerを再ビルドする。この設定はプロジェクト全体に影響し、Render Graph専用のRenderer Featureとは互換性を確認する必要がある。Unityの修正後は実機で再検証してから解除する。
+
 `Tools > Mondmade VJ0 > Display Output > Auto Setup`を実行すると、SceneのMainCameraを出力カメラとして設定し、DisplayOutputModuleの追加・Runtimeへの登録、出力Canvasと全面RawImageの作成、既存の操作CanvasへのTMP_Dropdown配置を行う。Display index 0 / 1用の空Camera（Culling Mask = Nothing）も2つ作成または再利用する。操作Canvas、EventSystem、GraphicRaycasterが不足していれば補完する。プレビューRawImageは元の枠をFrameとして保持し、その内側でRenderTextureの縦横比に合わせて小さく表示する。TMP EssentialsがなければToolがImportする。
 
 手動で設定する場合は`DisplayOutputModule`をScene内のGameObjectへ追加し、MainCamera、出力Canvas、画面1のTMP_Dropdown / プレビューRawImage、画面2のRawImageを割り当てる。GameObjectを`MondmadeVJ0Runtime.Modules`へ登録する。操作Canvasは`Screen Space - Overlay` / Display index 0、Editorプレビュー中の出力Canvasは同じOverlay mode / Target Display index 1にする。出力Cameraの操作UI Layer除外は`operatorUiLayerMask`で指定し、Play開始時にも適用する。Inspector validatorは必須参照、Overlay / Display設定、TMP_Dropdownの入力部品、出力RawImageの全面配置、操作UI Layer、EventSystemを診断する。状態表示用Textは不要。
