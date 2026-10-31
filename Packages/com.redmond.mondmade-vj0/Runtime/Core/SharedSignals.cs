@@ -43,19 +43,4 @@ namespace MondmadeVJ0
         }
     }
 
-    public sealed class SharedFloatSignal : SharedValueSignal<float> { }
-    public sealed class SharedIntSignal : SharedValueSignal<int> { }
-    public sealed class SharedBoolSignal : SharedValueSignal<bool> { }
-    public sealed class SharedVector2Signal : SharedValueSignal<Vector2> { }
-    public sealed class SharedVector3Signal : SharedValueSignal<Vector3> { }
-    public sealed class SharedVector4Signal : SharedValueSignal<Vector4> { }
-    public sealed class SharedColorSignal : SharedValueSignal<Color> { }
-
-    public sealed class SharedTriggerSignal : SharedSignalBase
-    {
-        [NonSerialized] private Subject<Unit> stream = new Subject<Unit>();
-        public Observable<Unit> Stream => stream;
-        public void Fire() => stream.OnNext(Unit.Default);
-        private void OnDestroy() { stream.Dispose(); stream = null; }
-    }
 }

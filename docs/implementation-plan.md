@@ -1,6 +1,6 @@
 # 実装と検証
 
-更新日：2026-10-29（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の既存機能を実装し、従来の受入範囲A01〜A24をローカルで検証した。D23二画面出力のRuntime / Editor / SetupにTMP_Dropdown、Display index 1へのEditorプレビュー、自動セットアップTool、比率を保つプレビュー枠を追加した。今回の変更はUnity Editorの再コンパイルで0 errors / 0 warningsを確認した。複数Displayを接続したStandalone PlayerでのA25実出力は未検証のため、完成扱いにはしない。D01〜D23の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2 SimulatorのMidi Editor test assembly 10件は、最終レイアウトとEdit Mode Learn経路を含めてWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
+更新日：2026-10-30（JST）。[仕様](spec.md)と[機能カタログ](feature-catalog.md)の既存機能を実装し、従来の受入範囲A01〜A24をローカルで検証した。D23二画面出力のRuntime / Editor / SetupにTMP_Dropdown、Display index 1へのEditorプレビュー、自動セットアップTool、比率を保つプレビュー枠を追加した。D24 Value型Bool Gate Modifier 7種を実装し、Unity Editor再コンパイル0 errors / 0 warnings、EditMode 277/277、PlayMode 12/12を確認した。複数Displayを接続したStandalone PlayerでのA25実出力は未検証のため、完成扱いにはしない。D01〜D24の設計判断、Core / Integration Editor、Setup、Monitor、OSC loopback / strict Type Tag / main-thread queue、Lasp dBFS / spectrum / trigger、Video prepare・Fault、Material / Volume lease、書込み競合診断を含む。最新StageではEditMode 255/255、通常PlayMode 12/12（Explicit probe 7件はskip）。APC mini mk2 SimulatorのMidi Editor test assembly 10件は、最終レイアウトとEdit Mode Learn経路を含めてWindows Unity EditorでPassed。APC mini mk2実機のPad 1 / Fader 1 / Track Button 1入力、緑LED、USB切断・再接続、A20 Background Music入力、A14 10分×3速度を確認した。A14は累積期限ずれ上限を5msへ改訂した基準で合格。現行source commit `215b48c` ではmacOS universal IL2CPP Playerのbuildと起動、AOT accessor・stripping・RtMidi接続状態も確認した。公開HTTPS UPMからの導入確認だけは、現行commitのpushとrelease tag後に実施する。
 
 ## 実装作業
 
@@ -21,6 +21,7 @@
 
 - [x] カタログの基本・Stateful・Composite・型変換Sourceを全件実装
 - [x] Float / Int / Bool / Vector / Color / Trigger Modifierを全件実装
+- [x] D24：Float / Int / Bool / Vector2 / 3 / 4 / ColorのBool Gate Modifier 7種。閉じている間は出力通知を抑え、開いた時に最新値を1回通知する
 - [x] D04〜D08：初期値・同時入力・Trigger合成・数値境界・時間処理・再Bindの意味を確定
 - [x] Input System Source全件と共用ActionのEnable管理（D12）
 
@@ -104,6 +105,7 @@
 | A23 | Monitor | Raw→中間値→Final→Output、論理MIDI / Raw MIDI、Tap履歴・Clock、処理件数を照合。無効化時の計測コストも測定 |
 | A24 | 単一UPM・分離とPlayer | MondmadeVJ0をGit URL1つで導入し、Core必須依存のみ・一部外部依存あり・全依存ありの各構成でimport・Playerビルド。無効Integrationの欠落参照エラーがないこと、macOS arm64でnative MIDI・AOT accessor・strippingを検証。Windows x64 Mono cross-buildは確認済み。Windows上の実行・MIDI・IL2CPPは当面の受入対象外 |
 | A25 | 二画面出力 | 2画面以上を接続したStandalone Playerで起動し、画面1のTMP_Dropdownが起動時に列挙した副画面と解像度を表示する。各選択先に画面2の全面出力だけが表示され、画面1の操作UIとプレビューは主画面に残る。出力カメラのRenderTextureが選択Displayの`renderingWidth × renderingHeight`と一致し、画面1のpreviewおよび任意に登録した複数RawImageが同一フレームの同一Textureを表示する。異解像度Displayへの切替・解像度変更後の再生成と参照更新、Displayなし・無効参照・RT割当失敗時の診断、Shutdown時の参照復元と資源解放を確認する。Editorでは出力Canvasを無効にせずTarget Display index 1へ描画し、GameビューのDisplay 2で確認する。Editorの物理複数Display列挙と実出力はStandalone Playerで検証する |
+| A26 | Value Gate | Float / Int / Bool / Vector2 / 3 / 4 / Colorの各型でBool Gateを閉じた間は出力通知がなく、開いた時に保持した最新値が1回だけ届くことを確認する。InspectorにBool Source pickerが表示される |
 
 ## 現時点の検証結果
 
@@ -113,6 +115,7 @@
 | --- | --- |
 | Unity Editor | Unity 6000.3.8f1 macOS arm64 Stage Projectで全Runtime / Editor assemblyをコンパイル |
 | EditMode | Core契約、Transport、OSC Adapter、Editor Validationの原文53章全項目・VFX / Animator / Shader / MIDI参照・Component member型、APC Profile、MIDI Type Picker、Input Action lease、MIDI Clock scheduler、共有MIDI出力workerの優先queue / LED coalescing / Clock metric / schedule世代破棄、時間Modifier、Quantize / Subdivision境界、Monitor履歴と計測コスト、RouteHost複製・Copy / Paste・Undo / Redo・Scene保存 / 再読込、Material / Volume clone leaseとTransform / Genericを含むOutput競合、Video prepare共有・Fault、Lasp値・周波数bin・Trigger状態、OSC型・queue・UDP loopback、Core / Unity / Audio、Animator / Cinemachine、OSC Output契約とDebug Outputのログを含む255 testsが255/255通過 |
+| D24 Value Gate | Value Gateの動作・Inspector pickerのEditModeテストを通過。全EditMode 277/277、通常PlayMode 12/12。Unity Editor再コンパイルは0 errors / 0 warnings |
 | D23 Display Output | Unity Editorのlive recompileで0 errors / 0 warnings。過去の実装ではEditMode 3/3 passed、StandaloneOSX Player build errors 0 / warnings 3（`Samples~` folder metadata）を確認。今回のTMP_Dropdown・Editor Target Display index 1・自動セットアップTool変更に対してはテストを再実行していない。複数Display接続Standalone PlayerのA25実出力は未確認 |
 | A06 Route隔離 | Source.Buildで例外を投げるRouteだけがFaultedとなり、Route名付き診断を残し、同じRuntime上の正常Routeは初期値を出力してActiveを維持 |
 | A08 数値境界 | Negative Modulo / Lookup上下端 / 0除算 / NaN入力時の最終有限値保持を確認し、NaN設定をPlay前に報告 |

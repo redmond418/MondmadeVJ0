@@ -825,6 +825,18 @@ namespace MondmadeVJ0.Tests
             CollectionAssert.AreEqual(new[] { 8 }, Collect(lookup.Apply(Observable.Return(10), Context())));
         }
 
+        [Test]
+        public void ValueGateModifiersSuppressClosedValuesAndEmitLatestValueWhenReopened()
+        {
+            AssertValueGate(new GateFloatModifier(), 1f, 2f, 3f, 4f);
+            AssertValueGate(new GateIntModifier(), 11, 12, 13, 14);
+            AssertValueGate(new GateBoolModifier(), false, true, false, true);
+            AssertValueGate(new GateVector2Modifier(), new Vector2(1f, 2f), new Vector2(3f, 4f), new Vector2(5f, 6f), new Vector2(7f, 8f));
+            AssertValueGate(new GateVector3Modifier(), new Vector3(1f, 2f, 3f), new Vector3(4f, 5f, 6f), new Vector3(7f, 8f, 9f), new Vector3(10f, 11f, 12f));
+            AssertValueGate(new GateVector4Modifier(), new Vector4(1f, 2f, 3f, 4f), new Vector4(5f, 6f, 7f, 8f), new Vector4(9f, 10f, 11f, 12f), new Vector4(13f, 14f, 15f, 16f));
+            AssertValueGate(new GateColorModifier(), Color.red, Color.green, Color.blue, Color.white);
+        }
+
         private static void SetField(object target, string fieldName, object value)
         {
             for (var type = target.GetType(); type != null; type = type.BaseType)
@@ -835,6 +847,41 @@ namespace MondmadeVJ0.Tests
                 return;
             }
             throw new MissingFieldException(target.GetType().FullName, fieldName);
+        }
+
+        private void AssertValueGate<T>(IValueModifier<T> modifier, T firstValue, T lastClosedValue, T openValue, T suppressedValue)
+        {
+            using (var source = new Subject<T>())
+            {
+                var gate = new TestBoolSource();
+                var context = Context();
+                try
+                {
+                    SetField(modifier, "gate", gate);
+                    var values = new List<T>();
+                    using (modifier.Apply(source, context).Subscribe(values.Add))
+                    {
+                        gate.Emit(false);
+                        source.OnNext(firstValue);
+                        source.OnNext(lastClosedValue);
+                        Assert.That(values, Is.Empty, modifier.GetType().Name + " should suppress values while its Bool gate is closed.");
+
+                        gate.Emit(true);
+                        source.OnNext(openValue);
+                        gate.Emit(false);
+                        source.OnNext(suppressedValue);
+                        CollectionAssert.AreEqual(new[] { lastClosedValue, openValue }, values);
+
+                        gate.Emit(true);
+                        CollectionAssert.AreEqual(new[] { lastClosedValue, openValue, suppressedValue }, values,
+                            modifier.GetType().Name + " should emit the latest value when its gate reopens.");
+                    }
+                }
+                finally
+                {
+                    context.Scope.Dispose();
+                }
+            }
         }
 
         private RouteContext Context() => new RouteContext(runtime, host, state, new BindingScope(), Guid.NewGuid().ToString("N"));

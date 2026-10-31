@@ -1,8 +1,8 @@
 # 標準機能カタログ
 
-更新日：2026-10-28（JST）。[移植元](reference/conversation-design.md)第62〜64章の全項目を収録する。**全項目が完成要件。** 下表はInspectorで選ぶRuntimeクラスの実装一覧であり、各クラスの独立した動作検証済みという意味ではない。各行の状態は実装状況だけを示し、動作契約と受け入れ結果は[実装・検証計画](implementation-plan.md)に記録する。
+更新日：2026-10-30（JST）。[移植元](reference/conversation-design.md)第62〜64章の全項目を収録する。**全項目が完成要件。** 下表はInspectorで選ぶRuntimeクラスの実装一覧であり、各クラスの独立した動作検証済みという意味ではない。各行の状態は実装状況だけを示し、動作契約と受け入れ結果は[実装・検証計画](implementation-plan.md)に記録する。
 
-VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSourceも`SignalFloatSource`等の具体型として実装した。表はInspectorで選択するC#型名を記載する。名称整理・Gradientの扱い・8 Route型とVFX Matrix / Texture / UIntの接続は[設計補足](design-notes.md)を参照する。Source 107、Modifier 51、Output 109の計267クラス名をRuntime宣言と照合済み。クラス数はSubsystem、Profile、Driver、Inspector、Monitor等を含まず、動作受け入れの代替にもならない。
+VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSourceも`SignalFloatSource`等の具体型として実装した。表はInspectorで選択するC#型名を記載する。名称整理・Gradientの扱い・8 Route型とVFX Matrix / Texture / UIntの接続は[設計補足](design-notes.md)を参照する。Source 107、Modifier 58、Output 109の計274クラス名をRuntime宣言と照合済み。クラス数はSubsystem、Profile、Driver、Inspector、Monitor等を含まず、動作受け入れの代替にもならない。
 
 ## Source
 
@@ -167,6 +167,7 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 
 | 設計名 | 状態 |
 | --- | --- |
+| `GateFloatModifier` | 実装済み |
 | `AddFloatModifier` | 実装済み |
 | `MultiplyFloatModifier` | 実装済み |
 | `RemapFloatModifier` | 実装済み |
@@ -194,6 +195,7 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 
 | 設計名 | 状態 |
 | --- | --- |
+| `GateIntModifier` | 実装済み |
 | `AddIntModifier` | 実装済み |
 | `MultiplyIntModifier` | 実装済み |
 | `ClampIntModifier` | 実装済み |
@@ -206,12 +208,16 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 
 | 設計名 | 状態 |
 | --- | --- |
+| `GateBoolModifier` | 実装済み |
 | `NotBoolModifier` | 実装済み |
 
 ### Vector
 
 | 設計名 | 状態 |
 | --- | --- |
+| `GateVector2Modifier` | 実装済み |
+| `GateVector3Modifier` | 実装済み |
+| `GateVector4Modifier` | 実装済み |
 | `AddVector2Modifier` | 実装済み |
 | `AddVector3Modifier` | 実装済み |
 | `AddVector4Modifier` | 実装済み |
@@ -231,6 +237,7 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 
 | 設計名 | 状態 |
 | --- | --- |
+| `GateColorModifier` | 実装済み |
 | `MultiplyColorModifier` | 実装済み |
 | `IntensityColorModifier` | 実装済み |
 | `AlphaColorModifier` | 実装済み |
@@ -426,4 +433,4 @@ VectorはVector2 / Vector3 / Vector4の具体型へ展開した。SignalValueSou
 
 ## 集計の読み方
 
-第62〜64章の設計一覧はSource 95項目、Modifier 48項目、Output 107項目。VectorやSignalのファミリーを具体型へ展開し、型変換Sourceの追加を含めると本表はSource 107クラス、Modifier 51クラス、Output 109クラスになる（計267クラス名）。Subsystem、Profile、Driver、Inspector、Monitor等は本表に含めず、[実装・検証チェックリスト](implementation-plan.md)で追跡する。本表の全クラス名がRuntime実装に存在することを照合した。
+第62〜64章の設計一覧はSource 95項目、Modifier 48項目、Output 107項目。VectorやSignalのファミリーを具体型へ展開し、型変換SourceとValue Gate Modifierの追加を含めると本表はSource 107クラス、Modifier 58クラス、Output 109クラスになる（計274クラス名）。Subsystem、Profile、Driver、Inspector、Monitor等は本表に含めず、[実装・検証チェックリスト](implementation-plan.md)で追跡する。本表の全クラス名がRuntime実装に存在することを照合した。

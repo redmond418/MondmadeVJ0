@@ -147,6 +147,8 @@ namespace MondmadeVJ0.Display.Editor
                 "Display Output",
                 "セットアップしました。EditorではGameビューのDisplay 2（Target Display index 1）を選ぶと副画面プレビューを確認できます。Standalone Playerでは画面1のTMP_Dropdownから出力先を選びます。",
                 "OK");
+            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.StandaloneOSX)
+                MacDisplayUrpPatch.Apply();
         }
 
         private static Camera FindMainCamera()

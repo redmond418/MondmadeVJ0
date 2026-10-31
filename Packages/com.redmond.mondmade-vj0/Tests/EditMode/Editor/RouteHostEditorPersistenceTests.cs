@@ -375,6 +375,27 @@ namespace MondmadeVJ0.Tests
             Assert.That(inspector.Query<Button>().ToList().Any(button => button.text == "Select"), Is.True);
         }
 
+        [Test]
+        public void RouteInspectorShowsBoolSourcePickerForValueGateModifier()
+        {
+            var route = new FloatRoute();
+            route.Configure("Value gate modifier", new ConstantFloatSource { Value = 1f });
+            route.Modifiers.Add(new GateFloatModifier());
+            host.AddRoute(route);
+            editor.serializedObject.Update();
+            Assert.That(editor.serializedObject.FindProperty("routes.Array.data[0].modifiers").arraySize, Is.EqualTo(1));
+            Assert.That(editor.serializedObject.FindProperty("routes.Array.data[0].modifiers.Array.data[0]").managedReferenceValue,
+                Is.TypeOf<GateFloatModifier>(), "The modifier should remain a serialized managed reference.");
+            Assert.That(editor.serializedObject.FindProperty("routes.Array.data[0].modifiers.Array.data[0].gate"), Is.Not.Null,
+                "The gate source should serialize on the concrete modifier type.");
+
+            var inspector = editor.CreateInspectorGUI();
+            var labels = inspector.Query<Label>().ToList().Select(label => label.text).ToList();
+
+            Assert.That(labels, Does.Contain("Gate (bool Source)"));
+            Assert.That(inspector.Query<Button>().ToList().Any(button => button.text == "Select"), Is.True);
+        }
+
         private void Invoke(string name, params object[] arguments)
         {
             var method = typeof(RouteHostEditor).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);

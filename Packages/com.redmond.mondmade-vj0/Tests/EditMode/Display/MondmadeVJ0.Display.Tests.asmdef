@@ -1,7 +1,7 @@
 {
   "name": "MondmadeVJ0.Display.Tests",
   "rootNamespace": "MondmadeVJ0.Tests.Display",
-  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Display", "Unity.UGUI", "Unity.TextMeshPro"],
+  "references": ["MondmadeVJ0.Core", "MondmadeVJ0.Display", "MondmadeVJ0.Display.Editor", "Unity.UGUI", "Unity.TextMeshPro"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

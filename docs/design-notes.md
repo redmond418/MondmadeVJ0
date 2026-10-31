@@ -1,6 +1,6 @@
 # 設計判断と動作契約
 
-更新日：2026-10-29（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D22はユーザーからの設計一任・指定を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のFloat / Vector積分ModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューからQuickStart ModuleとRouteHostが登録されることをEditorで確認した。2026-10-28に設計した二画面出力D23はRuntime / Editor / Setupを実装し、Editor Preview・Texture共有・復元のEditMode検証3件が通過した。macOS StandaloneOSX Player buildはerrors 0で成功し、警告3件は既存の`Samples~` folder metadataに関するもの。複数Displayを接続したStandalone PlayerでのA25実出力受入は未実施であり、完成扱いにはしない。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
+更新日：2026-10-30（JST）。[移植元](reference/conversation-design.md)の補足仕様。D01〜D24はユーザーからの設計一任・指定を受けて本作業で確定した。MIDI切断中の値保持、Gridの分数が1拍を基準にすることはユーザーの明示指定。それ以外は本書で採用した設計判断であり、元会話の決定と区別する。Runtime / Editorを実装し、Unity 6000.3.8f1 macOS arm64 Editorの隔離Checkoutと最新StageでEditMode / PlayMode契約、APC mini mk2のPad・Fader・Track Button・LED・USB再接続、A20 Background Music入力を確認した。最新全依存StageではEditMode 255/255、PlayMode 12 passed / 7 Explicit skipped。現行source commit `215b48c` のmacOS universal IL2CPP Player起動、AOT accessor・stripping・RtMidi接続状態も確認した。A14送信側の最新10分×3速度負荷は、改訂した累積期限ずれ≤5msを含む条件で合格。従来のローカル受入範囲A01〜A24は検証済み。2026-10-27追加のFloat / Vector積分ModifierはUnity Editorのコンパイルと対象EditModeテストを通過し、Runtime作成メニューからQuickStart ModuleとRouteHostが登録されることをEditorで確認した。2026-10-28に設計した二画面出力D23はRuntime / Editor / Setupを実装し、Editor Preview・Texture共有・復元のEditMode検証3件が通過した。2026-10-30にValue Gate Modifier D24を追加し、Bool gate OFF中は値通知を抑え、再開時に最新値を一度送る契約を定めた。今回の再コンパイル・対象EditMode検証は[実装・検証計画](implementation-plan.md)に記録した。macOS StandaloneOSX Player buildはerrors 0で成功し、警告3件は既存の`Samples~` folder metadataに関するもの。複数Displayを接続したStandalone PlayerでのA25実出力受入は未実施であり、完成扱いにはしない。公開HTTPS UPM導入はpushとrelease tagを行う場合のリリース確認として扱う。Windows上の実行は今回の受入対象外。
 
 ## 採用済みの判断
 
@@ -247,6 +247,8 @@ Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専�
                                   出力カメラ.targetTexture
 ```
 
+macOS・Unity 6000.3.8f1 / URP 17.3.0では、Render Graphが画面ごとのCameraTargetを汎用バックバッファとして扱い、Display 0の映像が副画面へ混入することを実機で確認した。Display OutputのmacOS URP Fixは、EmbedしたURPのRender Graphで各Displayのcolor / depth bufferと描画解像度を明示する。macOS Playerに限定した条件付き修正で、Render Graphを有効にする。試作Playerでは2画面が正常に表示され、RenderPass寸法エラーも発生しなかった。利用手順と更新時の注意は[パッケージ構成](packaging.md#display-integrationのscene設定)を参照。
+
 ### Display選択と起動
 
 起動時に`Display.displays`から対象Displayを列挙し、接続済みの全副ディスプレイを起動時に一度だけ`Activate()`する。選択切替ではDisplayの再Activateをせず、出力Canvasの`targetDisplay`を切り替える。UnityではDisplay 0が主画面、副画面は1〜7であり、Activate後にDisplayを非Activateへ戻すAPIはないため、Dropdownから選べる画面は起動時に列挙された副画面に限定する。非選択の副画面には出力内容を表示しない。出力先変更は画面2の表示位置だけを切り替え、Routeや出力カメラの描画内容を再Bindしない。
@@ -283,3 +285,9 @@ Unity Editorでは`Display.displays.Length`が実ディスプレイ数によら�
 - [RenderTexture constructor](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/RenderTexture-ctor.html)：幅・高さ指定とTexture最大寸法
 - [uGUI RawImage](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/UnityEngine.UI.RawImage.html)：uGUIにTextureを表示
 - [TMP_Dropdown](https://docs.unity3d.com/Packages/com.unity.ugui@2.0/api/TMPro.TMP_Dropdown.html)：画面1の画面選択UI
+
+## D24：Value型のBool Gate Modifier
+
+Float / Int / Bool / Vector2 / Vector3 / Vector4 / Colorの各Value Modifier群に、Bool Sourceを受け取る型別Gate Modifierを用意する。Gateがfalseの間は入力値を保持するが後段へ通知せず、Outputへの書込みも行わない。trueへ切り替わると保持中の最新値を1回通知し、その後は入力値を通常どおり通す。まだValue入力を受けていない状態でGateが開いた場合、初回Valueまで通知しない。
+
+Triggerは既存の`GateTriggerModifier`を使う。Gateが閉じている間のTriggerを保持・再生せず、開いた後に到着したTriggerだけを通す。

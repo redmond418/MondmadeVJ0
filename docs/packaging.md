@@ -86,6 +86,8 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 ### Display IntegrationのScene設定
 
+macOSで複数Displayを使う場合、Unity 6000.3.8f1 / URP 17.3ではディスプレイごとのバックバッファを明示する修正が必要。`Tools > Mondmade VJ0 > Display Output > Apply macOS URP Fix`を実行するとURP 17.3.xをプロジェクトへEmbedし、macOS Player向けに各Displayのcolor / depth bufferと描画寸法を指定してRender Graphを有効にする。Auto SetupもmacOS Standaloneが選択されている場合に実行する。パッチ前のURPソースが想定と異なる場合は書き換えずにConsoleへエラーを出す。EmbedしたURPはプロジェクト側の依存であり、パッケージキャッシュではない。Render Graph専用でないRenderer Featureには互換性確認が必要。URPを更新またはEmbedを削除した後、別の利用プロジェクトやクローンでは同じメニューを再実行する。 このリポジトリでは生成されたEmbed済みURPをGit管理しない。Build Settingsに登録されたSceneにDisplayOutputModuleがあるmacOSビルドは、パッチとRender Graph設定を検査し、未適用ならビルドを中止する。独自スクリプトから別のSceneを渡してビルドする場合も事前に同メニューを実行する。
+
 `Tools > Mondmade VJ0 > Display Output > Auto Setup`を実行すると、SceneのMainCameraを出力カメラとして設定し、DisplayOutputModuleの追加・Runtimeへの登録、出力Canvasと全面RawImageの作成、既存の操作CanvasへのTMP_Dropdown配置を行う。Display index 0 / 1用の空Camera（Culling Mask = Nothing）も2つ作成または再利用する。操作Canvas、EventSystem、GraphicRaycasterが不足していれば補完する。プレビューRawImageは元の枠をFrameとして保持し、その内側でRenderTextureの縦横比に合わせて小さく表示する。TMP EssentialsがなければToolがImportする。
 
 手動で設定する場合は`DisplayOutputModule`をScene内のGameObjectへ追加し、MainCamera、出力Canvas、画面1のTMP_Dropdown / プレビューRawImage、画面2のRawImageを割り当てる。GameObjectを`MondmadeVJ0Runtime.Modules`へ登録する。操作Canvasは`Screen Space - Overlay` / Display index 0、Editorプレビュー中の出力Canvasは同じOverlay mode / Target Display index 1にする。出力Cameraの操作UI Layer除外は`operatorUiLayerMask`で指定し、Play開始時にも適用する。Inspector validatorは必須参照、Overlay / Display設定、TMP_Dropdownの入力部品、出力RawImageの全面配置、操作UI Layer、EventSystemを診断する。状態表示用Textは不要。
