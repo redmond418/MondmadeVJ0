@@ -92,7 +92,7 @@ Editor assemblyはRuntime名に `.Editor`、Testsは `.Tests.Editor` / `.Tests.R
 
 ### Transport BPMのTMP表示
 
-既存のTextMeshProテキストと同じGameObjectに`TransportBpmText`を追加し、Transport欄へSceneの`MusicalTransport`を割り当てる。Text欄は未指定なら同じGameObjectの`TMP_Text`を使う。有効BPM（`EffectiveBpm`）を最大小数2桁で`120 BPM`の形式に表示し、Transport未指定時は`-- BPM`を表示する。
+既存のTextMeshProテキストと同じGameObjectに`TransportBpmText`を追加し、Transport欄へSceneの`MusicalTransport`を割り当てる。Text欄は未指定なら同じGameObjectの`TMP_Text`を使う。Display FormatにはBPMを`{0}`で参照するcomposite format stringを指定する（既定値`{0:0.##} BPM`、例：`BPM: {0:F1}`）。有効BPM（`EffectiveBpm`）をフォーマットして表示し、Transport未指定時は`-- BPM`を表示する。書式が不正な場合は警告を一度出して既定書式へ戻す。
 
 他のuGUIプレビューへ映像を共有する場合は、`DisplayOutputModule.RegisterPreview(rawImage)`と`UnregisterPreview(rawImage)`を呼ぶ。登録先には同じ`OutputTexture`が設定され、Texture再生成時も一括更新される。`OutputTexture`はModule所有のため、利用側でRelease / Destroyしない。出力Canvas内や出力Cameraで描画されるCanvas上のRawImageは再帰描画を防ぐため登録できず、Runtime診断を記録する。Inspector validatorはシリアライズ済みの画面1プレビューを検証する。Editorでは出力Canvasを有効にしてTarget Display index 1を使い、GameビューのDisplay 2で内容を確認する。Unity Editorは物理副画面の列挙と実出力に対応しないため、物理ディスプレイへの出力はStandalone Playerで検証する。
 

@@ -30,7 +30,7 @@ APC mini mk2の結合例はリポジトリの[`Assets/MondmadeVJ0.Dev`](../../As
 
 ## Transport BPMのTextMeshPro表示
 
-`Tools > Mondmade VJ0 > Setup`から「uGUI 2.0.0 + TextMeshPro (Display output / BPM text)」を導入し、TMPテキストと同じGameObjectに`TransportBpmText`を追加します。Transport欄へSceneの`MusicalTransport`を割り当てると、倍率を含む有効BPMを`120 BPM`形式で表示します。Text欄を空にした場合は同じGameObjectのTextMeshProテキストを自動取得します。
+`Tools > Mondmade VJ0 > Setup`から「uGUI 2.0.0 + TextMeshPro (Display output / BPM text)」を導入し、TMPテキストと同じGameObjectに`TransportBpmText`を追加します。Transport欄へSceneの`MusicalTransport`を割り当てると、倍率を含む有効BPMを表示します。Text欄を空にした場合は同じGameObjectのTextMeshProテキストを自動取得します。Display Formatは`{0}`にBPM値を埋め込む書式で、既定値は`{0:0.##} BPM`です（例：`BPM: {0:F1}`）。
 
 ## APC mini mk2 Profileの利用
 
