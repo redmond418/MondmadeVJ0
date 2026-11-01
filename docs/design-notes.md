@@ -237,7 +237,7 @@ Edit Modeでは選択したSurfaceを複製した一時Hubを使い、仮想専�
 
 画面1・画面2はSceneを分ける意味ではなく、同一Playerが扱う操作表示と映像表示の役割である。画面1は主ディスプレイ（Unity Display index 0）に固定し、操作用Canvas、出力先選択、出力プレビューを置く。画面2は接続済み副ディスプレイ（Unity Display index 1〜7）のうち、画面1の`TMP_Dropdown`で選んだ1画面に実出力する。Dropdownには物理名ではなくUnity Display番号と現在の解像度（例：`画面2 / Display 1 — 1920 × 1080`）を表示する。
 
-出力カメラ（`DisplayOutputModule.outputCamera`）はMainCameraにし、操作UIを含めないSceneを描画する。出力用Canvasは`Screen Space - Overlay`で構成し、全面`RawImage`だけを選択された画面へ表示する。操作Canvasも`Screen Space - Overlay`でDisplay index 0に固定し、出力カメラのCulling Maskから操作用Layerを除外する。EditorではUnityの表示制約に合わせて出力Canvasの`targetDisplay`をindex 1にし、Canvasを有効のままにする。GameビューのDisplay 2を選ぶと副画面向け映像を確認できる。
+出力カメラ（`DisplayOutputModule.outputCamera`）はMainCameraにし、出力対象のSceneをRenderTextureへ描画する。出力用Canvasは`Screen Space - Overlay`で構成し、全面`RawImage`だけを選択された画面へ表示する。操作Canvasも`Screen Space - Overlay`でDisplay index 0に固定する。Display Outputは出力カメラのCulling Maskを変更しないため、出力映像に含める`Screen Space - Camera` / `World Space` Canvasは出力カメラとそのCulling Maskを設定する。EditorではUnityの表示制約に合わせて出力Canvasの`targetDisplay`をindex 1にし、Canvasを有効のままにする。GameビューのDisplay 2を選ぶと副画面向け映像を確認できる。
 
 ```text
 画面1: TMP_Dropdown ──選択Display index──▶ 出力Canvas.targetDisplay

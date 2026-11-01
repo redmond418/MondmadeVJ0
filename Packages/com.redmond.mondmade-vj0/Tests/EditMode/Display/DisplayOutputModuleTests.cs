@@ -89,12 +89,13 @@ namespace MondmadeVJ0.Tests.Display
         }
 
         [Test]
-        public void EditorPreviewSharesOneDisplaySizedTextureAndRestoresReferencesOnShutdown()
+        public void EditorPreviewSharesOneDisplaySizedTextureAndLeavesCameraCullingMaskUnchanged()
         {
             module.Register(services);
             module.Initialize(services);
 
             Assert.That(module.State, Is.EqualTo(DisplayOutputState.EditorPreview));
+            Assert.That(outputCamera.cullingMask, Is.EqualTo(previousCullingMask));
             Assert.That(module.OutputTexture, Is.Not.Null);
             const int expectedWidth = 1280;
             const int expectedHeight = 720;

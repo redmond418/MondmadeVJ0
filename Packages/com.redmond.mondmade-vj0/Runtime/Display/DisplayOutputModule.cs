@@ -48,7 +48,6 @@ namespace MondmadeVJ0.Display
         [SerializeField, HideInInspector, FormerlySerializedAs("statusText")]
         private UnityEngine.UI.Text legacyStatusText;
         [SerializeField, Range(1, 7)] private int preferredDisplayIndex = 1;
-        [SerializeField] private LayerMask operatorUiLayerMask = 1 << 5;
         [SerializeField] private Vector2Int editorPreviewResolution = new Vector2Int(1280, 720);
 
         private readonly List<int> availableDisplayIndices = new List<int>(7);
@@ -67,7 +66,6 @@ namespace MondmadeVJ0.Display
         private Texture lastAssignedOutputImageTexture;
         private bool previousOutputCanvasEnabled;
         private int previousOutputCanvasTargetDisplay;
-        private int previousCameraCullingMask;
         private bool previousDropdownInteractable;
         private int previousDropdownValue;
         private List<TMP_Dropdown.OptionData> previousDropdownOptions;
@@ -129,7 +127,6 @@ namespace MondmadeVJ0.Display
 
             initialized = true;
             displayDropdown.onValueChanged.AddListener(OnDisplayDropdownChanged);
-            outputCamera.cullingMask &= ~operatorUiLayerMask.value;
             previewAspectFitter = previewImage.GetComponent<AspectRatioFitter>();
             if (previewAspectFitter == null)
             {
@@ -217,8 +214,6 @@ namespace MondmadeVJ0.Display
                 {
                     if (outputCamera.targetTexture == lastAssignedCameraTargetTexture)
                         outputCamera.targetTexture = previousCameraTargetTexture;
-                    outputCamera.cullingMask = (outputCamera.cullingMask & ~operatorUiLayerMask.value)
-                        | (previousCameraCullingMask & operatorUiLayerMask.value);
                 }
                 if (outputCanvas != null)
                 {
@@ -338,10 +333,6 @@ namespace MondmadeVJ0.Display
                     if (graphic != outputImage)
                         AddIssue(issues, DisplayOutputIssueSeverity.Error, "出力Canvasには画面2のRawImage以外のuGUI Graphicを置かないでください。");
 
-            if (outputCamera != null && operatorUiLayerMask.value != 0 && (outputCamera.cullingMask & operatorUiLayerMask.value) != 0)
-                AddIssue(issues, DisplayOutputIssueSeverity.Warning, "出力Cameraから操作UI Layerを除外します（Play開始時に自動適用）。");
-            if (operatorUiLayerMask.value == 0)
-                AddIssue(issues, DisplayOutputIssueSeverity.Error, "操作UI Layer Maskを設定してください。");
             if (editorPreviewResolution.x <= 0 || editorPreviewResolution.y <= 0)
                 AddIssue(issues, DisplayOutputIssueSeverity.Error, "Editor Preview Resolutionは幅・高さともに1以上にしてください。");
             if (preferredDisplayIndex < 1 || preferredDisplayIndex > 7)
@@ -381,7 +372,6 @@ namespace MondmadeVJ0.Display
             if (outputCamera != null)
             {
                 previousCameraTargetTexture = outputCamera.targetTexture;
-                previousCameraCullingMask = outputCamera.cullingMask;
             }
             if (outputImage != null) previousOutputImageTexture = outputImage.texture;
             if (displayDropdown != null)
@@ -740,17 +730,6 @@ namespace MondmadeVJ0.Display
                 AddIssue(issues, DisplayOutputIssueSeverity.Error, $"{targetName}の操作CanvasはDisplay 0に配置してください。");
             if (canvas.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null && targetName == "Dropdown")
                 AddIssue(issues, DisplayOutputIssueSeverity.Error, "Dropdownの操作CanvasにGraphicRaycasterがありません。");
-
-            var unmaskedLayers = new HashSet<int>();
-            foreach (var child in canvas.GetComponentsInChildren<Transform>(true))
-                if (operatorUiLayerMask.value == 0 || (operatorUiLayerMask.value & (1 << child.gameObject.layer)) == 0)
-                    unmaskedLayers.Add(child.gameObject.layer);
-            foreach (var layer in unmaskedLayers)
-            {
-                var layerName = LayerMask.LayerToName(layer);
-                AddIssue(issues, DisplayOutputIssueSeverity.Error,
-                    $"操作UIのLayer '{(string.IsNullOrEmpty(layerName) ? layer.ToString() : layerName)}' を操作UI Layer Maskに含めてください。");
-            }
         }
 
         private static void AddIssue(List<DisplayOutputValidationIssue> issues, DisplayOutputIssueSeverity severity, string message)

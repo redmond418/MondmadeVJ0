@@ -137,7 +137,7 @@ namespace MondmadeVJ0.Display.Editor
                 }
             }
 
-            SetModuleReferences(module, mainCamera, outputCanvas, oldDropdown, outputImage, previewImage, uiLayer);
+            SetModuleReferences(module, mainCamera, outputCanvas, oldDropdown, outputImage, previewImage);
             RegisterRuntimeModule(runtime, module);
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -549,8 +549,7 @@ namespace MondmadeVJ0.Display.Editor
             Canvas outputCanvas,
             TMP_Dropdown displayDropdown,
             RawImage outputImage,
-            RawImage previewImage,
-            int uiLayer)
+            RawImage previewImage)
         {
             Undo.RecordObject(module, "Configure DisplayOutputModule");
             var serialized = new SerializedObject(module);
@@ -561,7 +560,6 @@ namespace MondmadeVJ0.Display.Editor
             serialized.FindProperty("outputImage").objectReferenceValue = outputImage;
             serialized.FindProperty("previewImage").objectReferenceValue = previewImage;
             serialized.FindProperty("preferredDisplayIndex").intValue = 1;
-            serialized.FindProperty("operatorUiLayerMask").intValue = 1 << uiLayer;
             serialized.FindProperty("editorPreviewResolution").vector2IntValue = new Vector2Int(1920, 1080);
             serialized.ApplyModifiedProperties();
         }
