@@ -24,11 +24,12 @@ namespace MondmadeVJ0.Editor
             var member = property.FindPropertyRelative("memberName");
             var lineHeight = EditorGUIUtility.singleLineHeight;
             var targetRect = new Rect(position.x, position.y, position.width, lineHeight);
+            HandleGameObjectDrop(targetRect, target);
             EditorGUI.PropertyField(targetRect, target, new GUIContent(label.text + " Target"));
             var component = target.objectReferenceValue as Component;
             if (component == null)
             {
-                EditorGUI.HelpBox(new Rect(position.x, targetRect.yMax + 2f, position.width, lineHeight * 2f + 2f), "Choose a Component to list writable " + ValueType.Name + " members.", MessageType.Info);
+                EditorGUI.HelpBox(new Rect(position.x, targetRect.yMax + 2f, position.width, lineHeight * 2f + 2f), "Drag a GameObject here or choose a Component to list writable " + ValueType.Name + " members.", MessageType.Info);
                 EditorGUI.EndProperty();
                 return;
             }
@@ -50,6 +51,66 @@ namespace MondmadeVJ0.Editor
                 if (GUI.Button(buttonRect, "Generate IL2CPP accessor"))
                     ComponentAccessorGenerator.Add(component.GetType(), labels[selected], ValueType);
             EditorGUI.EndProperty();
+        }
+
+        private static void HandleGameObjectDrop(Rect targetRect, SerializedProperty target)
+        {
+            var current = Event.current;
+            if (!targetRect.Contains(current.mousePosition) ||
+                (current.type != EventType.DragUpdated && current.type != EventType.DragPerform))
+                return;
+
+            var draggedObjects = DragAndDrop.objectReferences;
+            if (draggedObjects == null || draggedObjects.Length != 1 || !(draggedObjects[0] is GameObject gameObject))
+                return;
+
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+            if (current.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                current.Use();
+                ShowComponentMenu(gameObject, target.serializedObject, target.propertyPath);
+                return;
+            }
+
+            current.Use();
+        }
+
+        private static void ShowComponentMenu(GameObject gameObject, SerializedObject serializedObject, string propertyPath)
+        {
+            var menu = new GenericMenu();
+            var components = gameObject.GetComponents<Component>();
+            var labels = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var component in components)
+            {
+                if (component == null) continue;
+
+                var type = component.GetType();
+                var label = type.Name;
+                if (labels.Contains(label))
+                {
+                    var baseLabel = type.FullName ?? type.Name;
+                    label = baseLabel;
+                    var suffix = 2;
+                    while (labels.Contains(label)) label = $"{baseLabel} ({suffix++})";
+                }
+                labels.Add(label);
+                var selectedComponent = component;
+                menu.AddItem(new GUIContent(label), false, () => AssignComponent(serializedObject, propertyPath, selectedComponent));
+            }
+
+            if (labels.Count == 0) menu.AddDisabledItem(new GUIContent("No components available"));
+            menu.ShowAsContext();
+        }
+
+        private static void AssignComponent(SerializedObject source, string propertyPath, Component component)
+        {
+            source.Update();
+            var property = source.FindProperty(propertyPath);
+            if (property == null) return;
+
+            property.objectReferenceValue = component;
+            source.ApplyModifiedProperties();
         }
 
         private static List<MemberInfo> FindMembers(Type componentType, Type valueType)

@@ -166,12 +166,15 @@ namespace MondmadeVJ0.Editor
                     }
 
                     GUILayout.Space(GridGutter);
-                    var scene = profile.Find($"scene_{y + 1}");
+                    var sceneNumber = SceneLaunchNumberForPadRow(y);
+                    var scene = profile.Find($"scene_{sceneNumber}");
                     if (scene == null) GUILayout.Space(GridCellSize);
-                    else DrawMomentaryButton(activeHub, scene, new GUIContent((y + 1).ToString()), new Vector2(GridCellSize, GridCellSize));
+                    else DrawMomentaryButton(activeHub, scene, new GUIContent(sceneNumber.ToString()), new Vector2(GridCellSize, GridCellSize));
                 }
             }
         }
+
+        private static int SceneLaunchNumberForPadRow(int padRow) => 8 - padRow;
 
         private void DrawTrackButtons(MidiHub activeHub, MidiSurfaceProfile profile)
         {
